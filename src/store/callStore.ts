@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import AgoraRTC, {
-  IAgoraRTCClient,
-  ICameraVideoTrack,
-  IMicrophoneAudioTrack,
-  ILocalVideoTrack,
-  IAgoraRTCRemoteUser
+  type IAgoraRTCClient,
+  type ICameraVideoTrack,
+  type IMicrophoneAudioTrack,
+  type ILocalVideoTrack,
+  type IAgoraRTCRemoteUser
 } from 'agora-rtc-sdk-ng';
 import { useChatStore } from './chatStore';
 import { useAuthStore } from './authStore';
@@ -45,6 +45,7 @@ interface CallStore {
   stopScreenShare: () => Promise<void>;
   handleIncomingSignal: (signal: any) => void;
   clearTracks: () => void;
+  joinAgoraChannel: () => Promise<void>;
 }
 
 export const useCallStore = create<CallStore>((set, get) => ({
@@ -79,7 +80,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       caller: {
         id: currentUser.id,
         username: currentUser.username,
-        avatarUrl: currentUser.avatarUrl
+        avatarUrl: currentUser.avatarUrl ?? undefined
       },
       isMicMuted: false,
       isCameraMuted: false,
@@ -146,7 +147,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   acceptCall: async () => {
-    const { conversationId, caller, receiver, callType } = get();
+    const { conversationId, caller, callType } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
     if (!conversationId || !caller || !currentUser || !stompClient || !stompClient.connected) return;
@@ -301,12 +302,13 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   toggleScreenShare: async () => {
-    const { isScreenSharing, screenVideoTrack, agoraClient } = get();
+    const { isScreenSharing, agoraClient } = get();
     if (!agoraClient) return;
 
     if (!isScreenSharing) {
       try {
-        const screenTrack = await AgoraRTC.createScreenVideoTrack({}, 'auto');
+        const screenTrackResult = await AgoraRTC.createScreenVideoTrack({}, 'auto');
+        const screenTrack = Array.isArray(screenTrackResult) ? screenTrackResult[0] : screenTrackResult;
         
         // unpublish local camera track if any
         const { localVideoTrack } = get();
@@ -314,7 +316,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
           await agoraClient.unpublish(localVideoTrack);
         }
 
-        await agoraClient.publish(screenTrack);
+        await agoraClient.publish(screenTrackResult);
         
         // Listen to native "Stop sharing" browser banner button click
         screenTrack.on('track-ended', () => {
@@ -370,7 +372,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
         if (signal.accept) {
           audioSynth.stop();
           set({ callState: 'connected' });
-          get().joinAgoraChannel().catch((err) => {
+          get().joinAgoraChannel().catch((err: any) => {
             console.error('Failed to join Agora channel after accepted answer:', err);
             get().hangupCall();
           });
@@ -479,13 +481,13 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
     });
 
-    client.on('user-unpublished', (user, mediaType) => {
+    client.on('user-unpublished', (_user, mediaType) => {
       if (mediaType === 'video') {
         set({ remoteUsers: [...client.remoteUsers] });
       }
     });
 
-    client.on('user-left', (user) => {
+    client.on('user-left', (_user) => {
       set({ remoteUsers: [...client.remoteUsers] });
       // If no remote users are left in a 1-1 call, end the call
       if (client.remoteUsers.length === 0) {

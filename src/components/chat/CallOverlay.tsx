@@ -10,7 +10,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { useCallStore } from '../../store/callStore';
-import { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
+import type { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 
 interface VideoPlayerProps {
   track: ILocalVideoTrack | IRemoteVideoTrack | null;
