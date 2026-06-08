@@ -3,9 +3,11 @@ import type { InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import type { ApiResponse, TokenRefreshResponseData } from '../types/auth';
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
 // Create custom axios instance
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: `${BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,7 +30,7 @@ export async function refreshAccessToken(): Promise<string | null> {
   refreshPromise = (async () => {
     try {
       const response = await axios.post<ApiResponse<TokenRefreshResponseData>>(
-        '/api/auth/refresh',
+        `${BASE_URL}/api/auth/refresh`,
         { refreshToken },
         { headers: { 'Content-Type': 'application/json' } }
       );

@@ -446,7 +446,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { token, uid, channelName } = response.data.data;
     
     // Join Agora channel
-    await client.join('01771010db7946528839c48bdabe28f5', channelName, token, uid);
+    await client.join(import.meta.env.VITE_AGORA_APP_ID, channelName, token, uid);
 
     // Create local audio and video tracks
     let audioTrack: IMicrophoneAudioTrack | null = null;
