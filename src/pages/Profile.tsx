@@ -16,7 +16,7 @@ export const Profile = () => {
   }, [fetchProfile]);
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 pb-20 md:pb-4 overflow-hidden bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="relative h-dvh w-screen overflow-y-auto flex items-center justify-center p-4 pb-20 md:pb-4 bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
       
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />

@@ -390,7 +390,7 @@ export const Chat = () => {
   const getSenderUsername = (msg: MessageResponse) => msg.senderUsername || 'Unknown';
 
   return (
-    <div className="h-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Column 1: Sidebar Navigation */}
       <aside className="hidden md:flex w-16 md:w-20 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">

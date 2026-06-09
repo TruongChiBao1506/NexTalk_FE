@@ -130,7 +130,7 @@ export const Friends = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="h-dvh w-screen overflow-hidden bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
       
       {/* Sidebar Navigation */}
       <aside className="hidden md:flex w-16 md:w-20 bg-gray-200 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
@@ -174,7 +174,7 @@ export const Friends = () => {
       </aside>
 
       {/* Main Content Container */}
-      <main className="flex-1 flex flex-col justify-start max-w-4xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
+      <main className="flex-1 overflow-y-auto max-w-4xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
         
         {/* Header Section */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
