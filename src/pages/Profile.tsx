@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3 } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
+import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import ThemeToggle from '../components/common/ThemeToggle';
 import MobileBottomNav from '../components/common/MobileBottomNav';
@@ -9,7 +11,25 @@ import MobileBottomNav from '../components/common/MobileBottomNav';
 export const Profile = () => {
   const navigate = useNavigate();
   const { profile, isLoading, error, fetchProfile } = useUserStore();
+  const { logout } = useAuthStore();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      const refreshToken = localStorage.getItem('nextalk_refreshToken');
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } catch (err: any) {
+      console.error('Failed to log out from server:', err);
+    } finally {
+      logout();
+      setIsLoggingOut(false);
+      navigate('/login');
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -151,6 +171,20 @@ export const Profile = () => {
               >
                 <Edit3 className="w-4.5 h-4.5" />
                 <span>Edit Profile</span>
+              </button>
+
+              {/* Log Out Button */}
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-rose-600 dark:text-rose-450 font-semibold bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border border-rose-200/50 dark:border-rose-900/30 focus:outline-none transition-all duration-200 disabled:opacity-50 active:scale-[0.99]"
+              >
+                {isLoggingOut ? (
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                ) : (
+                  <LogOut className="w-4.5 h-4.5" />
+                )}
+                <span>Log Out</span>
               </button>
             </div>
           ) : null}
