@@ -13,6 +13,7 @@ export interface MessageRequest {
   conversationId: string;
   content: string;
   messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
+  parentId?: string;
 }
 
 export interface MessageStatusResponse {
@@ -31,6 +32,12 @@ export interface MessageStatusUpdateResponse {
   updatedAt: string;
 }
 
+export interface MessageReaction {
+  userId: string;
+  username: string;
+  emoji: string;
+}
+
 export interface MessageResponse {
   id: string;
   conversationId: string;
@@ -40,4 +47,11 @@ export interface MessageResponse {
   messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
   createdAt: string;
   statuses?: MessageStatusResponse[];
+  parentId?: string | null;
+  isEdited?: boolean;
+  editedAt?: string | null;
+  isRecalled?: boolean;
+  isPinned?: boolean;
+  reactions?: MessageReaction[];
 }
+

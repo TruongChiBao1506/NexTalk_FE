@@ -36,17 +36,26 @@ interface ChatState {
   currentPage: number;
   isLoading: boolean;
   stompClient: Client | null;
+  replyTo: MessageResponse | null;
+  pinnedMessages: MessageResponse[];
 
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE') => void;
+  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', parentId?: string) => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   addIncomingMessage: (message: MessageResponse) => void;
   handleStatusUpdate: (update: MessageStatusUpdateResponse) => void;
   updateMemberPresence: (userId: string, status: string, lastSeen?: string) => void;
+  setReplyTo: (message: MessageResponse | null) => void;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  recallMessage: (messageId: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  togglePinMessage: (messageId: string, isPinned: boolean) => Promise<void>;
+  fetchPinnedMessages: (conversationId: string) => Promise<void>;
+  reactToMessage: (messageId: string, emoji: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -61,6 +70,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentPage: 0,
   isLoading: false,
   stompClient: null,
+  replyTo: null,
+  pinnedMessages: [],
 
   fetchConversations: async () => {
     try {
@@ -89,6 +100,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: [],
         currentPage: 0,
         hasMoreMessages: true,
+        replyTo: null,
+        pinnedMessages: [],
       });
       return;
     }
@@ -125,6 +138,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       currentPage: 0,
       hasMoreMessages: true,
       isLoading: true,
+      replyTo: null,
+      pinnedMessages: [],
     });
 
     try {
@@ -134,6 +149,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         // Mark messages as seen
         messageService.markAsSeen(conversationId).catch((e) => console.error('Failed to mark seen:', e));
+
+        // Fetch pinned messages in background
+        get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
 
         set((state) => {
           const updatedLastMessages = { ...state.lastMessages };
@@ -182,7 +200,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE') => {
+  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', parentId?: string) => {
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
@@ -193,6 +211,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       conversationId: activeConversation.id,
       content,
       messageType: messageType || 'TEXT',
+      parentId: parentId || undefined,
     };
 
     stompClient.publish({
@@ -386,7 +405,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addIncomingMessage: (message: MessageResponse) => {
-    const { activeConversation, conversations } = get();
+    const { activeConversation, conversations, messages } = get();
     const currentUser = useAuthStore.getState().user;
 
     // Update lastMessages registry
@@ -397,14 +416,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
     }));
 
-    // If belongs to the active conversation, append it
+    // If belongs to the active conversation
     if (activeConversation && activeConversation.id === message.conversationId) {
-      set((state) => ({
-        messages: [message, ...state.messages],
-      }));
-      // If we are not the sender, mark it as SEEN
-      if (currentUser && message.senderId !== currentUser.id) {
-        messageService.markAsSeen(message.conversationId).catch(() => {});
+      const existingMsgIndex = messages.findIndex((m) => m.id === message.id);
+      if (existingMsgIndex > -1) {
+        // Update existing message
+        set((state) => {
+          const updatedMessages = [...state.messages];
+          updatedMessages[existingMsgIndex] = message;
+          return { messages: updatedMessages };
+        });
+      } else {
+        // Prepend new message
+        set((state) => ({
+          messages: [message, ...state.messages],
+        }));
+        // If we are not the sender, mark it as SEEN
+        if (currentUser && message.senderId !== currentUser.id) {
+          messageService.markAsSeen(message.conversationId).catch(() => {});
+        }
+      }
+
+      // Handle update pinned messages in local state
+      if (message.isPinned) {
+        set((state) => {
+          const exists = state.pinnedMessages.some((m) => m.id === message.id);
+          if (exists) {
+            return {
+              pinnedMessages: state.pinnedMessages.map((m) => (m.id === message.id ? message : m)),
+            };
+          } else {
+            return {
+              pinnedMessages: [message, ...state.pinnedMessages],
+            };
+          }
+        });
+      } else {
+        // message is not pinned, remove it from pinnedMessages if it was there
+        set((state) => ({
+          pinnedMessages: state.pinnedMessages.filter((m) => m.id !== message.id),
+        }));
       }
     } else {
       // If we are not the sender, mark it as DELIVERED
@@ -522,5 +573,76 @@ export const useChatStore = create<ChatState>((set, get) => ({
       conversations: updatedConversations,
       activeConversation: updatedActive,
     });
+  },
+
+  setReplyTo: (message) => set({ replyTo: message }),
+
+  editMessage: async (messageId, content) => {
+    try {
+      await messageService.editMessage(messageId, content);
+    } catch (err) {
+      console.error('Failed to edit message:', err);
+    }
+  },
+
+  recallMessage: async (messageId) => {
+    try {
+      await messageService.recallMessage(messageId);
+    } catch (err) {
+      console.error('Failed to recall message:', err);
+    }
+  },
+
+  deleteMessage: async (messageId) => {
+    try {
+      const response = await messageService.deleteMessage(messageId);
+      if (response.success) {
+        set((state) => {
+          const updatedMessages = state.messages.filter((m) => m.id !== messageId);
+          const activeConversation = state.activeConversation;
+          const updatedLastMessages = { ...state.lastMessages };
+          if (activeConversation && updatedLastMessages[activeConversation.id]?.id === messageId) {
+            updatedLastMessages[activeConversation.id] = updatedMessages[0];
+          }
+          return {
+            messages: updatedMessages,
+            lastMessages: updatedLastMessages,
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to delete message:', err);
+    }
+  },
+
+  togglePinMessage: async (messageId, isPinned) => {
+    try {
+      if (isPinned) {
+        await messageService.unpinMessage(messageId);
+      } else {
+        await messageService.pinMessage(messageId);
+      }
+    } catch (err) {
+      console.error('Failed to toggle pin status:', err);
+    }
+  },
+
+  fetchPinnedMessages: async (conversationId) => {
+    try {
+      const response = await messageService.getPinnedMessages(conversationId);
+      if (response.success && response.data) {
+        set({ pinnedMessages: response.data });
+      }
+    } catch (err) {
+      console.error('Failed to fetch pinned messages:', err);
+    }
+  },
+
+  reactToMessage: async (messageId, emoji) => {
+    try {
+      await messageService.reactToMessage(messageId, emoji);
+    } catch (err) {
+      console.error('Failed to react to message:', err);
+    }
   },
 }));

@@ -23,8 +23,8 @@ export const userService = {
     return response.data;
   },
 
-  async searchUser(query: string): Promise<ApiResponse<User>> {
-    const response = await apiClient.get<ApiResponse<User>>('/users/search', {
+  async searchUser(query: string): Promise<ApiResponse<User[]>> {
+    const response = await apiClient.get<ApiResponse<User[]>>('/users/search', {
       params: { query }
     });
     return response.data;

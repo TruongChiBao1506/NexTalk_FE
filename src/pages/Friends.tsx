@@ -62,8 +62,8 @@ export const Friends = () => {
 
     try {
       const response = await userService.searchUser(searchQuery.trim());
-      if (response.success && response.data) {
-        setSearchResult(response.data);
+      if (response.success && response.data && response.data.length > 0) {
+        setSearchResult(response.data[0]);
       } else {
         setSearchError(response.message || 'No user found matching that username or email.');
       }
@@ -271,7 +271,7 @@ export const Friends = () => {
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-full bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg">
-                                {friend.username.charAt(0).toUpperCase()}
+                                {friend.username?.charAt(0)?.toUpperCase() ?? '?'}
                               </div>
                             )}
                             <span 
@@ -349,7 +349,7 @@ export const Friends = () => {
                             />
                           ) : (
                             <div className="w-11 h-11 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-md shrink-0">
-                              {req.username.charAt(0).toUpperCase()}
+                              {req.username?.charAt(0)?.toUpperCase() ?? '?'}
                             </div>
                           )}
 
@@ -448,7 +448,7 @@ export const Friends = () => {
                           />
                         ) : (
                           <div className="w-14 h-14 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-xl">
-                            {searchResult.username.charAt(0).toUpperCase()}
+                            {searchResult.username?.charAt(0)?.toUpperCase() ?? '?'}
                           </div>
                         )}
                         

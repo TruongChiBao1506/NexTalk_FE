@@ -6,9 +6,10 @@ import { useGroupStore } from '../store/groupStore';
 import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
 import {
-  LogOut, User, Settings, MessageSquare, Bell, BellOff,
-  Send, Paperclip, Smile, Search, Loader2, Users, ArrowUp, Hash, Plus, ChevronDown, ChevronRight, Check, CheckCheck,
-  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft
+  LogOut, User, Settings, MessageSquare,
+  Send, Paperclip, Smile, Search, Loader2, Users, ArrowUp, Hash, Plus, Check, CheckCheck,
+  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft,
+  Pin, CornerUpLeft
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -19,6 +20,14 @@ import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { ConversationResponse, MessageResponse } from '../types/chat';
 import type { GroupResponse } from '../types/group';
+
+// Phase 10 Components
+import { MessageActionsBar } from '../components/chat/MessageContextMenu';
+import { MessageReactions } from '../components/chat/MessageReactions';
+import { ReplyPreview } from '../components/chat/ReplyPreview';
+import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
+import { SearchPanel } from '../components/chat/SearchPanel';
+
 
 export const Chat = () => {
   const navigate = useNavigate();
@@ -37,64 +46,67 @@ export const Chat = () => {
     loadMoreMessages,
     sendStompMessage,
     connectWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    replyTo,
+    pinnedMessages,
+    setReplyTo,
+    editMessage,
+    recallMessage,
+    deleteMessage,
+    togglePinMessage,
+    reactToMessage
   } = useChatStore();
+
+  const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editInputText, setEditInputText] = useState('');
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editInputText.trim()) return;
+    await editMessage(messageId, editInputText.trim());
+    setEditingMessageId(null);
+  };
+
+  const handleJumpToMessage = (messageId: string) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('bg-discord-blurple/25');
+      setTimeout(() => {
+        element.classList.remove('bg-discord-blurple/25');
+      }, 2000);
+    }
+  };
+
+  const handleJumpToMessageFromSearch = async (messageId: string, conversationId: string) => {
+    if (activeConversation?.id !== conversationId) {
+      await selectConversation(conversationId);
+    }
+    setTimeout(() => {
+      handleJumpToMessage(messageId);
+    }, 450);
+  };
+
 
   const { groups, fetchGroups } = useGroupStore();
   const initiateCall = useCallStore((state) => state.initiateCall);
 
   const {
     notifications,
-    unreadCount,
-    isOpen: isNotificationPanelOpen,
     fetchNotifications,
     markAsRead,
-    markAllAsRead,
-    togglePanel: toggleNotificationPanel,
-    closePanel: closeNotificationPanel,
-    ringTrigger,
-    setRingTrigger
   } = useNotificationStore();
 
-  const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const [animateBell, setAnimateBell] = useState(false);
 
-  // Trigger bell animation on ringTrigger
-  useEffect(() => {
-    if (ringTrigger) {
-      setAnimateBell(true);
-      const timer = setTimeout(() => {
-        setAnimateBell(false);
-        setRingTrigger(false);
-      }, 750);
-      return () => clearTimeout(timer);
-    }
-  }, [ringTrigger, setRingTrigger]);
-
-  // Click outside to close notification panel
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isNotificationPanelOpen &&
-        notificationPanelRef.current &&
-        !notificationPanelRef.current.contains(event.target as Node)
-      ) {
-        closeNotificationPanel();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isNotificationPanelOpen, closeNotificationPanel]);
 
 
   const [searchQuery, setSearchQuery] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
-  const [showGroupsSection, setShowGroupsSection] = useState(true);
-  const [showDmsSection, setShowDmsSection] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -228,19 +240,26 @@ export const Chat = () => {
     
     // Check if we have an attachment to send
     if (uploadedFileUrl && uploadedFileType) {
-      sendStompMessage(uploadedFileUrl, uploadedFileType);
+      sendStompMessage(uploadedFileUrl, uploadedFileType, replyTo?.id ?? undefined);
       resetUploadState();
     }
 
     // Also send text if typed
     if (inputMessage.trim()) {
-      sendStompMessage(inputMessage.trim(), 'TEXT');
+      sendStompMessage(inputMessage.trim(), 'TEXT', replyTo?.id ?? undefined);
       setInputMessage('');
+    }
+
+    if (replyTo) {
+      setReplyTo(null);
     }
   };
 
   const handleSendThumbsUp = () => {
-    sendStompMessage('👍', 'TEXT');
+    sendStompMessage('👍', 'TEXT', replyTo?.id ?? undefined);
+    if (replyTo) {
+      setReplyTo(null);
+    }
   };
 
   const handleGroupCreated = (group: GroupResponse) => {
@@ -370,12 +389,52 @@ export const Chat = () => {
 
 
 
-  // Only show PRIVATE conversations in the DM section
+  // Build unified conversation list (private + group), sorted by updatedAt desc
   const privateConversations = conversations.filter(c => c.type === 'PRIVATE');
-  const filteredPrivate = privateConversations.filter(c => {
-    const friend = getFriendInfo(c);
-    return friend.username.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+
+  // Deduplicate private conversations by the other member's ID
+  const uniquePrivateConversations: typeof privateConversations = [];
+  const seenFriendIds = new Set<string>();
+  for (const c of privateConversations) {
+    const friend = c.members.find(m => m.id !== user?.id);
+    if (friend) {
+      if (!seenFriendIds.has(friend.id)) {
+        seenFriendIds.add(friend.id);
+        uniquePrivateConversations.push(c);
+      }
+    } else {
+      uniquePrivateConversations.push(c);
+    }
+  }
+
+  // Create unified list items combining private conversations and groups
+  type UnifiedItem =
+    | { kind: 'dm'; conv: typeof conversations[number] }
+    | { kind: 'group'; group: typeof groups[number] };
+
+  const unifiedItems: UnifiedItem[] = [
+    ...uniquePrivateConversations.map(c => ({ kind: 'dm' as const, conv: c })),
+    ...groups.map(g => ({ kind: 'group' as const, group: g })),
+  ];
+
+  const getUnifiedTime = (item: UnifiedItem): number => {
+    if (item.kind === 'dm') {
+      const lm = lastMessages[item.conv.id];
+      return lm ? new Date(lm.createdAt).getTime() : new Date(item.conv.updatedAt).getTime();
+    }
+    const lm = item.group.conversationId ? lastMessages[item.group.conversationId] : undefined;
+    return lm ? new Date(lm.createdAt).getTime() : 0;
+  };
+
+  const filteredUnified = unifiedItems
+    .filter(item => {
+      if (item.kind === 'dm') {
+        const friend = getFriendInfo(item.conv);
+        return friend.username.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      return item.group.name.toLowerCase().includes(searchQuery.toLowerCase());
+    })
+    .sort((a, b) => getUnifiedTime(b) - getUnifiedTime(a));
 
   const filteredGroups = groups.filter(g =>
     g.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -389,18 +448,25 @@ export const Chat = () => {
   // Get sender info in group chat
   const getSenderUsername = (msg: MessageResponse) => msg.senderUsername || 'Unknown';
 
+  // Get sender avatar in group chat — look up from conversation members
+  const getSenderAvatar = (msg: MessageResponse): string | null => {
+    if (!activeConversation) return null;
+    const member = activeConversation.members.find(m => m.id === msg.senderId);
+    return member?.avatarUrl ?? null;
+  };
+
   return (
     <div className="h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Column 1: Sidebar Navigation */}
-      <aside className="hidden md:flex w-16 md:w-20 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-650 dark:bg-discord-blurple flex items-center justify-center text-white mb-6 shadow-md transition-all duration-300">
-          <MessageSquare className="w-6 h-6" />
+      <aside className="hidden md:flex w-16 md:w-18 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
+        <div className="w-11 h-11 rounded-2xl bg-indigo-650 dark:bg-discord-blurple flex items-center justify-center text-white mb-6 shadow-md transition-all duration-300">
+          <MessageSquare className="w-5 h-5" />
         </div>
 
         <div
           onClick={() => navigate('/friends')}
-          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Friends List"
         >
           <User className="w-5 h-5" />
@@ -408,166 +474,18 @@ export const Chat = () => {
 
         <div
           onClick={() => navigate('/profile')}
-          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Profile Settings"
         >
           <Settings className="w-5 h-5" />
         </div>
 
-        {/* Notification Bell with Badge & Panel */}
-        <div className="relative mb-4" ref={notificationPanelRef}>
-          <button
-            onClick={toggleNotificationPanel}
-            className={`w-12 h-12 rounded-full flex items-center justify-center relative transition-all duration-300 ${
-              isNotificationPanelOpen
-                ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-xl'
-                : 'bg-gray-300 dark:bg-zinc-800 text-gray-650 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl'
-            } ${animateBell ? 'animate-bell-ring' : ''}`}
-            title="Notifications"
-          >
-            <Bell className="w-5 h-5" />
-            
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-rose-600 dark:bg-discord-red text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-gray-250 dark:border-zinc-950 animate-pulse">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Notification Dropdown Panel */}
-          {isNotificationPanelOpen && (
-            <div className="fixed inset-x-4 top-16 md:absolute md:left-20 md:inset-x-auto md:top-0 w-auto md:w-96 rounded-2xl glass shadow-2xl border border-gray-200 dark:border-zinc-800 z-50 overflow-hidden flex flex-col max-h-[75vh] md:max-h-[500px] animate-[fadeInScale_0.2s_ease-out]">
-              
-              {/* Panel Header */}
-              <div className="p-4 border-b border-gray-200/50 dark:border-zinc-800/50 flex items-center justify-between bg-white/20 dark:bg-zinc-900/20 backdrop-blur-md">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm tracking-wide text-gray-805 dark:text-white">Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-450 font-semibold">
-                      {unreadCount} new
-                    </span>
-                  )}
-                </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-xs text-indigo-650 dark:text-indigo-450 hover:underline font-medium transition duration-200"
-                  >
-                    Mark all as read
-                  </button>
-                )}
-              </div>
-
-              {/* Notification List */}
-              <div className="overflow-y-auto flex-1 divide-y divide-gray-150/40 dark:divide-zinc-800/40 max-h-[400px]">
-                {notifications.length === 0 ? (
-                  <div className="py-12 px-4 flex flex-col items-center justify-center text-center text-gray-500 dark:text-zinc-500">
-                    <BellOff className="w-8 h-8 mb-3 opacity-60 text-gray-400 dark:text-zinc-650" />
-                    <p className="text-sm font-medium">All quiet here</p>
-                    <p className="text-xs mt-1 text-gray-400 dark:text-zinc-650">No notifications to display</p>
-                  </div>
-                ) : (
-                  notifications.map((n) => {
-                    // Custom formatting for different types
-                    let typeIcon = <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />;
-                    let actionButton = null;
-
-                    if (n.type === 'FRIEND_REQUEST') {
-                      typeIcon = <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
-                      actionButton = (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsRead(n.id);
-                            navigate('/friends');
-                            closeNotificationPanel();
-                          }}
-                          className="mt-2 text-xs px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition duration-200 shadow-sm"
-                        >
-                          View Request
-                        </button>
-                      );
-                    } else if (n.type === 'GROUP_INVITE') {
-                      typeIcon = <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
-                      actionButton = (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsRead(n.id);
-                            if (n.referenceId) {
-                              selectConversation(n.referenceId);
-                            }
-                            closeNotificationPanel();
-                          }}
-                          className="mt-2 text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition duration-200 shadow-sm"
-                        >
-                          Join Chat
-                        </button>
-                      );
-                    } else if (n.type === 'NEW_MESSAGE') {
-                      typeIcon = <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />;
-                      actionButton = (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsRead(n.id);
-                            if (n.referenceId) {
-                              selectConversation(n.referenceId);
-                            }
-                            closeNotificationPanel();
-                          }}
-                          className="mt-2 text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition duration-200 shadow-sm"
-                        >
-                          Open Chat
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={n.id}
-                        onClick={() => markAsRead(n.id)}
-                        className={`p-4 hover:bg-white/20 dark:hover:bg-zinc-800/40 cursor-pointer flex gap-3 transition duration-250 ${
-                          !n.read
-                            ? 'bg-indigo-50/30 dark:bg-indigo-950/10 border-l-4 border-indigo-600 dark:border-discord-blurple'
-                            : 'border-l-4 border-transparent'
-                        }`}
-                      >
-                        {/* Type Icon Container */}
-                        <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-gray-200/50 dark:border-zinc-700/50 shadow-sm">
-                          {typeIcon}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs text-gray-750 dark:text-zinc-250 leading-relaxed break-words ${!n.read ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-500 dark:text-zinc-400'}`}>
-                            {n.content}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
-                              {formatRelativeTime(n.createdAt)}
-                            </span>
-                            {!n.read && (
-                              <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-discord-blurple shadow-md shadow-indigo-600/30" />
-                            )}
-                          </div>
-                          {actionButton}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-auto flex flex-col gap-4">
+        <div className="mt-auto flex flex-col gap-3">
           <ThemeToggle />
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-450 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white hover:rounded-xl transition-all duration-300 disabled:opacity-50"
+            className="w-11 h-11 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-450 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white hover:rounded-xl transition-all duration-300 disabled:opacity-50"
             title="Log Out"
           >
             <LogOut className="w-5 h-5" />
@@ -575,224 +493,219 @@ export const Chat = () => {
         </div>
       </aside>
 
-      {/* Column 2: Conversations Sidebar */}
-      <section className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-72 bg-gray-200 dark:bg-discord-mid flex-col border-r border-gray-300 dark:border-zinc-900/40 shrink-0 pb-16 md:pb-0`}>
+      {/* Column 2: Conversations Sidebar — Zalo style */}
+      <section className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-[#1e1e2e] flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
-        <div className="h-14 border-b border-gray-300 dark:border-zinc-900/50 flex items-center justify-between px-4 shrink-0">
-          <h1 className="text-base font-bold text-gray-950 dark:text-white">NexTalk</h1>
+        <div className="h-[60px] flex items-center justify-between px-4 shrink-0 border-b border-gray-100 dark:border-zinc-800/60">
           <div className="flex items-center gap-2">
+            <h1 className="text-[17px] font-bold text-gray-900 dark:text-white tracking-tight">Tin nhắn</h1>
             {isConnecting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
             ) : isConnected ? (
-              <span className="w-2.5 h-2.5 rounded-full bg-green-500 dark:bg-green-500 border border-green-400" title="Connected" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Đã kết nối" />
             ) : (
               <span
-                className="w-2.5 h-2.5 rounded-full bg-rose-500 border border-rose-400 cursor-pointer"
-                title="Disconnected - Click to Reconnect"
+                className="w-2 h-2 rounded-full bg-rose-500 cursor-pointer"
+                title="Mất kết nối — Nhấn để kết nối lại"
                 onClick={connectWebSocket}
               />
             )}
           </div>
+          <button
+            onClick={() => setShowCreateGroupModal(true)}
+            className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200"
+            title="Tạo nhóm mới"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Search */}
-        <div className="p-3 shrink-0">
+        {/* Search bar */}
+        <div className="px-3 py-2.5 shrink-0">
           <div className="relative">
-            <Search className="w-4 h-4 text-gray-500 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Tìm kiếm..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-300 dark:bg-discord-black text-xs px-9 py-2 rounded-lg border border-transparent focus:border-indigo-500 dark:focus:border-discord-blurple focus:outline-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-discord-muted"
+              className="w-full bg-gray-100 dark:bg-zinc-800/80 text-sm px-9 py-2 rounded-full border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 transition-colors"
             />
           </div>
         </div>
 
-        {/* Scrollable conversation list */}
-        <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
+        {/* Unified conversation list (Zalo style) */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredUnified.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
+                <MessageSquare className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
+              </div>
+              <p className="text-sm text-gray-400 dark:text-zinc-500">
+                {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào.' : 'Chưa có cuộc trò chuyện nào.'}
+              </p>
+            </div>
+          ) : (
+            filteredUnified.map((item) => {
+              if (item.kind === 'dm') {
+                const c = item.conv;
+                const friend = getFriendInfo(c);
+                const lastMsg = lastMessages[c.id];
+                const isSelected = activeConversation?.id === c.id;
+                const unreadNotifs = notifications.filter(
+                  (n) => n.referenceId === c.id && !n.read && n.type === 'NEW_MESSAGE'
+                );
+                const unreadCount = unreadNotifs.length;
+                const hasUnread = unreadCount > 0;
 
-          {/* ── GROUPS SECTION ── */}
-          <div className="mb-1">
-            <button
-              onClick={() => setShowGroupsSection(v => !v)}
-              className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-discord-muted hover:text-gray-700 dark:hover:text-white transition rounded-lg group"
-            >
-              <span className="flex items-center gap-1.5">
-                {showGroupsSection ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                Groups — {filteredGroups.length}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowCreateGroupModal(true); }}
-                className="w-5 h-5 rounded flex items-center justify-center hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white text-gray-500 dark:text-discord-muted transition opacity-0 group-hover:opacity-100"
-                title="Create Group"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            </button>
-
-            {showGroupsSection && (
-              <div className="space-y-0.5 mt-0.5">
-                {filteredGroups.length === 0 ? (
-                  <button
-                    onClick={() => setShowCreateGroupModal(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 dark:text-discord-muted hover:bg-gray-300/60 dark:hover:bg-zinc-800/40 transition"
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => selectConversation(c.id)}
+                    className={`flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                      isSelected
+                        ? 'bg-blue-50 dark:bg-indigo-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+                    }`}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Create your first group</span>
-                  </button>
-                ) : (
-                  filteredGroups.map((g) => {
-                    const isSelected = activeConversation?.id === g.conversationId;
-                    const lastMsg = g.conversationId ? lastMessages[g.conversationId] : undefined;
-                    const groupUnreadNotifications = notifications.filter(
-                      (n) => n.referenceId === g.conversationId && !n.read && n.type === 'NEW_MESSAGE'
-                    );
-                    const groupUnreadCount = groupUnreadNotifications.length;
-                    const hasUnread = groupUnreadCount > 0;
-
-                    return (
-                      <div
-                        key={g.id}
-                        onClick={() => handleOpenGroup(g)}
-                        className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-indigo-600/10 dark:bg-zinc-800 text-indigo-750 dark:text-white'
-                            : 'hover:bg-gray-300/60 dark:hover:bg-zinc-800/40 text-gray-700 dark:text-discord-text'
+                    {/* Avatar with status dot */}
+                    <div className="relative shrink-0">
+                      {friend.avatarUrl ? (
+                        <img
+                          src={friend.avatarUrl}
+                          alt={friend.username}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-lg">
+                          {friend.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span
+                        className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e1e2e] ${
+                          friend.status === 'ONLINE' ? 'bg-emerald-500'
+                          : friend.status === 'AWAY' ? 'bg-amber-400'
+                          : 'bg-gray-400 dark:bg-zinc-600'
                         }`}
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
-                          {g.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex justify-between items-baseline gap-1">
-                            <p className={`text-sm truncate m-0 ${hasUnread ? 'font-bold text-gray-950 dark:text-white' : 'font-medium'}`}>{g.name}</p>
-                            {lastMsg && (
-                              <span className={`text-[10px] shrink-0 ${hasUnread ? 'font-semibold text-indigo-650 dark:text-indigo-400' : 'text-gray-400 dark:text-discord-muted'}`}>
-                                {formatConversationTime(lastMsg.createdAt)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between mt-0.5">
-                            <p className={`text-xs truncate flex-1 ${hasUnread ? 'font-semibold text-gray-950 dark:text-white' : 'text-gray-500 dark:text-discord-muted'}`}>
-                              {lastMsg
-                                ? formatLastMessage(lastMsg, true)
-                                : `${g.memberCount} thành viên`}
-                            </p>
-                            {hasUnread && (
-                              <span className="ml-2 w-4 h-4 bg-indigo-600 dark:bg-discord-blurple text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                                {groupUnreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                      />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[14px] truncate ${
+                          hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
+                        }`}>
+                          {friend.username}
+                        </span>
+                        {lastMsg && (
+                          <span className={`text-[11px] shrink-0 ${
+                            hasUnread ? 'text-blue-600 dark:text-indigo-400 font-semibold' : 'text-gray-400 dark:text-zinc-500'
+                          }`}>
+                            {formatConversationTime(lastMsg.createdAt)}
+                          </span>
+                        )}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="h-px bg-gray-300 dark:bg-zinc-800/60 mx-1 my-2" />
-
-          {/* ── DIRECT MESSAGES SECTION ── */}
-          <div>
-            <button
-              onClick={() => setShowDmsSection(v => !v)}
-              className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-discord-muted hover:text-gray-700 dark:hover:text-white transition rounded-lg"
-            >
-              {showDmsSection ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              Direct Messages — {filteredPrivate.length}
-            </button>
-
-            {showDmsSection && (
-              <div className="space-y-0.5 mt-0.5">
-                {filteredPrivate.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-gray-500 dark:text-discord-muted">
-                    {searchQuery ? 'No matches found.' : 'No DMs yet. Chat with friends!'}
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <p className={`text-[12px] truncate flex-1 ${
+                          hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
+                        }`}>
+                          {lastMsg ? formatLastMessage(lastMsg, false) : 'Bắt đầu cuộc trò chuyện'}
+                        </p>
+                        {hasUnread && (
+                          <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  filteredPrivate.map((c) => {
-                    const friend = getFriendInfo(c);
-                    const lastMsg = lastMessages[c.id];
-                    const isSelected = activeConversation?.id === c.id;
-                    const convUnreadNotifications = notifications.filter(
-                      (n) => n.referenceId === c.id && !n.read && n.type === 'NEW_MESSAGE'
-                    );
-                    const convUnreadCount = convUnreadNotifications.length;
-                    const hasUnread = convUnreadCount > 0;
+                );
+              }
 
-                    return (
-                      <div
-                        key={c.id}
-                        onClick={() => selectConversation(c.id)}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-indigo-600/10 dark:bg-zinc-800 text-indigo-750 dark:text-white'
-                            : 'hover:bg-gray-300/60 dark:hover:bg-zinc-800/40 text-gray-700 dark:text-discord-text'
-                        }`}
-                      >
-                        <div className="relative shrink-0">
-                          {friend.avatarUrl ? (
-                            <img src={friend.avatarUrl} alt={friend.username} className="w-10 h-10 rounded-full object-cover border border-gray-350 dark:border-zinc-800" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-semibold flex items-center justify-center text-sm">
-                              {friend.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-gray-200 dark:border-discord-mid ${
-                            friend.status === 'AWAY' ? 'bg-amber-500' : friend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex justify-between items-baseline gap-1">
-                            <h4 className={`text-sm truncate m-0 ${hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium'}`}>{friend.username}</h4>
-                            {lastMsg && (
-                              <span className={`text-[10px] shrink-0 ${hasUnread ? 'font-semibold text-indigo-650 dark:text-indigo-400' : 'text-gray-400 dark:text-discord-muted'}`}>
-                                {formatConversationTime(lastMsg.createdAt)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between mt-0.5">
-                            <p className={`text-xs truncate flex-1 ${hasUnread ? 'font-semibold text-gray-950 dark:text-white' : 'text-gray-500 dark:text-discord-muted'}`}>
-                              {lastMsg
-                                ? formatLastMessage(lastMsg, false)
-                                : 'Bắt đầu cuộc trò chuyện'}
-                            </p>
-                            {hasUnread && (
-                              <span className="ml-2 w-4 h-4 bg-indigo-600 dark:bg-discord-blurple text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                                {convUnreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
+              // Group item
+              const g = item.group;
+              const isSelected = activeConversation?.id === g.conversationId;
+              const lastMsg = g.conversationId ? lastMessages[g.conversationId] : undefined;
+              const unreadNotifs = notifications.filter(
+                (n) => n.referenceId === g.conversationId && !n.read && n.type === 'NEW_MESSAGE'
+              );
+              const unreadCount = unreadNotifs.length;
+              const hasUnread = unreadCount > 0;
+
+              return (
+                <div
+                  key={g.id}
+                  onClick={() => handleOpenGroup(g)}
+                  className={`flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                    isSelected
+                      ? 'bg-blue-50 dark:bg-indigo-900/20'
+                      : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+                  }`}
+                >
+                  {/* Group Avatar */}
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg">
+                      {g.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Group badge */}
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center">
+                      <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-[14px] truncate ${
+                        hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
+                      }`}>
+                        {g.name}
+                      </span>
+                      {lastMsg && (
+                        <span className={`text-[11px] shrink-0 ${
+                          hasUnread ? 'text-blue-600 dark:text-indigo-400 font-semibold' : 'text-gray-400 dark:text-zinc-500'
+                        }`}>
+                          {formatConversationTime(lastMsg.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className={`text-[12px] truncate flex-1 ${
+                        hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
+                      }`}>
+                        {lastMsg ? formatLastMessage(lastMsg, true) : `${g.memberCount} thành viên`}
+                      </p>
+                      {hasUnread && (
+                        <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* User Card */}
         {user && (
-          <div className="bg-gray-250 dark:bg-zinc-950 p-3 flex items-center gap-3 border-t border-gray-300 dark:border-zinc-900/60 shrink-0 text-left">
+          <div className="bg-gray-50 dark:bg-zinc-900/60 px-4 py-3 flex items-center gap-3 border-t border-gray-100 dark:border-zinc-800/60 shrink-0 text-left">
             <div className="relative shrink-0">
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.username} className="w-9 h-9 rounded-full object-cover border border-indigo-100 dark:border-zinc-800" />
+                <img src={user.avatarUrl} alt={user.username} className="w-9 h-9 rounded-full object-cover" />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-xs">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm">
                   {user.username.charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border border-white dark:border-zinc-950" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
             </div>
             <div className="flex-1 min-w-0">
-              <h5 className="text-xs font-bold truncate text-gray-900 dark:text-white m-0">{user.username}</h5>
-              <p className="text-[10px] text-gray-500 dark:text-discord-muted truncate mt-0.5">{user.email}</p>
+              <h5 className="text-[13px] font-bold truncate text-gray-900 dark:text-white m-0">{user.username}</h5>
+              <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">{user.email}</p>
             </div>
           </div>
         )}
@@ -874,6 +787,38 @@ export const Chat = () => {
                   </button>
                 )}
 
+                {/* Search Message Button */}
+                {activeConversation && (
+                  <button
+                    onClick={() => {
+                      setIsSearchPanelOpen(!isSearchPanelOpen);
+                      setIsPinnedPanelOpen(false);
+                    }}
+                    title="Tìm kiếm tin nhắn"
+                    className={`p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
+                      isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+                    }`}
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Pinned Messages Button */}
+                {activeConversation && (
+                  <button
+                    onClick={() => {
+                      setIsPinnedPanelOpen(!isPinnedPanelOpen);
+                      setIsSearchPanelOpen(false);
+                    }}
+                    title="Tin nhắn đã ghim"
+                    className={`p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
+                      isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+                    }`}
+                  >
+                    <Pin className="w-4 h-4" />
+                  </button>
+                )}
+
                 {isGroupConversation ? (
                   <Users className="w-4 h-4" />
                 ) : (
@@ -902,8 +847,17 @@ export const Chat = () => {
                 const prevMsg = messages[index - 1];
                 const showSenderName = isGroupConversation && !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
 
+                // Find parent message if replied to
+                const parentMessage = msg.parentId ? messages.find((m) => m.id === msg.parentId) : null;
+
                 return (
-                  <div key={msg.id} className="flex flex-col space-y-1">
+                  <div
+                    key={msg.id}
+                    id={`message-${msg.id}`}
+                    onMouseEnter={() => setHoveredMessageId(msg.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                    className="relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors hover:bg-gray-150/20 dark:hover:bg-zinc-800/10"
+                  >
                     {showDivider && (
                       <div className="flex items-center justify-center my-4 shrink-0 select-none">
                         <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
@@ -914,28 +868,99 @@ export const Chat = () => {
                       </div>
                     )}
 
+                    {/* Quoted Message / Reply Preview above bubble */}
+                    {msg.parentId && (
+                      <div className={`flex items-center space-x-1.5 text-[11px] text-gray-500 dark:text-discord-muted italic mb-0.5 ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
+                        <CornerUpLeft className="w-3 h-3 text-gray-400 dark:text-zinc-550 shrink-0" />
+                        <span>Trả lời</span>
+                        <span className="font-semibold text-gray-700 dark:text-zinc-300">
+                          @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
+                        </span>
+                        <span className="truncate max-w-[180px]">
+                          : {parentMessage ? (parentMessage.isRecalled ? 'Tin nhắn đã bị thu hồi' : parentMessage.content) : 'tin nhắn đã bị xoá hoặc không tìm thấy'}
+                        </span>
+                      </div>
+                    )}
+
                     <div className={`flex gap-3 max-w-lg sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
                       {/* Avatar for non-self messages */}
                       {!isMe && (
                         <div className="shrink-0 mt-0.5">
-                          {!isGroupConversation && activeFriend.avatarUrl ? (
-                            <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-xs">
-                              {getSenderUsername(msg).charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          {(() => {
+                            const avatarUrl = isGroupConversation
+                              ? getSenderAvatar(msg)
+                              : activeFriend.avatarUrl;
+                            const senderName = isGroupConversation
+                              ? getSenderUsername(msg)
+                              : activeFriend.username;
+                            return avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={senderName}
+                                className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                                {senderName.charAt(0).toUpperCase()}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
-                      <div className="flex flex-col">
+                      <div className="flex flex-col relative">
+                        {/* Context menu actions bar */}
+                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                          <div
+                            className="absolute z-20 animate-in fade-in zoom-in-95 duration-100"
+                            style={{
+                              top: '-28px',
+                              right: isMe ? '0px' : 'auto',
+                              left: isMe ? 'auto' : '0px',
+                            }}
+                          >
+                            <MessageActionsBar
+                              message={msg}
+                              isMe={isMe}
+                              onReply={() => setReplyTo(msg)}
+                              onEdit={() => {
+                                setEditingMessageId(msg.id);
+                                setEditInputText(msg.content);
+                              }}
+                              onRecall={() => {
+                                if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
+                                  recallMessage(msg.id);
+                                }
+                              }}
+                              onDelete={() => {
+                                if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
+                                  deleteMessage(msg.id);
+                                }
+                              }}
+                              onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                              onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                              onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                            />
+                          </div>
+                        )}
+
                         {/* Show sender name in group chat */}
                         {showSenderName && (
                           <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
                             {getSenderUsername(msg)}
                           </span>
                         )}
-                        {msg.messageType === 'IMAGE' ? (
+
+                        {/* Message Content Bubble */}
+                        {msg.isRecalled ? (
+                          <div className={`p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
+                            isMe
+                              ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
+                              : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-500 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
+                          }`}>
+                            <span>Tin nhắn đã bị thu hồi</span>
+                          </div>
+                        ) : msg.messageType === 'IMAGE' ? (
                           <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
                             <a href={msg.content} target="_blank" rel="noopener noreferrer">
                               <img
@@ -987,10 +1012,56 @@ export const Chat = () => {
                               ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
                               : 'bg-gray-250 dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                           }`}>
-                            <p className="m-0 whitespace-pre-wrap">{msg.content}</p>
+                            {editingMessageId === msg.id ? (
+                              <div className="flex flex-col space-y-1.5 min-w-[200px] text-left">
+                                <textarea
+                                  value={editInputText}
+                                  onChange={(e) => setEditInputText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleSaveEdit(msg.id);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingMessageId(null);
+                                    }
+                                  }}
+                                  rows={2}
+                                  className="w-full bg-discord-dark-secondary border border-discord-gray-600 rounded p-1.5 text-xs focus:outline-none focus:border-discord-blurple resize-none text-discord-gray-200"
+                                  autoFocus
+                                />
+                                <div className="flex items-center space-x-2 text-[10px] text-gray-500 dark:text-discord-muted select-none">
+                                  <span>nhấn <strong className="text-discord-blurple cursor-pointer" onClick={() => handleSaveEdit(msg.id)}>Enter</strong> để lưu</span>
+                                  <span>•</span>
+                                  <span>nhấn <strong className="text-red-400 cursor-pointer" onClick={() => setEditingMessageId(null)}>Esc</strong> để huỷ</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="m-0 whitespace-pre-wrap">
+                                {msg.content}
+                                {msg.isEdited && (
+                                  <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
+                                    (đã chỉnh sửa)
+                                  </span>
+                                )}
+                              </p>
+                            )}
                           </div>
                         )}
+
+                        {/* Reactions list component */}
+                        {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
+                          <MessageReactions
+                            reactions={msg.reactions}
+                            currentUserId={user?.id ?? ''}
+                            onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
+                          />
+                        )}
+
+                        {/* Status block */}
                         <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          {msg.isPinned && (
+                            <Pin className="w-3 h-3 text-amber-500 fill-current mr-0.5 shrink-0" title="Đã ghim" />
+                          )}
                           <span>{formatMessageTime(msg.createdAt)}</span>
                           {isMe && (
                             <span className="inline-flex shrink-0" title={getMessageStatus(msg).toLowerCase()}>
@@ -1028,9 +1099,16 @@ export const Chat = () => {
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 bg-gray-100 dark:bg-discord-dark shrink-0">
+              {/* Reply Preview */}
+              {replyTo && (
+                <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
+              )}
+
               {/* File Upload Preview Panel */}
               {(uploadingFile || uploadedFileUrl || selectedFileName) && (
-                <div className="bg-gray-200/80 dark:bg-discord-mid/80 backdrop-blur-sm border border-gray-300 dark:border-zinc-900/60 rounded-t-2xl p-3 flex items-center gap-3 relative border-b-0 animate-fadeIn">
+                <div className={`bg-gray-200/80 dark:bg-discord-mid/80 backdrop-blur-sm border border-gray-300 dark:border-zinc-900/60 p-3 flex items-center gap-3 relative border-b-0 animate-fadeIn ${
+                  replyTo ? 'border-t-0' : 'rounded-t-2xl'
+                }`}>
                   <button
                     type="button"
                     onClick={resetUploadState}
@@ -1078,7 +1156,7 @@ export const Chat = () => {
 
               {/* Toolbar & Input Box Container */}
               <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 flex flex-col ${
-                (uploadingFile || uploadedFileUrl || selectedFileName) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
+                (uploadingFile || uploadedFileUrl || selectedFileName || replyTo) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
               } overflow-hidden focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
                 
                 {/* Top Toolbar Row */}
@@ -1236,6 +1314,23 @@ export const Chat = () => {
           </div>
         )}
       </main>
+
+      {/* Pinned Messages Panel */}
+      <PinnedMessagesPanel
+        isOpen={isPinnedPanelOpen}
+        onClose={() => setIsPinnedPanelOpen(false)}
+        pinnedMessages={pinnedMessages}
+        onUnpin={(msgId) => togglePinMessage(msgId, true)}
+        onJumpToMessage={handleJumpToMessage}
+      />
+
+      {/* Search Messages Panel */}
+      <SearchPanel
+        isOpen={isSearchPanelOpen}
+        onClose={() => setIsSearchPanelOpen(false)}
+        activeConversationId={activeConversation?.id ?? null}
+        onJumpToMessage={handleJumpToMessageFromSearch}
+      />
 
       {/* Create Group Modal */}
       {showCreateGroupModal && (
