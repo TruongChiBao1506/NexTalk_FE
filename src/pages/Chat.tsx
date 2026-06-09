@@ -7,7 +7,7 @@ import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
 import {
   LogOut, User, Settings, MessageSquare,
-  Send, Paperclip, Smile, Search, Loader2, Users, ArrowUp, Hash, Plus, Check, CheckCheck,
+  Send, Paperclip, Smile, Search, Loader2, Users, Hash, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft,
   Pin, CornerUpLeft
 } from 'lucide-react';
