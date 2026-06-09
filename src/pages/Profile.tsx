@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3 } f
 import { useUserStore } from '../store/userStore';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import ThemeToggle from '../components/common/ThemeToggle';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 
 export const Profile = () => {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export const Profile = () => {
   }, [fetchProfile]);
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4 pb-20 md:pb-4 overflow-hidden bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
       
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
@@ -33,7 +34,7 @@ export const Profile = () => {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-xl z-10 pt-12">
+      <div className="w-full max-w-xl z-10 pt-20 md:pt-12">
         {/* Main profile card */}
         <div className="glass rounded-3xl p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
           
@@ -164,6 +165,9 @@ export const Profile = () => {
           onClose={() => setIsEditOpen(false)}
         />
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 };

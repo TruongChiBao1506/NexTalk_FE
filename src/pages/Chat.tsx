@@ -8,7 +8,7 @@ import { fileService } from '../services/fileService';
 import {
   LogOut, User, Settings, MessageSquare, Bell, BellOff,
   Send, Paperclip, Smile, Search, Loader2, Users, ArrowUp, Hash, Plus, ChevronDown, ChevronRight, Check, CheckCheck,
-  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone
+  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -16,6 +16,7 @@ import { useCallStore } from '../store/callStore';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { ConversationResponse, MessageResponse } from '../types/chat';
 import type { GroupResponse } from '../types/group';
 
@@ -392,14 +393,14 @@ export const Chat = () => {
     <div className="h-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Column 1: Sidebar Navigation */}
-      <aside className="w-16 md:w-20 bg-gray-250 dark:bg-zinc-950 flex flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
+      <aside className="hidden md:flex w-16 md:w-20 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
         <div className="w-12 h-12 rounded-2xl bg-indigo-650 dark:bg-discord-blurple flex items-center justify-center text-white mb-6 shadow-md transition-all duration-300">
           <MessageSquare className="w-6 h-6" />
         </div>
 
         <div
           onClick={() => navigate('/friends')}
-          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-600 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Friends List"
         >
           <User className="w-5 h-5" />
@@ -407,7 +408,7 @@ export const Chat = () => {
 
         <div
           onClick={() => navigate('/profile')}
-          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-600 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Profile Settings"
         >
           <Settings className="w-5 h-5" />
@@ -420,7 +421,7 @@ export const Chat = () => {
             className={`w-12 h-12 rounded-full flex items-center justify-center relative transition-all duration-300 ${
               isNotificationPanelOpen
                 ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-xl'
-                : 'bg-gray-300 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl'
+                : 'bg-gray-300 dark:bg-zinc-800 text-gray-650 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl'
             } ${animateBell ? 'animate-bell-ring' : ''}`}
             title="Notifications"
           >
@@ -435,7 +436,7 @@ export const Chat = () => {
 
           {/* Notification Dropdown Panel */}
           {isNotificationPanelOpen && (
-            <div className="absolute left-16 md:left-20 top-0 w-80 md:w-96 rounded-2xl glass shadow-2xl border border-gray-200 dark:border-zinc-800 z-50 overflow-hidden flex flex-col max-h-[500px] animate-[fadeInScale_0.2s_ease-out]">
+            <div className="fixed inset-x-4 top-16 md:absolute md:left-20 md:inset-x-auto md:top-0 w-auto md:w-96 rounded-2xl glass shadow-2xl border border-gray-200 dark:border-zinc-800 z-50 overflow-hidden flex flex-col max-h-[75vh] md:max-h-[500px] animate-[fadeInScale_0.2s_ease-out]">
               
               {/* Panel Header */}
               <div className="p-4 border-b border-gray-200/50 dark:border-zinc-800/50 flex items-center justify-between bg-white/20 dark:bg-zinc-900/20 backdrop-blur-md">
@@ -575,7 +576,7 @@ export const Chat = () => {
       </aside>
 
       {/* Column 2: Conversations Sidebar */}
-      <section className="w-60 md:w-72 bg-gray-200 dark:bg-discord-mid flex flex-col border-r border-gray-300 dark:border-zinc-900/40 shrink-0">
+      <section className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-72 bg-gray-200 dark:bg-discord-mid flex-col border-r border-gray-300 dark:border-zinc-900/40 shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
         <div className="h-14 border-b border-gray-300 dark:border-zinc-900/50 flex items-center justify-between px-4 shrink-0">
@@ -798,12 +799,20 @@ export const Chat = () => {
       </section>
 
       {/* Column 3: Chat Window */}
-      <main className="flex-1 flex flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative">
+      <main className={`${activeConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}>
         {activeConversation && activeFriend ? (
           <>
             {/* Chat Header */}
             <header className="h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex items-center px-4 justify-between shrink-0">
               <div className="flex items-center gap-3 text-left">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={() => selectConversation(null)}
+                  className="md:hidden p-1.5 mr-1 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 shrink-0"
+                  title="Back to conversations list"
+                >
+                  <ArrowLeft className="w-4.5 h-4.5" />
+                </button>
                 {isGroupConversation ? (
                   <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
                     {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
@@ -1238,6 +1247,9 @@ export const Chat = () => {
 
       {/* Call Overlay */}
       <CallOverlay />
+
+      {/* Mobile Bottom Navigation */}
+      {!activeConversation && <MobileBottomNav />}
     </div>
   );
 };

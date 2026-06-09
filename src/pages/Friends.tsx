@@ -9,6 +9,7 @@ import type { User } from '../types/auth';
 import ThemeToggle from '../components/common/ThemeToggle';
 import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 
 type ActiveTab = 'friends' | 'pending' | 'add_friend';
 
@@ -132,7 +133,7 @@ export const Friends = () => {
     <div className="min-h-screen bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
       
       {/* Sidebar Navigation */}
-      <aside className="w-16 md:w-20 bg-gray-200 dark:bg-zinc-950 flex flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
+      <aside className="hidden md:flex w-16 md:w-20 bg-gray-200 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
         <div 
           onClick={() => navigate('/chat')}
           className="w-12 h-12 rounded-2xl bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-6 cursor-pointer hover:bg-indigo-650 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300 shadow-md"
@@ -173,7 +174,7 @@ export const Friends = () => {
       </aside>
 
       {/* Main Content Container */}
-      <main className="flex-1 flex flex-col justify-start max-w-4xl mx-auto p-4 md:p-8 space-y-6">
+      <main className="flex-1 flex flex-col justify-start max-w-4xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
         
         {/* Header Section */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
@@ -514,6 +515,7 @@ export const Friends = () => {
         </div>
 
       </main>
+      <MobileBottomNav />
     </div>
   );
 };

@@ -38,7 +38,7 @@ interface ChatState {
   stompClient: Client | null;
 
   fetchConversations: () => Promise<void>;
-  selectConversation: (conversationId: string) => Promise<void>;
+  selectConversation: (conversationId: string | null) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
   sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE') => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
@@ -82,7 +82,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  selectConversation: async (conversationId: string) => {
+  selectConversation: async (conversationId: string | null) => {
+    if (!conversationId) {
+      set({
+        activeConversation: null,
+        messages: [],
+        currentPage: 0,
+        hasMoreMessages: true,
+      });
+      return;
+    }
+
     // Mark any unread notifications for this conversation as read
     const notifications = useNotificationStore.getState().notifications;
     const unreadForThisConv = notifications.filter(n => n.referenceId === conversationId && !n.read);
