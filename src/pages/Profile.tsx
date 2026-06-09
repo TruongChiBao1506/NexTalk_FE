@@ -56,7 +56,7 @@ export const Profile = () => {
 
       <div className="w-full max-w-xl z-10 pt-20 md:pt-12">
         {/* Main profile card */}
-        <div className="glass rounded-3xl p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
+        <div className="glass rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
           
           {isLoading && !profile ? (
             <div className="flex flex-col items-center py-16 space-y-4">
@@ -133,7 +133,7 @@ export const Profile = () => {
               <div className="space-y-2 text-left">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-discord-muted">Biography</span>
                 <div className="bg-white/60 dark:bg-discord-black/40 p-4 rounded-2xl border border-gray-150 dark:border-zinc-900/40 min-h-[4.5rem]">
-                  <p className="text-sm text-gray-700 dark:text-discord-text italic leading-relaxed m-0">
+                  <p className="text-sm text-gray-700 dark:text-discord-text italic leading-relaxed m-0 break-words whitespace-pre-wrap">
                     {profile.bio ? `"${profile.bio}"` : 'No biography written yet.'}
                   </p>
                 </div>
@@ -141,20 +141,20 @@ export const Profile = () => {
 
               {/* Details table */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
-                  <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+                  <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Mail className="w-4.5 h-4.5" />
                     <span>Email Address</span>
                   </div>
-                  <span className="font-semibold text-gray-950 dark:text-white">{profile.email}</span>
+                  <span className="font-semibold text-gray-950 dark:text-white break-all sm:break-normal text-left sm:text-right">{profile.email}</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
-                  <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+                  <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Calendar className="w-4.5 h-4.5" />
                     <span>Date Joined</span>
                   </div>
-                  <span className="font-semibold text-gray-950 dark:text-white">
+                  <span className="font-semibold text-gray-950 dark:text-white text-left sm:text-right">
                     {new Date(profile.createdAt).toLocaleDateString(undefined, {
                       year: 'numeric',
                       month: 'long',
