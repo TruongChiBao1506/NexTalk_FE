@@ -34,7 +34,7 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
   const updateProfile = useUserStore((state) => state.updateProfile);
   const isLoading = useUserStore((state) => state.isLoading);
   const error = useUserStore((state) => state.error);
-  
+
   const [selectedAvatar, setSelectedAvatar] = useState(user.avatarUrl || AVATAR_PRESETS[0]);
   const [dicebearStyle, setDicebearStyle] = useState('adventurer');
 
@@ -78,14 +78,14 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop blur */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal box */}
       <div className="relative w-full max-w-lg z-10 glass rounded-3xl p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 animate-scale-up text-left overflow-y-auto max-h-[90vh]">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white m-0">Edit Profile</h3>
@@ -108,15 +108,15 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
           {/* Avatar Section */}
           <div className="space-y-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Avatar Selection
+              Lựa chọn hình đại diện
             </label>
             <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-gray-50/50 dark:bg-discord-black/20 p-4 rounded-2xl border border-gray-150 dark:border-zinc-850/60">
-              
+
               {/* Current Preview */}
               <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-indigo-500 bg-zinc-200 shrink-0">
                 {selectedAvatar.endsWith('.svg') ? (
-                  <object 
-                    data={selectedAvatar} 
+                  <object
+                    data={selectedAvatar}
                     type="image/svg+xml"
                     className="w-full h-full object-cover"
                     aria-label="Avatar preview"
@@ -141,9 +141,8 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
                         key={idx}
                         type="button"
                         onClick={() => handlePresetSelect(url)}
-                        className={`w-9 h-9 rounded-full overflow-hidden border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${
-                          selectedAvatar === url ? 'border-indigo-600 dark:border-discord-blurple' : 'border-transparent'
-                        }`}
+                        className={`w-9 h-9 rounded-full overflow-hidden border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${selectedAvatar === url ? 'border-indigo-600 dark:border-discord-blurple' : 'border-transparent'
+                          }`}
                       >
                         <img src={url} alt={`Preset ${idx}`} className="w-full h-full object-cover" />
                       </button>
@@ -167,10 +166,10 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
                 </div>
               </div>
             </div>
-            
+
             {/* Custom URL Input */}
             <div className="space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Or Paste Image URL (under 250 chars)</span>
+              <span className="text-[10px] uppercase font-bold text-gray-400">Hoặc dán link hình ảnh (dưới 250 ký tự)</span>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <ImageIcon className="h-4 w-4" />
@@ -192,18 +191,17 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
           {/* Username Field */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Username
+              Tên hiển thị
             </label>
             <input
               type="text"
               disabled={isLoading}
-              placeholder="Username"
+              placeholder="Tên hiển thị"
               {...register('username')}
-              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${
-                errors.username
-                  ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
-                  : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
-              }`}
+              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${errors.username
+                ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
+                : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
+                }`}
             />
             {errors.username && (
               <p className="text-xs text-rose-500 font-medium pl-1 mt-0.5">{errors.username.message}</p>
@@ -213,18 +211,17 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
           {/* Bio Field */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Biography (Bio)
+              Giới thiệu bản thân
             </label>
             <textarea
               disabled={isLoading}
               rows={3}
               placeholder="Tell us about yourself..."
               {...register('bio')}
-              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${
-                errors.bio
-                  ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
-                  : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
-              }`}
+              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${errors.bio
+                ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
+                : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
+                }`}
             />
             {errors.bio && (
               <p className="text-xs text-rose-500 font-medium pl-1 mt-0.5">{errors.bio.message}</p>

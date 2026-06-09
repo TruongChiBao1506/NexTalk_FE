@@ -37,7 +37,7 @@ export const Profile = () => {
 
   return (
     <div className="relative h-dvh w-screen overflow-y-auto flex items-center justify-center p-4 pb-20 md:pb-4 bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
-      
+
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-80 h-80 rounded-full bg-purple-500/20 dark:bg-purple-500/10 blur-[100px] pointer-events-none" />
@@ -49,7 +49,7 @@ export const Profile = () => {
           className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300 transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
         >
           <ArrowLeft className="w-4.5 h-4.5" />
-          <span className="text-sm font-semibold">Back to Chat</span>
+          <span className="text-sm font-semibold">Quay về</span>
         </button>
         <ThemeToggle />
       </div>
@@ -57,7 +57,7 @@ export const Profile = () => {
       <div className="w-full max-w-xl z-10 pt-20 md:pt-12">
         {/* Main profile card */}
         <div className="glass rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
-          
+
           {isLoading && !profile ? (
             <div className="flex flex-col items-center py-16 space-y-4">
               <Loader2 className="w-12 h-12 animate-spin text-indigo-600 dark:text-discord-blurple" />
@@ -77,15 +77,15 @@ export const Profile = () => {
             </div>
           ) : profile ? (
             <div className="space-y-6">
-              
+
               {/* Profile Card Header with Avatar */}
               <div className="flex flex-col items-center text-center pb-6 border-b border-gray-150 dark:border-zinc-800/60">
                 <div className="relative group mb-4">
                   {profile.avatarUrl ? (
                     <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-discord-mid shadow-lg">
                       {profile.avatarUrl.endsWith('.svg') ? (
-                        <object 
-                          data={profile.avatarUrl} 
+                        <object
+                          data={profile.avatarUrl}
                           type="image/svg+xml"
                           className="w-full h-full object-cover"
                           aria-label="Profile Avatar"
@@ -104,16 +104,16 @@ export const Profile = () => {
                     </div>
                   )}
                   {/* Status Indicator */}
-                  <span 
-                    className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-emerald-500 border-4 border-white dark:border-discord-mid" 
-                    title={profile.status || 'ONLINE'} 
+                  <span
+                    className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-emerald-500 border-4 border-white dark:border-discord-mid"
+                    title={profile.status || 'ONLINE'}
                   />
                 </div>
 
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white m-0">
                   {profile.username}
                 </h2>
-                
+
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 mt-2 rounded-md bg-gray-100 dark:bg-discord-black text-gray-650 dark:text-discord-muted border border-gray-200 dark:border-zinc-800/80 text-xs font-medium">
                   {profile.isVerified ? (
                     <>
@@ -131,10 +131,10 @@ export const Profile = () => {
 
               {/* Bio description */}
               <div className="space-y-2 text-left">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-discord-muted">Biography</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-discord-muted">Giới thiệu bản thân</span>
                 <div className="bg-white/60 dark:bg-discord-black/40 p-4 rounded-2xl border border-gray-150 dark:border-zinc-900/40 min-h-[4.5rem]">
                   <p className="text-sm text-gray-700 dark:text-discord-text italic leading-relaxed m-0 break-words whitespace-pre-wrap">
-                    {profile.bio ? `"${profile.bio}"` : 'No biography written yet.'}
+                    {profile.bio ? `"${profile.bio}"` : 'Chưa có giới thiệu'}
                   </p>
                 </div>
               </div>
@@ -144,7 +144,7 @@ export const Profile = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
                   <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Mail className="w-4.5 h-4.5" />
-                    <span>Email Address</span>
+                    <span>Địa chỉ email</span>
                   </div>
                   <span className="font-semibold text-gray-950 dark:text-white break-all sm:break-normal text-left sm:text-right">{profile.email}</span>
                 </div>
@@ -152,7 +152,7 @@ export const Profile = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
                   <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Calendar className="w-4.5 h-4.5" />
-                    <span>Date Joined</span>
+                    <span>Ngày tham gia</span>
                   </div>
                   <span className="font-semibold text-gray-950 dark:text-white text-left sm:text-right">
                     {new Date(profile.createdAt).toLocaleDateString(undefined, {
@@ -170,7 +170,7 @@ export const Profile = () => {
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.99] transition-all duration-200 shadow-md shadow-indigo-600/10 dark:shadow-discord-blurple/10"
               >
                 <Edit3 className="w-4.5 h-4.5" />
-                <span>Edit Profile</span>
+                <span>Chỉnh sửa hồ sơ</span>
               </button>
 
               {/* Log Out Button */}
@@ -184,7 +184,7 @@ export const Profile = () => {
                 ) : (
                   <LogOut className="w-4.5 h-4.5" />
                 )}
-                <span>Log Out</span>
+                <span>Đăng xuất</span>
               </button>
             </div>
           ) : null}

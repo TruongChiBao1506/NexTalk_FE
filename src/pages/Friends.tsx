@@ -16,29 +16,29 @@ type ActiveTab = 'friends' | 'pending' | 'add_friend';
 export const Friends = () => {
   const navigate = useNavigate();
   const { logout } = useAuthStore();
-  const { 
-    friends, 
-    pending, 
-    isLoading: isStoreLoading, 
-    error: storeError, 
-    fetchFriends, 
-    fetchPending, 
-    sendFriendRequest, 
-    acceptRequest, 
-    rejectRequest, 
-    removeFriend 
+  const {
+    friends,
+    pending,
+    isLoading: isStoreLoading,
+    error: storeError,
+    fetchFriends,
+    fetchPending,
+    sendFriendRequest,
+    acceptRequest,
+    rejectRequest,
+    removeFriend
   } = useFriendStore();
 
   const { getOrCreatePrivateConversation } = useChatStore();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('friends');
-  
+
   // Search user states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState<User | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  
+
   // Action status states
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [requestSentIds, setRequestSentIds] = useState<string[]>([]);
@@ -131,35 +131,34 @@ export const Friends = () => {
 
   return (
     <div className="h-dvh w-screen overflow-hidden bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
-      
+
       {/* Sidebar Navigation */}
       <aside className="hidden md:flex w-16 md:w-20 bg-gray-200 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
-        <div 
+        <div
           onClick={() => navigate('/chat')}
           className="w-12 h-12 rounded-2xl bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-6 cursor-pointer hover:bg-indigo-650 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300 shadow-md"
           title="Chat Home"
         >
           <MessageSquare className="w-6 h-6" />
         </div>
-        <div 
+        <div
           onClick={() => setActiveTab('friends')}
-          className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 cursor-pointer transition-all duration-300 ${
-            activeTab !== 'add_friend' && activeTab !== 'pending'
-              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-xl'
-              : 'bg-gray-300 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl'
-          }`}
+          className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 cursor-pointer transition-all duration-300 ${activeTab !== 'add_friend' && activeTab !== 'pending'
+            ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-xl'
+            : 'bg-gray-300 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl'
+            }`}
           title="Friends List"
         >
           <UserIcon className="w-5 h-5" />
         </div>
-        <div 
+        <div
           onClick={() => navigate('/profile')}
           className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Settings & Profile"
         >
           <Settings className="w-5 h-5" />
         </div>
-        
+
         <div className="mt-auto flex flex-col gap-4">
           <ThemeToggle />
           <button
@@ -175,35 +174,33 @@ export const Friends = () => {
 
       {/* Main Content Container */}
       <main className="flex-1 overflow-y-auto max-w-4xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
-        
+
         {/* Header Section */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
           <div>
-            <h2 className="text-2xl font-bold m-0 text-left text-gray-900 dark:text-white">Friend System</h2>
-            <p className="text-sm text-gray-500 dark:text-discord-muted mt-1 text-left">Manage invitations, accept connections, and add friends.</p>
+            <h2 className="text-2xl font-bold m-0 text-left text-gray-900 dark:text-white">Hệ thống bạn bè</h2>
+            <p className="text-sm text-gray-500 dark:text-discord-muted mt-1 text-left">Quản lý lời mời, chấp nhận kết nối và thêm bạn bè.</p>
           </div>
-          
+
           {/* Sub-navigation tabs */}
           <div className="flex bg-gray-200 dark:bg-discord-dark/50 p-1.5 rounded-xl border border-gray-300/40 dark:border-zinc-850/60 self-start sm:self-auto">
             <button
               onClick={() => setActiveTab('friends')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'friends'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${activeTab === 'friends'
+                ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
+                }`}
             >
-              All Friends ({friends.length})
+              Tất cả bạn bè ({friends.length})
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
-                activeTab === 'pending'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${activeTab === 'pending'
+                ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
+                }`}
             >
-              Pending
+              Lời mời kết bạn
               {pending.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
                   {pending.length}
@@ -212,13 +209,12 @@ export const Friends = () => {
             </button>
             <button
               onClick={() => setActiveTab('add_friend')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'add_friend'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${activeTab === 'add_friend'
+                ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
+                }`}
             >
-              Add Friend
+              Thêm bạn
             </button>
           </div>
         </header>
@@ -257,16 +253,16 @@ export const Friends = () => {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {friends.map((friend) => (
-                        <div 
+                        <div
                           key={friend.id}
                           className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4 transition-all duration-200 hover:shadow-md"
                         >
                           {/* Avatar with Presence dot */}
                           <div className="relative shrink-0">
                             {friend.avatarUrl ? (
-                              <img 
-                                src={friend.avatarUrl} 
-                                alt={friend.username} 
+                              <img
+                                src={friend.avatarUrl}
+                                alt={friend.username}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-indigo-50 dark:border-zinc-800"
                               />
                             ) : (
@@ -274,10 +270,9 @@ export const Friends = () => {
                                 {friend.username?.charAt(0)?.toUpperCase() ?? '?'}
                               </div>
                             )}
-                            <span 
-                              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-discord-mid ${
-                                friend.status === 'AWAY' ? 'bg-amber-500' : friend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'
-                              }`} 
+                            <span
+                              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-discord-mid ${friend.status === 'AWAY' ? 'bg-amber-500' : friend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'
+                                }`}
                               title={friend.status}
                             />
                           </div>
@@ -302,7 +297,7 @@ export const Friends = () => {
                               onClick={() => handleStartChat(friend.id)}
                               disabled={actionLoadingId === friend.id}
                               className="p-2 rounded-xl text-indigo-600 dark:text-discord-blurple hover:bg-indigo-600/10 dark:hover:bg-discord-blurple/10 active:scale-95 transition-all duration-200"
-                              title="Send Message"
+                              title="Nhắn tin"
                             >
                               <MessageSquare className="w-5 h-5" />
                             </button>
@@ -310,7 +305,7 @@ export const Friends = () => {
                               onClick={() => handleRemove(friend.id)}
                               disabled={actionLoadingId === friend.id}
                               className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all duration-200"
-                              title="Remove Friend"
+                              title="Hủy kết bạn"
                             >
                               {actionLoadingId === friend.id ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -331,20 +326,20 @@ export const Friends = () => {
                 <div className="space-y-3">
                   {pending.length === 0 ? (
                     <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-                      <p className="text-gray-500 dark:text-discord-muted m-0">No pending friend requests.</p>
+                      <p className="text-gray-500 dark:text-discord-muted m-0">Không có yêu cầu kết bạn nào đang chờ xử lý.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {pending.map((req) => (
-                        <div 
+                        <div
                           key={req.id}
                           className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4"
                         >
                           {/* Sender details */}
                           {req.avatarUrl ? (
-                            <img 
-                              src={req.avatarUrl} 
-                              alt={req.username} 
+                            <img
+                              src={req.avatarUrl}
+                              alt={req.username}
                               className="w-11 h-11 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0"
                             />
                           ) : (
@@ -398,7 +393,7 @@ export const Friends = () => {
                   {/* Search Input Box */}
                   <form onSubmit={handleSearch} className="bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90 m-0 text-left">
-                      Search User by Username or Email
+                      Tìm kiếm người dùng theo tên người dùng hoặc email
                     </h3>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -407,7 +402,7 @@ export const Friends = () => {
                         </div>
                         <input
                           type="text"
-                          placeholder="Type username or email..."
+                          placeholder="Nhập tên người dùng hoặc email..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple transition-all duration-200 text-sm"
@@ -419,7 +414,7 @@ export const Friends = () => {
                         className="py-2.5 px-5 rounded-xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md text-sm shrink-0 flex items-center gap-1.5"
                       >
                         {isSearching && <Loader2 className="w-4 h-4 animate-spin" />}
-                        <span>Search</span>
+                        <span>Tìm</span>
                       </button>
                     </div>
                   </form>
@@ -441,9 +436,9 @@ export const Friends = () => {
                       <div className="flex items-center gap-4">
                         {/* Avatar */}
                         {searchResult.avatarUrl ? (
-                          <img 
-                            src={searchResult.avatarUrl} 
-                            alt={searchResult.username} 
+                          <img
+                            src={searchResult.avatarUrl}
+                            alt={searchResult.username}
                             className="w-14 h-14 rounded-full object-cover border-2 border-indigo-50 dark:border-zinc-800"
                           />
                         ) : (
@@ -451,7 +446,7 @@ export const Friends = () => {
                             {searchResult.username?.charAt(0)?.toUpperCase() ?? '?'}
                           </div>
                         )}
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h4 className="font-bold text-gray-900 dark:text-white m-0 text-base">{searchResult.username}</h4>
@@ -466,14 +461,13 @@ export const Friends = () => {
                         <button
                           onClick={() => handleSendRequest(searchResult.id)}
                           disabled={
-                            actionLoadingId === searchResult.id || 
+                            actionLoadingId === searchResult.id ||
                             requestSentIds.includes(searchResult.id)
                           }
-                          className={`flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
-                            requestSentIds.includes(searchResult.id)
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                              : 'bg-indigo-600 hover:bg-indigo-750 dark:bg-discord-blurple dark:hover:bg-indigo-650 text-white shadow-md'
-                          }`}
+                          className={`flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${requestSentIds.includes(searchResult.id)
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : 'bg-indigo-600 hover:bg-indigo-750 dark:bg-discord-blurple dark:hover:bg-indigo-650 text-white shadow-md'
+                            }`}
                         >
                           {actionLoadingId === searchResult.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -501,10 +495,10 @@ export const Friends = () => {
                     <div className="p-6 rounded-3xl bg-indigo-50/30 dark:bg-discord-dark/20 border border-indigo-150/20 dark:border-zinc-900/30 text-left space-y-2">
                       <div className="flex items-center gap-1.5 text-indigo-750 dark:text-discord-blurple text-xs font-bold uppercase tracking-wider">
                         <Sparkles className="w-4 h-4" />
-                        <span>Search Guideline</span>
+                        <span>Hướng dẫn tìm kiếm</span>
                       </div>
                       <p className="text-xs text-gray-550 dark:text-discord-muted leading-relaxed">
-                        To add another user, please ask for their email address or username. Type the exact string in the input field above and click search.
+                        Để thêm người dùng khác, vui lòng yêu cầu địa chỉ email hoặc tên người dùng của họ. Gõ chính xác chuỗi trong ô nhập ở trên và nhấp vào tìm kiếm.
                       </p>
                     </div>
                   )}
