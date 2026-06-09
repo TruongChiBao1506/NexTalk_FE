@@ -108,6 +108,8 @@ export const Chat = () => {
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const prevFirstMessageIdRef = useRef<string | undefined>(undefined);
 
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -215,9 +217,48 @@ export const Chat = () => {
 
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom('smooth');
+      const firstMsgId = messages[0]?.id;
+      const prevFirstMsgId = prevFirstMessageIdRef.current;
+      prevFirstMessageIdRef.current = firstMsgId;
+
+      // Only scroll to bottom if a new message is added at the top (which means firstMsgId !== prevFirstMsgId)
+      // And we don't scroll if it's the initial load (which is already handled by the activeConversation useEffect)
+      if (prevFirstMsgId && firstMsgId !== prevFirstMsgId) {
+        scrollToBottom('smooth');
+      }
+    } else {
+      prevFirstMessageIdRef.current = undefined;
     }
-  }, [messages.length, user?.id]);
+  }, [messages, user?.id]);
+
+  // Infinite scroll: Observe the sentinel element at the top of the message list
+  useEffect(() => {
+    if (!hasMoreMessages || isLoading || !activeConversation) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreMessages();
+        }
+      },
+      {
+        root: messagesContainerRef.current,
+        rootMargin: '100px 0px 0px 0px', // Trigger when sentinel is within 100px of container viewport top
+        threshold: 0,
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMoreMessages, isLoading, loadMoreMessages, activeConversation?.id]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -906,41 +947,6 @@ export const Chat = () => {
                       )}
 
                       <div className="flex flex-col relative">
-                        {/* Context menu actions bar */}
-                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
-                          <div
-                            className="absolute z-20 animate-in fade-in zoom-in-95 duration-100"
-                            style={{
-                              top: '-28px',
-                              right: isMe ? '0px' : 'auto',
-                              left: isMe ? 'auto' : '0px',
-                            }}
-                          >
-                            <MessageActionsBar
-                              message={msg}
-                              isMe={isMe}
-                              onReply={() => setReplyTo(msg)}
-                              onEdit={() => {
-                                setEditingMessageId(msg.id);
-                                setEditInputText(msg.content);
-                              }}
-                              onRecall={() => {
-                                if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
-                                  recallMessage(msg.id);
-                                }
-                              }}
-                              onDelete={() => {
-                                if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
-                                  deleteMessage(msg.id);
-                                }
-                              }}
-                              onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
-                              onReact={(emoji) => reactToMessage(msg.id, emoji)}
-                              onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
-                            />
-                          </div>
-                        )}
-
                         {/* Show sender name in group chat */}
                         {showSenderName && (
                           <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
@@ -948,91 +954,144 @@ export const Chat = () => {
                           </span>
                         )}
 
-                        {/* Message Content Bubble */}
-                        {msg.isRecalled ? (
-                          <div className={`p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
-                            isMe
-                              ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
-                              : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-500 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
-                          }`}>
-                            <span>Tin nhắn đã bị thu hồi</span>
-                          </div>
-                        ) : msg.messageType === 'IMAGE' ? (
-                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
-                            <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={msg.content}
-                                alt="Shared Image"
-                                className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
-                              />
-                            </a>
-                          </div>
-                        ) : msg.messageType === 'VIDEO' ? (
-                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
-                            <video
-                              src={msg.content}
-                              controls
-                              className="max-h-72 w-full"
-                            />
-                          </div>
-                        ) : msg.messageType === 'FILE' ? (
-                          <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
-                            isMe
-                              ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-500/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
-                              : 'bg-gray-250 dark:bg-discord-mid border-gray-300/65 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
-                          }`}>
-                            <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
-                              <FileText className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="font-semibold text-xs truncate m-0" title={getFileName(msg.content)}>
-                                {getFileName(msg.content)}
-                              </p>
-                              <span className="text-[10px] opacity-75">
-                                Document File
-                              </span>
-                            </div>
-                            <a
-                              href={msg.content}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'}`}
-                              title="Download File"
+                        {/* Message Content Bubble Wrapper */}
+                        <div className="relative">
+                          {/* Context menu actions bar */}
+                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                            <div
+                              className="absolute z-20 animate-in fade-in zoom-in-95 duration-100"
+                              style={{
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                right: isMe ? 'calc(100% + 8px)' : 'auto',
+                                left: isMe ? 'auto' : 'calc(100% + 8px)',
+                              }}
                             >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
-                        ) : (
-                          <div className={`p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
-                            isMe
-                              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
-                              : 'bg-gray-250 dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
-                          }`}>
-                            {editingMessageId === msg.id ? (
-                              <div className="flex flex-col space-y-1.5 min-w-[200px] text-left">
-                                <textarea
-                                  value={editInputText}
-                                  onChange={(e) => setEditInputText(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleSaveEdit(msg.id);
-                                    } else if (e.key === 'Escape') {
-                                      setEditingMessageId(null);
-                                    }
-                                  }}
-                                  rows={2}
-                                  className="w-full bg-discord-dark-secondary border border-discord-gray-600 rounded p-1.5 text-xs focus:outline-none focus:border-discord-blurple resize-none text-discord-gray-200"
-                                  autoFocus
+                              <MessageActionsBar
+                                message={msg}
+                                isMe={isMe}
+                                onReply={() => setReplyTo(msg)}
+                                onEdit={() => {
+                                  setEditingMessageId(msg.id);
+                                  setEditInputText(msg.content);
+                                }}
+                                onRecall={() => {
+                                  if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
+                                    recallMessage(msg.id);
+                                  }
+                                }}
+                                onDelete={() => {
+                                  if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
+                                    deleteMessage(msg.id);
+                                  }
+                                }}
+                                onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                                onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                                onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                              />
+                            </div>
+                          )}
+
+                          {msg.isRecalled ? (
+                            <div className={`p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
+                              isMe
+                                ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
+                                : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-550 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
+                            }`}>
+                              <span>Tin nhắn đã bị thu hồi</span>
+                            </div>
+                          ) : msg.messageType === 'IMAGE' ? (
+                            <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                              <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={msg.content}
+                                  alt="Shared Image"
+                                  className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
                                 />
-                                <div className="flex items-center space-x-2 text-[10px] text-gray-500 dark:text-discord-muted select-none">
-                                  <span>nhấn <strong className="text-discord-blurple cursor-pointer" onClick={() => handleSaveEdit(msg.id)}>Enter</strong> để lưu</span>
-                                  <span>•</span>
-                                  <span>nhấn <strong className="text-red-400 cursor-pointer" onClick={() => setEditingMessageId(null)}>Esc</strong> để huỷ</span>
-                                </div>
+                              </a>
+                            </div>
+                          ) : msg.messageType === 'VIDEO' ? (
+                            <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
+                              <video
+                                src={msg.content}
+                                controls
+                                className="max-h-72 w-full"
+                              />
+                            </div>
+                          ) : msg.messageType === 'FILE' ? (
+                            <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
+                              isMe
+                                ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-500/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
+                                : 'bg-gray-250 dark:bg-discord-mid border-gray-300/65 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                            }`}>
+                              <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
+                                <FileText className="w-5 h-5" />
                               </div>
-                            ) : (
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="font-semibold text-xs truncate m-0" title={getFileName(msg.content)}>
+                                  {getFileName(msg.content)}
+                                </p>
+                                <span className="text-[10px] opacity-75">
+                                  Document File
+                                </span>
+                              </div>
+                              <a
+                                href={msg.content}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
+                                title="Download File"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                            </div>
+                          ) : editingMessageId === msg.id ? (
+                            /* Edit Mode: Clean standalone edit panel outside the bubble */
+                            <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
+                              <textarea
+                                value={editInputText}
+                                onChange={(e) => {
+                                  setEditInputText(e.target.value);
+                                  // Auto-resize
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSaveEdit(msg.id);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingMessageId(null);
+                                  }
+                                }}
+                                rows={2}
+                                className="w-full bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 resize-none shadow-sm transition-colors leading-relaxed"
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingMessageId(null)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 rounded-lg transition-colors"
+                                >
+                                  Huỷ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEdit(msg.id)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 rounded-lg transition-colors shadow-sm"
+                                >
+                                  Lưu
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={`p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
+                              isMe
+                                ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
+                                : 'bg-gray-250 dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                            }`}>
                               <p className="m-0 whitespace-pre-wrap">
                                 {msg.content}
                                 {msg.isEdited && (
@@ -1041,21 +1100,26 @@ export const Chat = () => {
                                   </span>
                                 )}
                               </p>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
 
-                        {/* Reactions list component */}
-                        {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
-                          <MessageReactions
-                            reactions={msg.reactions}
-                            currentUserId={user?.id ?? ''}
-                            onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
-                          />
-                        )}
+                          {/* Reactions list component (Zalo-style corner placement) */}
+                          {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
+                            <div className="absolute -bottom-2 right-3 z-10">
+                              <MessageReactions
+                                reactions={msg.reactions}
+                                currentUserId={user?.id ?? ''}
+                                onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
+                                isMe={isMe}
+                              />
+                            </div>
+                          )}
+                        </div>
 
                         {/* Status block */}
-                        <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-[10px] text-gray-550 dark:text-discord-muted mt-1 ${
+                          msg.reactions && msg.reactions.length > 0 ? 'pt-2.5' : ''
+                        } ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                           {msg.isPinned && (
                             <Pin className="w-3 h-3 text-amber-500 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
                           )}
@@ -1069,7 +1133,7 @@ export const Chat = () => {
                                 <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
                               )}
                               {getMessageStatus(msg) === 'SENT' && (
-                                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-550" />
+                                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-555" />
                               )}
                             </span>
                           )}
@@ -1081,15 +1145,11 @@ export const Chat = () => {
               })}
 
               {hasMoreMessages && (
-                <div className="flex justify-center py-2 shrink-0">
-                  <button
-                    onClick={loadMoreMessages}
-                    disabled={isLoading}
-                    className="flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-bold bg-indigo-50 dark:bg-zinc-800 text-indigo-600 dark:text-discord-text hover:bg-indigo-100 dark:hover:bg-zinc-750 transition-all border border-indigo-150/40 dark:border-zinc-850/60 disabled:opacity-50"
-                  >
-                    {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUp className="w-3.5 h-3.5" />}
-                    <span>Load Older Messages</span>
-                  </button>
+                <div ref={sentinelRef} className="flex justify-center py-3 shrink-0 w-full select-none">
+                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold py-1.5 px-3 bg-indigo-50/50 dark:bg-zinc-800/50 border border-indigo-100/30 dark:border-zinc-800/40 rounded-full">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang tải tin nhắn cũ hơn...</span>
+                  </div>
                 </div>
               )}
             </div>
