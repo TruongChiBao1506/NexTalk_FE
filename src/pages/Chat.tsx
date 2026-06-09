@@ -97,7 +97,6 @@ export const Chat = () => {
   const {
     notifications,
     fetchNotifications,
-    markAsRead,
   } = useNotificationStore();
 
 
@@ -436,9 +435,7 @@ export const Chat = () => {
     })
     .sort((a, b) => getUnifiedTime(b) - getUnifiedTime(a));
 
-  const filteredGroups = groups.filter(g =>
-    g.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
 
   const activeFriend = activeConversation ? getFriendInfo(activeConversation) : null;
 
@@ -1060,7 +1057,7 @@ export const Chat = () => {
                         {/* Status block */}
                         <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                           {msg.isPinned && (
-                            <Pin className="w-3 h-3 text-amber-500 fill-current mr-0.5 shrink-0" title="Đã ghim" />
+                            <Pin className="w-3 h-3 text-amber-500 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
                           )}
                           <span>{formatMessageTime(msg.createdAt)}</span>
                           {isMe && (

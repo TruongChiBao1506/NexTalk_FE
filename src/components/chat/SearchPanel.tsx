@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, ExternalLink, Loader2, MessageSquare } from 'lucide-react';
+import { X, Search, ExternalLink, Loader2 } from 'lucide-react';
 import { messageService } from '../../services/messageService';
 import type { MessageResponse } from '../../types/chat';
 
