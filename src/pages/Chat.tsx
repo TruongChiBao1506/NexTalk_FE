@@ -9,7 +9,7 @@ import {
   LogOut, User, Settings, MessageSquare,
   Send, Paperclip, Smile, Search, Loader2, Users, Hash, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft,
-  Pin, CornerUpLeft
+  Pin, PinOff, CornerUpLeft
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -49,6 +49,7 @@ export const Chat = () => {
     disconnectWebSocket,
     replyTo,
     pinnedMessages,
+    fetchPinnedMessages,
     setReplyTo,
     editMessage,
     recallMessage,
@@ -845,6 +846,11 @@ export const Chat = () => {
                 {activeConversation && (
                   <button
                     onClick={() => {
+                      if (!isPinnedPanelOpen && activeConversation) {
+                        fetchPinnedMessages(activeConversation.id).catch((err) => {
+                          console.error('Failed to fetch pinned messages when opening panel:', err);
+                        });
+                      }
                       setIsPinnedPanelOpen(!isPinnedPanelOpen);
                       setIsSearchPanelOpen(false);
                     }}
@@ -867,6 +873,44 @@ export const Chat = () => {
                 </span>
               </div>
             </header>
+
+            {/* Pinned Messages Banner */}
+            {pinnedMessages && pinnedMessages.length > 0 && (() => {
+              const latestPinned = [...pinnedMessages].sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              return (
+                <div className="bg-amber-500/10 dark:bg-amber-500/5 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between text-xs shrink-0 select-none animate-in fade-in slide-in-from-top duration-200">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 min-w-0 flex-1">
+                    <Pin className="w-3.5 h-3.5 text-amber-500 fill-current shrink-0 animate-pulse" />
+                    <span className="font-semibold shrink-0">Tin nhắn đã ghim:</span>
+                    <span 
+                      onClick={() => handleJumpToMessage(latestPinned.id)} 
+                      className="truncate hover:underline cursor-pointer font-medium text-gray-700 dark:text-zinc-350"
+                    >
+                      {latestPinned.isRecalled ? 'Tin nhắn đã bị thu hồi' : latestPinned.content}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    {pinnedMessages.length > 1 && (
+                      <button 
+                        onClick={() => setIsPinnedPanelOpen(true)}
+                        className="text-indigo-650 dark:text-indigo-400 hover:underline font-bold text-[11px]"
+                      >
+                        Xem tất cả ({pinnedMessages.length})
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => togglePinMessage(latestPinned.id, true)}
+                      className="text-gray-400 hover:text-rose-500 transition-colors"
+                      title="Bỏ ghim"
+                    >
+                      <PinOff className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Messages */}
             <div

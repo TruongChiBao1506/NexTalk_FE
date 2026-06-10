@@ -18,7 +18,7 @@ function isTokenExpired(token: string, offsetSeconds = 60): boolean {
     const exp = decodedPayload.exp;
     const now = Math.floor(Date.now() / 1000);
     return exp - now < offsetSeconds;
-  } catch (e) {
+  } catch {
     return true;
   }
 }
@@ -88,7 +88,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messageService.markAsDelivered(conv.id).catch(() => {});
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch conversations:', err);
     }
   },
@@ -617,10 +617,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   togglePinMessage: async (messageId, isPinned) => {
     try {
-      if (isPinned) {
-        await messageService.unpinMessage(messageId);
-      } else {
-        await messageService.pinMessage(messageId);
+      const response = isPinned
+        ? await messageService.unpinMessage(messageId)
+        : await messageService.pinMessage(messageId);
+
+      if (!response.success || !response.data) {
+        return;
+      }
+
+      const updatedMessage = response.data;
+      const activeConversation = get().activeConversation;
+
+      set((state) => {
+        const updatedMessages = state.messages.map((m) =>
+          m.id === messageId ? { ...m, ...updatedMessage } : m
+        );
+
+        const updatedPinnedMessages = updatedMessage.isPinned
+          ? state.pinnedMessages.some((m) => m.id === messageId)
+            ? state.pinnedMessages.map((m) => (m.id === messageId ? updatedMessage : m))
+            : [updatedMessage, ...state.pinnedMessages]
+          : state.pinnedMessages.filter((m) => m.id !== messageId);
+
+        return {
+          messages: updatedMessages,
+          pinnedMessages: updatedPinnedMessages,
+        };
+      });
+
+      if (activeConversation) {
+        try {
+          await get().fetchPinnedMessages(activeConversation.id);
+        } catch (err) {
+          console.error('Failed to refresh pinned messages after toggle:', err);
+        }
       }
     } catch (err) {
       console.error('Failed to toggle pin status:', err);
