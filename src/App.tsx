@@ -10,19 +10,7 @@ import Friends from './pages/Friends';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
-import { refreshAccessToken } from './api/apiClient';
-
-function isTokenExpired(token: string, offsetSeconds = 60): boolean {
-  try {
-    const payloadBase64 = token.split('.')[1];
-    const decodedPayload = JSON.parse(atob(payloadBase64));
-    const exp = decodedPayload.exp;
-    const now = Math.floor(Date.now() / 1000);
-    return exp - now < offsetSeconds;
-  } catch (e) {
-    return true;
-  }
-}
+import { ensureFreshAccessToken } from './api/apiClient';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,19 +29,27 @@ function App() {
 
     // Check immediately on mount/auth change
     const checkAndRefresh = async () => {
-      const currentToken = localStorage.getItem('nextalk_accessToken');
-      if (currentToken && isTokenExpired(currentToken, 120)) { // 2 minutes buffer
-        console.log('[Auth] Token close to expiry or expired, refreshing...');
-        await refreshAccessToken();
-      }
+      await ensureFreshAccessToken(120);
     };
 
     checkAndRefresh();
 
     // Check every 60 seconds
     const interval = setInterval(checkAndRefresh, 60000);
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndRefresh();
+      }
+    };
 
-    return () => clearInterval(interval);
+    window.addEventListener('focus', handleResume);
+    document.addEventListener('visibilitychange', handleResume);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleResume);
+      document.removeEventListener('visibilitychange', handleResume);
+    };
   }, [isAuthenticated]);
 
   return (

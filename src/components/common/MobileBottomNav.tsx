@@ -1,6 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Users, Bell, Settings } from 'lucide-react';
-import { useNotificationStore } from '../../store/notificationStore';
+import { MessageSquare, Users, Settings } from 'lucide-react';
 import { useFriendStore } from '../../store/friendStore';
 import { useChatStore } from '../../store/chatStore';
 
@@ -9,7 +8,6 @@ export const MobileBottomNav = () => {
   const navigate = useNavigate();
   
   const { selectConversation } = useChatStore();
-  const { unreadCount, togglePanel: toggleNotificationPanel, isOpen: isNotificationOpen } = useNotificationStore();
   const { pending } = useFriendStore();
 
   const currentPath = location.pathname;
@@ -50,24 +48,6 @@ export const MobileBottomNav = () => {
         {pending.length > 0 && (
           <span className="absolute top-2 right-1/2 translate-x-5 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white dark:border-zinc-950 animate-pulse">
             {pending.length}
-          </span>
-        )}
-      </button>
-
-      {/* Notifications Tab */}
-      <button
-        onClick={toggleNotificationPanel}
-        className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all relative ${
-          isNotificationOpen
-            ? 'text-indigo-650 dark:text-discord-blurple scale-105'
-            : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white'
-        }`}
-      >
-        <Bell className="w-5.5 h-5.5" />
-        <span className="text-[10px] font-bold mt-1 tracking-wide">Alerts</span>
-        {unreadCount > 0 && (
-          <span className="absolute top-2 right-1/2 translate-x-5 min-w-[16px] h-4 px-1 bg-rose-600 dark:bg-discord-red text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white dark:border-zinc-950 animate-pulse">
-            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>

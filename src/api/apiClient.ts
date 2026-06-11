@@ -16,6 +16,31 @@ export const apiClient = axios.create({
 // Shared promise to handle concurrent refresh requests
 let refreshPromise: Promise<string | null> | null = null;
 
+export function isAccessTokenExpired(token: string, offsetSeconds = 60): boolean {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payloadBase64));
+    const exp = decodedPayload.exp;
+    const now = Math.floor(Date.now() / 1000);
+    return exp - now < offsetSeconds;
+  } catch {
+    return true;
+  }
+}
+
+export async function ensureFreshAccessToken(offsetSeconds = 60): Promise<string | null> {
+  const currentToken = localStorage.getItem('nextalk_accessToken');
+  if (!currentToken) {
+    return refreshAccessToken();
+  }
+
+  if (isAccessTokenExpired(currentToken, offsetSeconds)) {
+    return refreshAccessToken();
+  }
+
+  return currentToken;
+}
+
 export async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) {
     return refreshPromise;
@@ -110,4 +135,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-

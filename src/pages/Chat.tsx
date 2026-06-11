@@ -14,6 +14,7 @@ import { userService } from '../services/userService';
 import { messageService } from '../services/messageService';
 import { blockService } from '../services/blockService';
 import { conversationService } from '../services/conversationService';
+import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   LogOut, User, Settings, MessageSquare,
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
@@ -449,12 +450,56 @@ export const Chat = () => {
 
   // Initialize
   useEffect(() => {
-    fetchConversations();
-    fetchGroups();
-    fetchFriends();
-    fetchNotifications();
-    fetchIncomingChatRequests();
-    connectWebSocket();
+    let cancelled = false;
+    let lastResumeSyncAt = 0;
+
+    const reloadChatData = async (reselectActiveConversation = false) => {
+      const accessToken = await ensureFreshAccessToken(120);
+      if (!accessToken || cancelled) return;
+
+      await Promise.allSettled([
+        fetchConversations(),
+        fetchGroups(),
+        fetchFriends(),
+        fetchNotifications(),
+        fetchIncomingChatRequests(),
+      ]);
+
+      if (cancelled) return;
+
+      if (reselectActiveConversation) {
+        const currentActiveConversationId = useChatStore.getState().activeConversation?.id;
+        if (currentActiveConversationId) {
+          await useChatStore.getState().selectConversation(currentActiveConversationId);
+        }
+      }
+
+      const { isConnected: currentlyConnected, isConnecting: currentlyConnecting } = useChatStore.getState();
+      if (!currentlyConnected && !currentlyConnecting) {
+        connectWebSocket();
+      }
+    };
+
+    reloadChatData();
+
+    const handleResume = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      const now = Date.now();
+      if (now - lastResumeSyncAt < 2000) return;
+      lastResumeSyncAt = now;
+
+      reloadChatData(true);
+    };
+
+    window.addEventListener('focus', handleResume);
+    document.addEventListener('visibilitychange', handleResume);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleResume);
+      document.removeEventListener('visibilitychange', handleResume);
+    };
   }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications]);
 
   useEffect(() => {
@@ -2098,12 +2143,12 @@ export const Chat = () => {
         {activeConversation && activeFriend ? (
           <>
             {/* Chat Header */}
-            <header className="h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex items-center px-4 justify-between shrink-0">
-              <div className="flex items-center gap-3 text-left">
+            <header className="min-h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
+              <div className="flex w-full min-w-0 items-center gap-2 text-left md:w-auto md:gap-3">
                 {/* Mobile Back Button */}
                 <button
                   onClick={() => selectConversation(null)}
-                  className="md:hidden p-1.5 mr-1 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 shrink-0"
+                  className="md:hidden p-2 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 shrink-0"
                   title="Back to conversations list"
                 >
                   <ArrowLeft className="w-4.5 h-4.5" />
@@ -2111,7 +2156,7 @@ export const Chat = () => {
                 <button
                   type="button"
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="flex min-w-0 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-gray-200/60 dark:hover:bg-zinc-800/60"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 md:flex-none"
                   title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
                 >
                   {isGroupConversation ? (
@@ -2153,13 +2198,13 @@ export const Chat = () => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-3 text-gray-500">
+              <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
                 {/* Voice Call Button */}
                 {!isGroupConversation && activeConversation && activeFriend && (
                   <button
                     onClick={() => initiateCall(activeConversation.id, 'voice', activeFriend)}
                     title="Cuộc gọi thoại"
-                    className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                   >
                     <Phone className="w-4 h-4" />
                   </button>
@@ -2170,7 +2215,7 @@ export const Chat = () => {
                   <button
                     onClick={() => initiateCall(activeConversation.id, 'video', activeFriend)}
                     title="Cuộc gọi video"
-                    className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                   >
                     <Video className="w-4 h-4" />
                   </button>
@@ -2181,7 +2226,7 @@ export const Chat = () => {
                     onClick={handleSummarizeConversation}
                     disabled={isSummarizingConversation}
                     title="Tóm tắt cuộc trò chuyện"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
                   >
                     {isSummarizingConversation ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -2201,7 +2246,7 @@ export const Chat = () => {
                       setIsConversationInfoOpen(false);
                     }}
                     title="Tìm kiếm tin nhắn"
-                    className={`p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
+                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
                       isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
                     }`}
                   >
@@ -2213,7 +2258,7 @@ export const Chat = () => {
                   <button
                     onClick={() => setIsInviteMembersOpen(true)}
                     title="Mời bạn vào nhóm"
-                    className="p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
                   </button>
@@ -2233,7 +2278,7 @@ export const Chat = () => {
                       setIsConversationInfoOpen(false);
                     }}
                     title="Tin nhắn đã ghim"
-                    className={`p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
+                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
                       isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
                     }`}
                   >
@@ -2249,7 +2294,7 @@ export const Chat = () => {
                       setIsPinnedPanelOpen(false);
                     }}
                     title="Thông tin hội thoại"
-                    className={`p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
+                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
                       isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
                     }`}
                   >
