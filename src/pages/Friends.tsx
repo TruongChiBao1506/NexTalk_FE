@@ -6,6 +6,7 @@ import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
@@ -38,6 +39,7 @@ export const Friends = () => {
   const [chatRequests] = useState<any[]>([]);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [removeFriendConfirm, setRemoveFriendConfirm] = useState<{ id: string; username: string } | null>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -67,11 +69,11 @@ export const Friends = () => {
     setActionLoadingId(null);
   };
 
-  const handleRemove = async (friendId: string) => {
-    if (!window.confirm('Bạn có chắc muốn hủy kết bạn người này?')) return;
+  const handleRemoveConfirmed = async (friendId: string) => {
     setActionLoadingId(friendId);
     await removeFriend(friendId);
     setActionLoadingId(null);
+    setRemoveFriendConfirm(null);
   };
 
   const handleStartChat = async (friendId: string) => {
@@ -273,7 +275,7 @@ export const Friends = () => {
                           <MessageSquare className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => handleRemove(friend.id)}
+                          onClick={() => setRemoveFriendConfirm({ id: friend.id, username: friend.username })}
                           disabled={actionLoadingId === friend.id}
                           className="p-2 rounded-xl text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all duration-200"
                           title="Hủy kết bạn"
@@ -400,6 +402,24 @@ export const Friends = () => {
           )}
         </div>
       </main>
+      <ConfirmDialog
+        isOpen={Boolean(removeFriendConfirm)}
+        title="Hủy kết bạn"
+        description={`Bạn có chắc muốn hủy kết bạn với ${removeFriendConfirm?.username ?? 'người này'}? Hai bạn vẫn có thể xem lại lịch sử trò chuyện.`}
+        confirmLabel="Hủy bạn bè"
+        variant="danger"
+        isLoading={Boolean(removeFriendConfirm && actionLoadingId === removeFriendConfirm.id)}
+        onCancel={() => {
+          if (!actionLoadingId) {
+            setRemoveFriendConfirm(null);
+          }
+        }}
+        onConfirm={() => {
+          if (removeFriendConfirm) {
+            handleRemoveConfirmed(removeFriendConfirm.id);
+          }
+        }}
+      />
       <MobileBottomNav />
     </div>
   );

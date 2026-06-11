@@ -5,6 +5,8 @@ export interface ConversationResponse {
   type: 'PRIVATE' | 'GROUP';
   name: string | null;
   canSendMessages?: boolean;
+  blockedByMe?: boolean;
+  blockedMe?: boolean;
   members: User[];
   createdAt: string;
   updatedAt: string;
@@ -67,4 +69,12 @@ export interface MessageResponse {
   isPinned?: boolean;
   pinnedAt?: string | null;
   reactions?: MessageReaction[];
+}
+
+export interface ConversationSummaryResponse {
+  type: 'CONVERSATION_SUMMARY';
+  conversationId: string;
+  summary: string;
+  sourceMessageCount: number;
+  createdAt: string;
 }

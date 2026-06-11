@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { ConversationResponse } from '../types/chat';
+import type { ConversationResponse, ConversationSummaryResponse } from '../types/chat';
 
 export const conversationService = {
   async getOrCreatePrivateConversation(friendId: string): Promise<ApiResponse<ConversationResponse>> {
@@ -15,6 +15,11 @@ export const conversationService = {
 
   async getConversationById(id: string): Promise<ApiResponse<ConversationResponse>> {
     const response = await apiClient.get<ApiResponse<ConversationResponse>>(`/conversations/${id}`);
+    return response.data;
+  },
+
+  async summarizeConversation(id: string): Promise<ApiResponse<ConversationSummaryResponse>> {
+    const response = await apiClient.post<ApiResponse<ConversationSummaryResponse>>(`/conversations/${id}/summary`);
     return response.data;
   }
 };

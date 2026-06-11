@@ -8,7 +8,7 @@ import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
 import { useFriendStore } from './friendStore';
 import { useCallStore } from './callStore';
-import type { ConversationResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType } from '../types/chat';
+import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
 
 function isTokenExpired(token: string, offsetSeconds = 60): boolean {
@@ -38,6 +38,7 @@ interface ChatState {
   stompClient: Client | null;
   replyTo: MessageResponse | null;
   pinnedMessages: MessageResponse[];
+  conversationSummaries: Record<string, ConversationSummaryResponse>;
 
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
@@ -57,6 +58,7 @@ interface ChatState {
   fetchPinnedMessages: (conversationId: string) => Promise<void>;
   reactToMessage: (messageId: string, emoji: string) => Promise<void>;
   shareMessage: (messageId: string, targetConversationIds: string[]) => Promise<boolean>;
+  setConversationSummary: (summary: ConversationSummaryResponse) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -73,6 +75,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   stompClient: null,
   replyTo: null,
   pinnedMessages: [],
+  conversationSummaries: {},
 
   fetchConversations: async () => {
     try {
@@ -314,6 +317,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const body = JSON.parse(message.body);
           if (body.type === 'STATUS_UPDATE') {
             get().handleStatusUpdate(body);
+          } else if (body.type === 'CONVERSATION_SUMMARY') {
+            get().setConversationSummary(body);
           } else {
             get().addIncomingMessage(body);
           }
@@ -713,5 +718,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to share message:', err);
     }
     return false;
+  },
+
+  setConversationSummary: (summary) => {
+    set((state) => ({
+      conversationSummaries: {
+        ...state.conversationSummaries,
+        [summary.conversationId]: summary,
+      },
+    }));
   },
 }));

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
@@ -12,14 +12,17 @@ import { fileService } from '../services/fileService';
 import { chatRequestService } from '../services/chatRequestService';
 import { userService } from '../services/userService';
 import { messageService } from '../services/messageService';
+import { blockService } from '../services/blockService';
+import { conversationService } from '../services/conversationService';
 import {
   LogOut, User, Settings, MessageSquare,
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
-  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus,
+  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
   AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
 import { useCallStore } from '../store/callStore';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
@@ -61,6 +64,7 @@ export const Chat = () => {
     disconnectWebSocket,
     replyTo,
     pinnedMessages,
+    conversationSummaries,
     fetchPinnedMessages,
     setReplyTo,
     editMessage,
@@ -68,7 +72,8 @@ export const Chat = () => {
     deleteMessage,
     togglePinMessage,
     reactToMessage,
-    shareMessage
+    shareMessage,
+    setConversationSummary
   } = useChatStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -122,6 +127,24 @@ export const Chat = () => {
       return ok;
     } finally {
       setIsSharingMessage(false);
+    }
+  };
+
+  const handleSummarizeConversation = async () => {
+    if (!activeConversation || isSummarizingConversation) return;
+
+    setIsSummarizingConversation(true);
+    try {
+      const response = await conversationService.summarizeConversation(activeConversation.id);
+      if (response.success && response.data) {
+        setConversationSummary(response.data);
+      } else {
+        window.alert(response.message || 'Không thể tóm tắt cuộc trò chuyện.');
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể tóm tắt cuộc trò chuyện.');
+    } finally {
+      setIsSummarizingConversation(false);
     }
   };
 
@@ -196,9 +219,18 @@ export const Chat = () => {
   const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [sentFriendRequestIds, setSentFriendRequestIds] = useState<string[]>([]);
   const [profileActionLoading, setProfileActionLoading] = useState(false);
+  const [blockActionLoading, setBlockActionLoading] = useState(false);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
+  const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    variant?: 'danger' | 'primary';
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -600,14 +632,26 @@ export const Chat = () => {
   };
 
   const activePrivateFriendId = getActivePrivateFriendId();
+  const activePrivateChatBlockedByMe = activeConversation?.type === 'PRIVATE' && activeConversation.blockedByMe === true;
+  const activePrivateChatBlockedMe = activeConversation?.type === 'PRIVATE' && activeConversation.blockedMe === true;
+  const activePrivateChatBlocked = activePrivateChatBlockedByMe || activePrivateChatBlockedMe;
   const canSendInActiveConversation = !activeConversation ||
-    activeConversation.type !== 'PRIVATE' ||
-    activeConversation.canSendMessages === true ||
     (
-      activeConversation.canSendMessages === undefined &&
-      (!activePrivateFriendId || friends.some((friend) => friend.id === activePrivateFriendId))
+      activeConversation.type === 'PRIVATE'
+        ? !activePrivateChatBlocked && (
+            activeConversation.canSendMessages === true ||
+            (
+              activeConversation.canSendMessages === undefined &&
+              (!activePrivateFriendId || friends.some((friend) => friend.id === activePrivateFriendId))
+            )
+          )
+        : true
     );
-  const messagePlaceholder = !canSendInActiveConversation
+  const messagePlaceholder = activePrivateChatBlockedByMe
+    ? 'Bạn đã chặn người này. Bỏ chặn để tiếp tục nhắn tin.'
+    : activePrivateChatBlockedMe
+    ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn.'
+    : !canSendInActiveConversation
     ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
     : activeConversation?.type === 'GROUP'
     ? `Nhập @, tin nhắn tới #${groups.find(group => group.conversationId === activeConversation.id)?.name || 'group'}...`
@@ -1010,6 +1054,10 @@ export const Chat = () => {
   const handleSendBlockedChatRequest = async () => {
     const receiverId = getActivePrivateFriendId();
     const message = getCurrentInputMessage().trim();
+    if (activePrivateChatBlocked) {
+      window.alert(activePrivateChatBlockedByMe ? 'Bạn cần bỏ chặn người này trước khi nhắn tin.' : 'Bạn không thể nhắn tin vì người này đã chặn bạn.');
+      return;
+    }
     if (!receiverId || !message || isSendingBlockedChatRequest) {
       return;
     }
@@ -1073,8 +1121,8 @@ export const Chat = () => {
   const currentChatUser = activeConversation?.type === 'PRIVATE'
     ? activeConversation.members.find((member) => member.id !== user?.id)
     : null;
-  const activeFriendIsFriend = currentChatUser ? isExistingFriend(currentChatUser.id) : false;
-  const activeFriendRequestSent = currentChatUser ? sentFriendRequestIds.includes(currentChatUser.id) : false;
+  const activeFriendIsFriend = currentChatUser ? isExistingFriend(currentChatUser?.id ?? '') : false;
+  const activeFriendRequestSent = currentChatUser ? sentFriendRequestIds.includes(currentChatUser?.id ?? '') : false;
   const handleSendFriendRequestFromSearch = async (targetUserId: string) => {
     setFriendRequestActionId(targetUserId);
     const success = await sendFriendRequest(targetUserId);
@@ -1095,22 +1143,103 @@ export const Chat = () => {
 
   const handleProfileFriendAction = async () => {
     if (!currentChatUser || profileActionLoading) return;
+    if (activeFriendIsFriend) {
+      setConfirmDialog({
+        title: 'H\u1ee7y k\u1ebft b\u1ea1n',
+        description: `B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n h\u1ee7y k\u1ebft b\u1ea1n v\u1edbi ${currentChatUser?.username ?? ''}? Hai b\u1ea1n v\u1eabn c\u00f3 th\u1ec3 xem l\u1ea1i l\u1ecbch s\u1eed tr\u00f2 chuy\u1ec7n.`,
+        confirmLabel: 'H\u1ee7y b\u1ea1n b\u00e8',
+        variant: 'danger',
+        onConfirm: async () => {
+          setProfileActionLoading(true);
+          try {
+            const ok = await removeFriend(currentChatUser?.id ?? '');
+            if (ok) {
+              await fetchFriends();
+            }
+          } finally {
+            setProfileActionLoading(false);
+            setConfirmDialog(null);
+          }
+        },
+      });
+      return;
+    }
     setProfileActionLoading(true);
     try {
       if (activeFriendIsFriend) {
-        if (!window.confirm(`Hủy kết bạn với ${currentChatUser.username}?`)) return;
-        const ok = await removeFriend(currentChatUser.id);
+        if (!window.confirm(`Hủy kết bạn với ${currentChatUser?.username ?? ''}?`)) return;
+        const ok = await removeFriend(currentChatUser?.id ?? '');
         if (ok) {
           await fetchFriends();
         }
       } else {
-        const ok = await sendFriendRequest(currentChatUser.id);
+        const ok = await sendFriendRequest(currentChatUser?.id ?? '');
         if (ok) {
-          setSentFriendRequestIds((prev) => prev.includes(currentChatUser.id) ? prev : [...prev, currentChatUser.id]);
+          setSentFriendRequestIds((prev) => prev.includes(currentChatUser?.id ?? '') ? prev : [...prev, currentChatUser?.id ?? '']);
         }
       }
     } finally {
       setProfileActionLoading(false);
+    }
+  };
+
+  const handleToggleBlockUser = async () => {
+    if (!currentChatUser || blockActionLoading) return;
+    setConfirmDialog({
+      title: activeConversation?.blockedByMe === true ? 'B\u1ecf ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng' : 'Ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng',
+      description: activeConversation?.blockedByMe === true
+        ? `B\u1ea1n mu\u1ed1n b\u1ecf ch\u1eb7n ${currentChatUser?.username ?? ''}? Sau khi b\u1ecf ch\u1eb7n, hai b\u1ea1n c\u00f3 th\u1ec3 ti\u1ebfp t\u1ee5c nh\u1eafn tin n\u1ebfu \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n.`
+        : `Ch\u1eb7n ${currentChatUser?.username ?? ''}? Ng\u01b0\u1eddi n\u00e0y s\u1ebd kh\u00f4ng th\u1ec3 nh\u1eafn tin v\u1edbi b\u1ea1n v\u00e0 b\u1ea1n c\u0169ng kh\u00f4ng th\u1ec3 g\u1eedi tin nh\u1eafn cho h\u1ecd.`,
+      confirmLabel: activeConversation?.blockedByMe === true ? 'B\u1ecf ch\u1eb7n' : 'Ch\u1eb7n',
+      variant: 'danger',
+      onConfirm: async () => {
+        const isBlockedByMe = activeConversation?.blockedByMe === true;
+        setBlockActionLoading(true);
+        try {
+          const response = isBlockedByMe
+            ? await blockService.unblockUser(currentChatUser?.id ?? '')
+            : await blockService.blockUser(currentChatUser?.id ?? '');
+
+          if (response.success) {
+            await fetchConversations();
+            if (activeConversation?.id) {
+              await selectConversation(activeConversation?.id ?? null);
+            }
+          }
+        } catch (err: any) {
+          window.alert(err.response?.data?.message || err.message || 'KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i cháº·n.');
+        } finally {
+          setBlockActionLoading(false);
+          setConfirmDialog(null);
+        }
+      },
+    });
+    return;
+    if (!currentChatUser || !activeConversation) return;
+    const isBlockedByMe = activeConversation?.blockedByMe === true;
+    const confirmed = window.confirm(
+      isBlockedByMe
+        ? `Bỏ chặn ${currentChatUser?.username ?? ''}?`
+        : `Chặn ${currentChatUser?.username ?? ''}? Người này sẽ không thể nhắn tin với bạn.`
+    );
+    if (!confirmed) return;
+
+    setBlockActionLoading(true);
+    try {
+      const response = isBlockedByMe
+        ? await blockService.unblockUser(currentChatUser?.id ?? '')
+        : await blockService.blockUser(currentChatUser?.id ?? '');
+
+      if (response.success) {
+        await fetchConversations();
+        if (activeConversation?.id) {
+          await selectConversation(activeConversation?.id ?? null);
+        }
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái chặn.');
+    } finally {
+      setBlockActionLoading(false);
     }
   };
 
@@ -1409,6 +1538,9 @@ export const Chat = () => {
 
 
   const activeFriend = activeConversation ? getFriendInfo(activeConversation) : null;
+  const activeConversationSummary = activeConversation
+    ? conversationSummaries[activeConversation.id]
+    : null;
 
   // For group chat: determine if we're in a group conversation
   const isGroupConversation = activeConversation?.type === 'GROUP';
@@ -2044,6 +2176,22 @@ export const Chat = () => {
                   </button>
                 )}
 
+                {activeConversation && (
+                  <button
+                    onClick={handleSummarizeConversation}
+                    disabled={isSummarizingConversation}
+                    title="Tóm tắt cuộc trò chuyện"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                  >
+                    {isSummarizingConversation ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span className="hidden lg:inline">Tóm tắt</span>
+                  </button>
+                )}
+
                 {/* Search Message Button */}
                 {activeConversation && (
                   <button
@@ -2173,6 +2321,27 @@ export const Chat = () => {
                 </div>
               );
             })()}
+
+            {activeConversationSummary && (
+              <div className={`border-b border-indigo-100 bg-indigo-50/80 px-4 py-3 text-left dark:border-indigo-500/20 dark:bg-indigo-500/10 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-lg bg-white p-1.5 text-indigo-600 shadow-sm dark:bg-zinc-900/80 dark:text-indigo-300">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="m-0 text-sm font-bold text-indigo-700 dark:text-indigo-200">Tóm tắt cuộc trò chuyện</p>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-500 dark:bg-zinc-900/70 dark:text-indigo-300">
+                        {activeConversationSummary.sourceMessageCount} tin nhắn
+                      </span>
+                    </div>
+                    <p className="m-0 mt-1 whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-zinc-200">
+                      {activeConversationSummary.summary}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Messages */}
             <div
@@ -2553,7 +2722,20 @@ export const Chat = () => {
                 <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
               )}
 
-              {!canSendInActiveConversation && (
+              {activePrivateChatBlocked && (
+                <div className="mb-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
+                  <div className="font-semibold">
+                    {activePrivateChatBlockedByMe ? 'Bạn đã chặn người này.' : 'Người này đã chặn bạn.'}
+                  </div>
+                  <div className="mt-0.5 text-xs text-rose-700 dark:text-rose-200/80">
+                    {activePrivateChatBlockedByMe
+                      ? 'Bạn vẫn xem được lịch sử trò chuyện. Bỏ chặn nếu muốn tiếp tục nhắn tin.'
+                      : 'Bạn vẫn xem được lịch sử trò chuyện nhưng không thể gửi tin nhắn.'}
+                  </div>
+                </div>
+              )}
+
+              {!canSendInActiveConversation && !activePrivateChatBlocked && (
                 <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                   <div className="font-semibold">Hai bạn không còn là bạn bè.</div>
                   <div className="mt-0.5 text-xs text-amber-700 dark:text-amber-200/80">
@@ -2817,6 +2999,8 @@ export const Chat = () => {
                         e.preventDefault();
                         if (canSendInActiveConversation) {
                           handleSendMessage(e);
+                        } else if (activePrivateChatBlocked) {
+                          return;
                         } else {
                           handleSendBlockedChatRequest();
                         }
@@ -2850,7 +3034,7 @@ export const Chat = () => {
                         disabled={
                           canSendInActiveConversation
                             ? pendingAttachments.some((attachment) => attachment.isUploading)
-                            : !inputMessage.trim() || isSendingBlockedChatRequest
+                            : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
                         }
                         className="p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"
                         title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
@@ -3104,11 +3288,12 @@ export const Chat = () => {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => window.alert('Tính năng chặn người dùng cần API backend trước khi kích hoạt.')}
+                          onClick={handleToggleBlockUser}
+                          disabled={blockActionLoading}
                           className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
                         >
-                          <Shield className="h-4 w-4" />
-                          <span>Chặn người dùng</span>
+                          {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                          <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
                         </button>
                       )}
                     </div>
@@ -3359,6 +3544,14 @@ export const Chat = () => {
                     >
                       {profileActionLoading ? 'Đang xử lý...' : activeFriendIsFriend ? 'Hủy bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời' : 'Thêm bạn'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleBlockUser}
+                      disabled={blockActionLoading}
+                      className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                    >
+                      {blockActionLoading ? 'Đang xử lý...' : activePrivateChatBlockedByMe ? 'Bỏ chặn' : 'Chặn'}
+                    </button>
                   </div>
                   <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
                     <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Email</p>
@@ -3397,6 +3590,23 @@ export const Chat = () => {
         </div>
       )}
 
+      <ConfirmDialog
+        isOpen={Boolean(confirmDialog)}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        isLoading={profileActionLoading || blockActionLoading}
+        onCancel={() => {
+          if (!profileActionLoading && !blockActionLoading) {
+            setConfirmDialog(null);
+          }
+        }}
+        onConfirm={() => {
+          confirmDialog?.onConfirm();
+        }}
+      />
+
       {/* Call Overlay */}
       <CallOverlay />
 
@@ -3407,3 +3617,4 @@ export const Chat = () => {
 };
 
 export default Chat;
+
