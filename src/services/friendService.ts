@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { FriendResponse } from '../types/friend';
+import type { FriendResponse, FriendshipAcceptResponse } from '../types/friend';
 
 export const friendService = {
   async sendRequest(receiverId: string): Promise<ApiResponse<void>> {
@@ -8,8 +8,8 @@ export const friendService = {
     return response.data;
   },
 
-  async acceptRequest(senderId: string): Promise<ApiResponse<void>> {
-    const response = await apiClient.put<ApiResponse<void>>('/friends/accept', { senderId });
+  async acceptRequest(senderId: string): Promise<ApiResponse<FriendshipAcceptResponse>> {
+    const response = await apiClient.put<ApiResponse<FriendshipAcceptResponse>>('/friends/accept', { senderId });
     return response.data;
   },
 

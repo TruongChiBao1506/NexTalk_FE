@@ -4,6 +4,7 @@ export interface ConversationResponse {
   id: string;
   type: 'PRIVATE' | 'GROUP';
   name: string | null;
+  canSendMessages?: boolean;
   members: User[];
   createdAt: string;
   updatedAt: string;
@@ -12,8 +13,17 @@ export interface ConversationResponse {
 export interface MessageRequest {
   conversationId: string;
   content: string;
-  messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
+  messageType?: MessageType;
+  attachments?: MessageAttachment[];
   parentId?: string;
+}
+
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'SYSTEM';
+
+export interface MessageAttachment {
+  url: string;
+  type: 'IMAGE' | 'VIDEO' | 'FILE';
+  name?: string | null;
 }
 
 export interface MessageStatusResponse {
@@ -44,14 +54,17 @@ export interface MessageResponse {
   senderId: string;
   senderUsername: string;
   content: string;
-  messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
+  messageType: MessageType;
+  attachments?: MessageAttachment[];
   createdAt: string;
   statuses?: MessageStatusResponse[];
   parentId?: string | null;
+  forwardedFromMessageId?: string | null;
+  forwardedFromSenderUsername?: string | null;
   isEdited?: boolean;
   editedAt?: string | null;
   isRecalled?: boolean;
   isPinned?: boolean;
+  pinnedAt?: string | null;
   reactions?: MessageReaction[];
 }
-

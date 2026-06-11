@@ -16,3 +16,7 @@ export interface FriendshipRequest {
 export interface FriendshipAcceptRequest {
   senderId: string;
 }
+
+export interface FriendshipAcceptResponse {
+  conversationId: string;
+}

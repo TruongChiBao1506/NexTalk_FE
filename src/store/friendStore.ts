@@ -10,7 +10,7 @@ interface FriendState {
   fetchFriends: () => Promise<void>;
   fetchPending: () => Promise<void>;
   sendFriendRequest: (userId: string) => Promise<boolean>;
-  acceptRequest: (userId: string) => Promise<boolean>;
+  acceptRequest: (userId: string) => Promise<string | null>;
   rejectRequest: (userId: string) => Promise<boolean>;
   removeFriend: (userId: string) => Promise<boolean>;
   updateFriendPresence: (userId: string, status: string, lastSeen?: string) => void;
@@ -78,13 +78,13 @@ export const useFriendStore = create<FriendState>((set, get) => ({
       if (response.success) {
         await get().fetchFriends();
         await get().fetchPending();
-        return true;
+        return response.data?.conversationId ?? null;
       }
-      return false;
+      return null;
     } catch (err: any) {
       console.error(err);
       set({ error: err.response?.data?.message || 'Failed to accept friend request' });
-      return false;
+      return null;
     } finally {
       set({ isLoading: false });
     }

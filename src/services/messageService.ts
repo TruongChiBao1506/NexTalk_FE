@@ -67,6 +67,13 @@ export const messageService = {
     return response.data;
   },
 
+  async shareMessage(id: string, targetConversationIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse[]>>(`/messages/${id}/share`, {
+      targetConversationIds
+    });
+    return response.data;
+  },
+
   async searchMessages(query: string, conversationId?: string): Promise<ApiResponse<MessageResponse[]>> {
     const response = await apiClient.get<ApiResponse<MessageResponse[]>>('/messages/search', {
       params: { query, conversationId }
@@ -74,4 +81,3 @@ export const messageService = {
     return response.data;
   }
 };
-

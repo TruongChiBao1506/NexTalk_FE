@@ -8,7 +8,7 @@ import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
 import { useFriendStore } from './friendStore';
 import { useCallStore } from './callStore';
-import type { ConversationResponse, MessageResponse, MessageStatusUpdateResponse } from '../types/chat';
+import type { ConversationResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
 
 function isTokenExpired(token: string, offsetSeconds = 60): boolean {
@@ -42,7 +42,7 @@ interface ChatState {
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', parentId?: string) => void;
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[]) => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
@@ -56,6 +56,7 @@ interface ChatState {
   togglePinMessage: (messageId: string, isPinned: boolean) => Promise<void>;
   fetchPinnedMessages: (conversationId: string) => Promise<void>;
   reactToMessage: (messageId: string, emoji: string) => Promise<void>;
+  shareMessage: (messageId: string, targetConversationIds: string[]) => Promise<boolean>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -200,19 +201,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendStompMessage: (content: string, messageType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', parentId?: string) => {
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[]) => {
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
       return;
     }
 
-    const messageRequest = {
-      conversationId: activeConversation.id,
-      content,
-      messageType: messageType || 'TEXT',
-      parentId: parentId || undefined,
-    };
+      const messageRequest = {
+        conversationId: activeConversation.id,
+        content,
+        messageType: messageType || 'TEXT',
+        parentId: parentId || undefined,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
+      };
 
     stompClient.publish({
       destination: '/app/chat.send',
@@ -222,6 +224,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   getOrCreatePrivateConversation: async (friendId: string) => {
     try {
+      const existing = get().conversations.find((conversation) =>
+        conversation.type === 'PRIVATE' &&
+        conversation.members.some((member) => member.id === friendId)
+      );
+
+      if (existing) {
+        await get().selectConversation(existing.id);
+        return existing;
+      }
+
       const response = await conversationService.getOrCreatePrivateConversation(friendId);
       if (response.success && response.data) {
         const conversation = response.data;
@@ -652,6 +664,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           console.error('Failed to refresh pinned messages after toggle:', err);
         }
       }
+
     } catch (err) {
       console.error('Failed to toggle pin status:', err);
     }
@@ -674,5 +687,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err) {
       console.error('Failed to react to message:', err);
     }
+  },
+
+  shareMessage: async (messageId, targetConversationIds) => {
+    try {
+      const response = await messageService.shareMessage(messageId, targetConversationIds);
+      if (response.success && response.data) {
+        const currentActiveId = get().activeConversation?.id;
+        for (const message of response.data) {
+          set((state) => ({
+            lastMessages: {
+              ...state.lastMessages,
+              [message.conversationId]: message,
+            },
+          }));
+
+          if (currentActiveId === message.conversationId) {
+            get().addIncomingMessage(message);
+          }
+        }
+        await get().fetchConversations();
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to share message:', err);
+    }
+    return false;
   },
 }));
