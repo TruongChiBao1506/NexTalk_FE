@@ -1,21 +1,40 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Phone,
-  PhoneOff,
-  Video,
-  VideoOff,
+  Camera,
   Mic,
   MicOff,
   Monitor,
-  Volume2
+  Palette,
+  Phone,
+  PhoneOff,
+  Pin,
+  PinOff,
+  RotateCcw,
+  Sparkles,
+  Video,
+  VideoOff,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { useCallStore } from '../../store/callStore';
+import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 import type { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 
 interface VideoPlayerProps {
   track: ILocalVideoTrack | IRemoteVideoTrack | null;
   className?: string;
 }
+
+type Tile = {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+  isLocal?: boolean;
+  isMuted?: boolean;
+  isSpeaking?: boolean;
+  videoTrack?: ILocalVideoTrack | IRemoteVideoTrack | null;
+};
 
 const VideoTrackPlayer = ({ track, className }: VideoPlayerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,19 +47,124 @@ const VideoTrackPlayer = ({ track, className }: VideoPlayerProps) => {
     };
   }, [track]);
 
-  return <div ref={containerRef} className={`${className} overflow-hidden rounded-2xl bg-zinc-950`} style={{ width: '100%', height: '100%' }} />;
+  return <div ref={containerRef} className={`${className} overflow-hidden bg-zinc-950`} />;
 };
 
+const formatDuration = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const nameInitial = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
+
+const javaStringHashUid = (value: string) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = Math.imul(31, hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return String(hash & 0x7fffffff);
+};
+
+const getBalancedGridClass = (count: number) => {
+  if (count <= 1) return 'grid-cols-1';
+  if (count === 2) return 'grid-cols-1 sm:grid-cols-2';
+  if (count === 3) return 'grid-cols-1 sm:grid-cols-3';
+  if (count === 4) return 'grid-cols-2';
+  if (count <= 6) return 'grid-cols-2 lg:grid-cols-3';
+  if (count <= 9) return 'grid-cols-2 sm:grid-cols-3';
+  return 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4';
+};
+
+const Avatar = ({ tile, size = 'large' }: { tile: Tile; size?: 'small' | 'large' }) => {
+  const sizeClass = size === 'small' ? 'h-12 w-12 text-base' : 'h-20 w-20 text-3xl';
+  return tile.avatarUrl ? (
+    <img src={tile.avatarUrl} alt={tile.name} className={`${sizeClass} rounded-full object-cover shadow-xl`} />
+  ) : (
+    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-zinc-700 font-bold text-white shadow-xl`}>
+      {nameInitial(tile.name)}
+    </div>
+  );
+};
+
+const VideoTile = ({
+  tile,
+  pinned,
+  onTogglePin,
+  compact = false
+}: {
+  tile: Tile;
+  pinned?: boolean;
+  onTogglePin?: () => void;
+  compact?: boolean;
+}) => (
+  <div className={`group relative h-full overflow-hidden rounded-2xl border bg-zinc-950 ${
+    tile.isSpeaking ? 'border-emerald-400 shadow-lg shadow-emerald-500/20' : 'border-zinc-800'
+  }`}>
+    {tile.videoTrack ? (
+      <VideoTrackPlayer track={tile.videoTrack} className="h-full w-full" />
+    ) : (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-zinc-900">
+        <div className={tile.isSpeaking ? 'rounded-full ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-zinc-900 animate-pulse' : ''}>
+          <Avatar tile={tile} size={compact ? 'small' : 'large'} />
+        </div>
+        {!compact && <span className="max-w-[80%] truncate text-sm font-semibold text-white">{tile.name}</span>}
+      </div>
+    )}
+
+    <div className="absolute bottom-2 left-2 flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+      {tile.isMuted && <MicOff className="h-3.5 w-3.5 text-red-400" />}
+      <span className="truncate">{tile.isLocal ? 'Ban' : tile.name}</span>
+    </div>
+
+    {onTogglePin && (
+      <button
+        type="button"
+        onClick={onTogglePin}
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition hover:bg-black/75 group-hover:opacity-100"
+        title={pinned ? 'Bo ghim' : 'Ghim nguoi nay'}
+      >
+        {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+      </button>
+    )}
+  </div>
+);
+
+const VoiceTile = ({ tile }: { tile: Tile }) => (
+  <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-zinc-900/80 p-4 ring-1 ring-zinc-800">
+    <div className={`relative rounded-full ${tile.isSpeaking ? 'ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-zinc-900 animate-pulse' : ''}`}>
+      <Avatar tile={tile} />
+      {tile.isMuted && (
+        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white ring-4 ring-zinc-900">
+          <MicOff className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+    <span className="max-w-full truncate text-sm font-semibold text-white">{tile.isLocal ? 'Ban' : tile.name}</span>
+  </div>
+);
+
 export const CallOverlay = () => {
+  const currentUser = useAuthStore((state) => state.user);
   const {
     callState,
     callType,
+    isGroupCall,
+    callTitle,
+    callMemberCount,
+    conversationId,
     caller,
     receiver,
     isMicMuted,
     isCameraMuted,
     isScreenSharing,
+    isSpeakerOn,
     remoteUsers,
+    activeSpeakerUids,
+    localAgoraUid,
+    callNotices,
+    remoteAudioPlaybackBlocked,
     localVideoTrack,
     screenVideoTrack,
     acceptCall,
@@ -49,225 +173,390 @@ export const CallOverlay = () => {
     hangupCall,
     toggleMic,
     toggleCamera,
-    toggleScreenShare
+    toggleSpeaker,
+    switchCamera,
+    startVideo,
+    toggleScreenShare,
+    resumeRemoteAudio
   } = useCallStore();
+  const callConversation = useChatStore((state) =>
+    state.activeConversation?.id === conversationId
+      ? state.activeConversation
+      : state.conversations.find((conversation) => conversation.id === conversationId) ?? null
+  );
+
+  const [callDuration, setCallDuration] = useState(0);
+  const [pinnedTileId, setPinnedTileId] = useState<string | null>(null);
+  const [recentSpeakerTileIds, setRecentSpeakerTileIds] = useState<string[]>([]);
+  const connectedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (callState !== 'connected') {
+      connectedAtRef.current = null;
+      setCallDuration(0);
+      setPinnedTileId(null);
+      setRecentSpeakerTileIds([]);
+      return;
+    }
+
+    connectedAtRef.current = connectedAtRef.current ?? Date.now();
+    const updateDuration = () => {
+      if (connectedAtRef.current) {
+        setCallDuration(Math.floor((Date.now() - connectedAtRef.current) / 1000));
+      }
+    };
+
+    updateDuration();
+    const timer = window.setInterval(updateDuration, 1000);
+    return () => window.clearInterval(timer);
+  }, [callState]);
+
+  useEffect(() => {
+    if (callState !== 'connected' || callType !== 'video' || !isGroupCall || activeSpeakerUids.length === 0) return;
+
+    const activeIds = activeSpeakerUids.map((uid) =>
+      localAgoraUid !== null && uid === String(localAgoraUid) ? 'local' : uid
+    );
+
+    setRecentSpeakerTileIds((previous) => (
+      Array.from(new Set([...activeIds, ...previous])).slice(0, 4)
+    ));
+
+    const timer = window.setTimeout(() => {
+      setRecentSpeakerTileIds((previous) => previous.filter((id) => !activeIds.includes(id)));
+    }, 7000);
+
+    return () => window.clearTimeout(timer);
+  }, [activeSpeakerUids, callState, callType, isGroupCall, localAgoraUid]);
+
+  const memberByAgoraUid = useMemo(() => {
+    const members = callConversation?.members ?? [];
+    return new Map(members.map((member) => [javaStringHashUid(member.id), member]));
+  }, [callConversation]);
+
+  const remoteTiles: Tile[] = useMemo(() => remoteUsers.map((user) => {
+    const uid = String(user.uid);
+    const member = memberByAgoraUid.get(uid);
+    const fallbackProfile = caller?.id !== currentUser?.id ? caller : receiver;
+
+    return {
+      id: uid,
+      name: member?.username ?? fallbackProfile?.username ?? `Thanh vien ${uid}`,
+      avatarUrl: member?.avatarUrl ?? fallbackProfile?.avatarUrl,
+      isMuted: !user.hasAudio,
+      isSpeaking: activeSpeakerUids.includes(uid),
+      videoTrack: user.videoTrack ?? null
+    };
+  }), [activeSpeakerUids, caller, currentUser?.id, memberByAgoraUid, receiver, remoteUsers]);
 
   if (callState === 'idle') return null;
 
-  const partner = callState === 'ringing_incoming' ? caller : receiver;
-  if (!partner) return null;
+  const partner =
+    callState === 'ringing_incoming'
+      ? caller
+      : callState === 'ringing_outgoing'
+        ? receiver
+        : caller?.id === currentUser?.id
+          ? receiver
+          : caller ?? receiver;
+
+  if (!partner && !isGroupCall) return null;
+
+  const displayName = isGroupCall ? callTitle ?? 'Group call' : partner?.username ?? 'Unknown';
+  const subtitle = isGroupCall && callMemberCount
+    ? `${callMemberCount} thanh vien`
+    : callState === 'connected'
+      ? 'Da ket noi'
+      : callType === 'video'
+        ? 'Cuoc goi video'
+        : 'Cuoc goi thoai';
+
+  const localTile: Tile = {
+    id: 'local',
+    name: currentUser?.username ?? 'Ban',
+    avatarUrl: currentUser?.avatarUrl,
+    isLocal: true,
+    isMuted: isMicMuted,
+    isSpeaking: localAgoraUid !== null && activeSpeakerUids.includes(String(localAgoraUid)),
+    videoTrack: callType === 'video' && !isCameraMuted ? (isScreenSharing ? screenVideoTrack : localVideoTrack) : null
+  };
+
+  const partnerTile: Tile | null = partner ? {
+    id: partner.id,
+    name: partner.username,
+    avatarUrl: partner.avatarUrl,
+    isMuted: false,
+    isSpeaking: remoteTiles.some((tile) => tile.isSpeaking),
+    videoTrack: remoteTiles[0]?.videoTrack ?? null
+  } : null;
+
+  const allTiles = [localTile, ...remoteTiles];
+  const oneOnOneTile = remoteTiles[0] ?? partnerTile;
+  const selectedPinnedTile = allTiles.find((tile) => tile.id === pinnedTileId) ?? null;
+  const isLargeGroupVideo = isGroupCall && allTiles.length >= 5;
+  const visibleBoardTiles = allTiles.slice(0, 16);
+  const stageTiles = recentSpeakerTileIds
+    .map((id) => allTiles.find((tile) => tile.id === id))
+    .filter((tile): tile is Tile => Boolean(tile))
+    .slice(0, 4);
+  const activeStageTiles = selectedPinnedTile
+    ? [selectedPinnedTile]
+    : stageTiles.length > 0
+      ? stageTiles
+      : isLargeGroupVideo
+        ? visibleBoardTiles.slice(0, 4)
+        : [];
+  const stripTiles = selectedPinnedTile || stageTiles.length > 0
+    ? allTiles.filter((tile) => !activeStageTiles.some((stageTile) => stageTile.id === tile.id))
+    : allTiles.slice(16);
+  const shouldUseStageLayout = isLargeGroupVideo && (Boolean(selectedPinnedTile) || stageTiles.length > 0 || allTiles.length > 16);
+  const boardGridClass = getBalancedGridClass(Math.min(visibleBoardTiles.length, 16));
+  const stageGridClass = getBalancedGridClass(activeStageTiles.length);
+
+  const EndCallButton = ({ onClick, large = false }: { onClick: () => void; large?: boolean }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${large ? 'h-14 w-16 rounded-2xl' : 'h-16 w-16 rounded-full'} flex items-center justify-center bg-red-600 text-white shadow-xl shadow-red-950/60 ring-4 ring-red-500/25 transition-transform duration-200 hover:scale-105 hover:bg-red-500 active:scale-95 cursor-pointer`}
+      title="Ket thuc cuoc goi"
+    >
+      <PhoneOff className={large ? 'h-6 w-6' : 'h-7 w-7'} />
+    </button>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-center items-center bg-zinc-950/95 backdrop-blur-xl select-none">
-      
-      {/* 1. Incoming Call Screen */}
-      {callState === 'ringing_incoming' && (
-        <div className="flex flex-col items-center max-w-sm w-full p-8 text-center animate-fade-in text-white">
-          <div className="relative mb-12">
-            {/* Pulsing ripple rings */}
+    <div className="fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
+      {callState !== 'connected' && (
+        <div className="pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-zinc-800 bg-zinc-950/95 p-6 text-center text-white shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in">
+          <div className="relative mb-7">
             <div className="absolute inset-0 rounded-full bg-indigo-600/30 animate-ping" style={{ animationDuration: '3s' }} />
             <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
-            
-            {partner.avatarUrl ? (
-              <img
-                src={partner.avatarUrl}
-                alt={partner.username}
-                className="w-32 h-32 rounded-full object-cover border-4 border-indigo-650 relative z-10 shadow-2xl"
-              />
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-indigo-650 text-white font-bold flex items-center justify-center text-4xl border-4 border-indigo-500 relative z-10 shadow-2xl">
-                {partner.username.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <div className="relative z-10">
+              <Avatar tile={{ id: 'ring', name: displayName, avatarUrl: partner?.avatarUrl }} />
+            </div>
           </div>
 
-          <h2 className="text-2xl font-bold mb-2 tracking-tight">{partner.username}</h2>
-          <p className="text-zinc-400 text-sm mb-12 flex items-center justify-center gap-2">
-            {callType === 'video' ? (
-              <>
-                <Video className="w-4 h-4 text-indigo-400" />
-                <span>Cuộc gọi video đến...</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-4 h-4 text-indigo-400" />
-                <span>Cuộc gọi thoại đến...</span>
-              </>
-            )}
+          <h2 className="mb-2 max-w-full truncate text-xl font-bold tracking-tight">{displayName}</h2>
+          <p className="mb-8 flex items-center justify-center gap-2 text-sm text-zinc-400">
+            {callType === 'video' ? <Video className="h-4 w-4 text-indigo-400" /> : <Volume2 className="h-4 w-4 text-indigo-400" />}
+            <span>
+              {callState === 'ringing_incoming'
+                ? isGroupCall ? `${subtitle} dang goi...` : callType === 'video' ? 'Cuoc goi video den...' : 'Cuoc goi thoai den...'
+                : isGroupCall ? `${subtitle} - dang do chuong...` : 'Dang do chuong...'}
+            </span>
           </p>
 
-          <div className="flex items-center gap-8 justify-center">
-            {/* Decline Button */}
-            <button
-              onClick={rejectCall}
-              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer"
-            >
-              <PhoneOff className="w-7 h-7" />
-            </button>
-
-            {/* Accept Button */}
-            <button
-              onClick={acceptCall}
-              className="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer animate-pulse"
-            >
-              {callType === 'video' ? <Video className="w-7 h-7" /> : <Phone className="w-7 h-7" />}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Outgoing Call Screen */}
-      {callState === 'ringing_outgoing' && (
-        <div className="flex flex-col items-center max-w-sm w-full p-8 text-center animate-fade-in text-white">
-          <div className="relative mb-12">
-            <div className="absolute inset-0 rounded-full bg-zinc-800/40 animate-pulse" />
-            {partner.avatarUrl ? (
-              <img
-                src={partner.avatarUrl}
-                alt={partner.username}
-                className="w-32 h-32 rounded-full object-cover border-4 border-zinc-700 relative z-10 shadow-2xl"
-              />
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-zinc-700 text-white font-bold flex items-center justify-center text-4xl border-4 border-zinc-600 relative z-10 shadow-2xl">
-                {partner.username.charAt(0).toUpperCase()}
-              </div>
+          <div className="flex items-center justify-center gap-8">
+            <EndCallButton onClick={callState === 'ringing_incoming' ? rejectCall : cancelCall} />
+            {callState === 'ringing_incoming' && (
+              <button
+                type="button"
+                onClick={acceptCall}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 transition-transform duration-200 hover:scale-110 hover:bg-emerald-500 active:scale-95 cursor-pointer animate-pulse"
+                title="Nhan cuoc goi"
+              >
+                {callType === 'video' ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
+              </button>
             )}
           </div>
-
-          <h2 className="text-2xl font-bold mb-2 tracking-tight">{partner.username}</h2>
-          <p className="text-zinc-400 text-sm mb-12 animate-pulse">Đang đổ chuông...</p>
-
-          <div className="flex items-center justify-center">
-            <button
-              onClick={cancelCall}
-              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 duration-200 cursor-pointer"
-            >
-              <PhoneOff className="w-7 h-7" />
-            </button>
-          </div>
         </div>
       )}
 
-      {/* 3. Connected Call Screen */}
       {callState === 'connected' && (
-        <div className="relative w-full h-full flex flex-col justify-between p-6">
-          
-          {/* Main Call View */}
-          <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl">
-            {callType === 'video' ? (
-              <div className="w-full h-full relative">
-                {/* Remote Video Track */}
-                {remoteUsers.length > 0 && remoteUsers[0].videoTrack ? (
-                  <VideoTrackPlayer track={remoteUsers[0].videoTrack} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-white gap-4 bg-zinc-950">
-                    {partner.avatarUrl ? (
-                      <img
-                        src={partner.avatarUrl}
-                        alt={partner.username}
-                        className="w-24 h-24 rounded-full object-cover border-2 border-zinc-700 shadow-xl"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 rounded-full bg-zinc-800 text-white font-bold flex items-center justify-center text-3xl shadow-xl">
-                        {partner.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <p className="text-zinc-400 text-sm">{partner.username} đã tắt camera</p>
-                  </div>
-                )}
+        <div className={`pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/95 text-white shadow-2xl shadow-black/50 backdrop-blur-xl ${
+          callType === 'video'
+            ? 'h-[min(720px,calc(100vh-3rem))] w-[min(980px,calc(100vw-2rem))]'
+            : 'w-[min(620px,calc(100vw-2rem))]'
+        }`}>
+          {callNotices.length > 0 && (
+            <div className="pointer-events-none absolute left-1/2 top-16 z-40 flex -translate-x-1/2 flex-col items-center gap-2">
+              {callNotices.map((notice) => (
+                <div
+                  key={notice.id}
+                  className="max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-zinc-900/85 px-3 py-1.5 text-center text-xs font-medium text-zinc-400 shadow-lg ring-1 ring-zinc-800 backdrop-blur"
+                >
+                  {notice.message}
+                </div>
+              ))}
+            </div>
+          )}
 
-                {/* Floating Picture-In-Picture Local Video */}
-                <div className="absolute bottom-4 right-4 w-40 h-56 rounded-2xl overflow-hidden shadow-2xl border-2 border-zinc-700 bg-zinc-950 z-20 transition-all hover:scale-105">
-                  {!isCameraMuted ? (
-                    <VideoTrackPlayer track={isScreenSharing ? screenVideoTrack : localVideoTrack} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-400 text-xs">
-                      Camera tắt
+          <div className="flex items-center justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+            <div className="min-w-0">
+              <p className="m-0 truncate text-sm font-bold">{displayName}</p>
+              <p className="m-0 text-xs text-zinc-400">{subtitle}</p>
+            </div>
+            <div className="rounded-full bg-zinc-900 px-3 py-1 font-mono text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800">
+              {formatDuration(callDuration)}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden bg-zinc-950 p-3">
+            {callType === 'video' ? (
+              !isGroupCall && oneOnOneTile ? (
+                <VideoTile tile={oneOnOneTile} />
+              ) : shouldUseStageLayout ? (
+                <div className="flex h-full flex-col gap-3">
+                  <div className="min-h-0 flex-1">
+                    <div className={`grid h-full gap-3 ${stageGridClass}`}>
+                      {activeStageTiles.map((tile) => (
+                        <VideoTile
+                          key={tile.id}
+                          tile={tile}
+                          pinned={tile.id === pinnedTileId}
+                          onTogglePin={() => setPinnedTileId(tile.id === pinnedTileId ? null : tile.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {stripTiles.length > 0 && (
+                    <div className="flex max-h-28 gap-2 overflow-x-auto pb-1">
+                      {stripTiles.map((tile, index) => (
+                        <button
+                          key={tile.id}
+                          type="button"
+                          onClick={() => setPinnedTileId(tile.id)}
+                          className={`h-24 w-36 shrink-0 text-left ${index >= 5 ? 'hidden sm:block' : ''}`}
+                          title="Ghim nguoi nay"
+                        >
+                          <VideoTile tile={tile} compact />
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              // Voice Call View: Centered avatars side-by-side or large layout
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-16 text-white w-full h-full">
-                {/* User avatar with speech pulse if speaking (simplified wave animations) */}
-                <div className="flex flex-col items-center">
-                  <div className="relative mb-4">
-                    <div className="absolute inset-0 rounded-full bg-zinc-700/20 animate-pulse" />
-                    {partner.avatarUrl ? (
-                      <img
-                        src={partner.avatarUrl}
-                        alt={partner.username}
-                        className="w-24 h-24 rounded-full object-cover border-2 border-zinc-600 shadow-lg"
+              ) : (
+                <div className={`grid h-full gap-3 ${boardGridClass}`}>
+                  {visibleBoardTiles.map((tile, index) => (
+                    <div key={tile.id} className={`min-h-0 ${index >= 6 ? 'hidden sm:block' : ''}`}>
+                      <VideoTile
+                        tile={tile}
+                        onTogglePin={() => setPinnedTileId(tile.id)}
+                        compact={index >= 6}
                       />
-                    ) : (
-                      <div className="w-24 h-24 rounded-full bg-zinc-700 text-white font-bold flex items-center justify-center text-3xl border-2 border-zinc-550 shadow-lg">
-                        {partner.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <span className="font-semibold text-sm">{partner.username}</span>
-                  <span className="text-xs text-zinc-400 mt-1">Đã kết nối</span>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )
+            ) : (
+              !isGroupCall && oneOnOneTile ? (
+                <div className="flex h-full min-h-[300px] items-center justify-center">
+                  <div className="w-full max-w-xs">
+                    <VoiceTile tile={oneOnOneTile} />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid h-full min-h-[300px] grid-cols-2 gap-3 overflow-y-auto md:grid-cols-3">
+                  {allTiles.map((tile) => (
+                    <VoiceTile key={tile.id} tile={tile} />
+                  ))}
+                </div>
+              )
             )}
           </div>
 
-          {/* Control Bar Overlay */}
-          <div className="w-full flex justify-center py-4 z-30">
-            <div className="flex items-center gap-6 px-8 py-4 rounded-2xl bg-zinc-900/80 border border-zinc-800/80 backdrop-blur-lg shadow-2xl">
-              {/* Mic Button */}
+          {remoteAudioPlaybackBlocked && (
+            <div className="border-t border-amber-500/20 bg-amber-500/10 px-4 py-3">
               <button
-                onClick={toggleMic}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center shadow transition-colors cursor-pointer ${
-                  isMicMuted
-                    ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                }`}
+                type="button"
+                onClick={resumeRemoteAudio}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-zinc-950 shadow transition hover:bg-amber-400 active:scale-95"
               >
-                {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
-
-              {/* Video Toggle Button (Only for Video Calls) */}
-              {callType === 'video' && (
-                <>
-                  <button
-                    onClick={toggleCamera}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center shadow transition-colors cursor-pointer ${
-                      isCameraMuted
-                        ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30'
-                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                    }`}
-                  >
-                    {isCameraMuted ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-                  </button>
-
-                  {/* Screen Share Button */}
-                  <button
-                    onClick={toggleScreenShare}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center shadow transition-colors cursor-pointer ${
-                      isScreenSharing
-                        ? 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30'
-                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                    }`}
-                  >
-                    <Monitor className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-
-              {/* End Call Button */}
-              <button
-                onClick={hangupCall}
-                className="w-12 h-12 rounded-xl bg-red-650 hover:bg-red-550 text-white flex items-center justify-center shadow transition-transform hover:scale-105 active:scale-95 duration-200 cursor-pointer"
-              >
-                <PhoneOff className="w-5 h-5" />
+                <Volume2 className="h-4 w-4" />
+                <span>Bat am thanh</span>
               </button>
             </div>
+          )}
+
+          <div className="z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-zinc-800/80 px-4 py-4">
+            <button
+              type="button"
+              onClick={toggleMic}
+              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
+                isMicMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+              }`}
+              title={isMicMuted ? 'Bat micro' : 'Tat micro'}
+            >
+              {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleSpeaker}
+              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
+                isSpeakerOn ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'
+              }`}
+              title={isSpeakerOn ? 'Tat loa' : 'Bat loa'}
+            >
+              {isSpeakerOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+            </button>
+
+            {callType === 'voice' ? (
+              <button
+                type="button"
+                onClick={startVideo}
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 shadow transition-colors hover:bg-zinc-700 hover:text-white cursor-pointer"
+                title="Chuyen sang video"
+              >
+                <Video className="h-5 w-5" />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={toggleCamera}
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
+                    isCameraMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  }`}
+                  title={isCameraMuted ? 'Bat camera' : 'Tat camera'}
+                >
+                  {isCameraMuted ? <VideoOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={switchCamera}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 shadow transition-colors hover:bg-zinc-700 hover:text-white cursor-pointer"
+                  title="Doi camera truoc/sau"
+                >
+                  <RotateCcw className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleScreenShare}
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
+                    isScreenSharing ? 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  }`}
+                  title={isScreenSharing ? 'Dung chia se man hinh' : 'Chia se man hinh'}
+                >
+                  <Monitor className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800/70 text-zinc-500 shadow cursor-not-allowed"
+                  title="Filter khuon mat dang duoc phat trien"
+                >
+                  <Sparkles className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800/70 text-zinc-500 shadow cursor-not-allowed"
+                  title="Doi hinh nen dang duoc phat trien"
+                >
+                  <Palette className="h-5 w-5" />
+                </button>
+              </>
+            )}
+
+            <EndCallButton onClick={hangupCall} large />
           </div>
         </div>
       )}
     </div>
   );
 };
+
 export default CallOverlay;

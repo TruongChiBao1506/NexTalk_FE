@@ -50,6 +50,26 @@ export interface MessageReaction {
   emoji: string;
 }
 
+export interface CallHistoryParticipant {
+  id: string;
+  username: string;
+  avatarUrl?: string | null;
+}
+
+export interface CallHistoryMetadata {
+  systemType?: 'CALL_HISTORY' | string;
+  callId?: string;
+  conversationId?: string;
+  callScope?: 'GROUP' | 'PRIVATE' | string;
+  callType?: 'VOICE' | 'VIDEO' | string;
+  status?: 'MISSED' | 'REJECTED' | 'CANCELED' | 'ENDED' | string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
+  participantCount?: number;
+  participants?: CallHistoryParticipant[];
+}
+
 export interface MessageResponse {
   id: string;
   conversationId: string;
@@ -69,6 +89,7 @@ export interface MessageResponse {
   isPinned?: boolean;
   pinnedAt?: string | null;
   reactions?: MessageReaction[];
+  metadata?: CallHistoryMetadata | Record<string, unknown>;
 }
 
 export interface ConversationSummaryResponse {

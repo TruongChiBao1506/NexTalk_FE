@@ -30,7 +30,7 @@ import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
-import type { ConversationResponse, MessageAttachment, MessageResponse } from '../types/chat';
+import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse } from '../types/chat';
 import type { GroupResponse } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
@@ -225,6 +225,7 @@ export const Chat = () => {
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
+  const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description: string;
@@ -1485,6 +1486,49 @@ export const Chat = () => {
     return activeFriendIsFriend ? 'Bạn bè' : 'Chưa là bạn bè';
   };
 
+  const isCallHistoryMessage = (msg: MessageResponse) =>
+    msg.messageType === 'SYSTEM' && msg.metadata?.systemType === 'CALL_HISTORY';
+
+  const getCallHistoryMetadata = (msg: MessageResponse): CallHistoryMetadata =>
+    (msg.metadata ?? {}) as CallHistoryMetadata;
+
+  const formatCallDuration = (seconds?: number) => {
+    const totalSeconds = Math.max(0, Math.floor(seconds ?? 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+    if (minutes <= 0) return `${remainingSeconds} giây`;
+    return `${minutes} phút ${remainingSeconds.toString().padStart(2, '0')} giây`;
+  };
+
+  const formatCallLogTime = (value?: string) => {
+    if (!value) return 'Không rõ';
+    return new Date(value).toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const getCallHistorySummary = (msg: MessageResponse) => {
+    const metadata = getCallHistoryMetadata(msg);
+    const isGroupCallLog = metadata?.callScope === 'GROUP';
+    const callKind = metadata?.callType === 'VIDEO' ? 'Cuộc gọi video' : 'Cuộc gọi thoại';
+    const scopeText = isGroupCallLog ? ' nhóm' : '';
+    if (metadata?.status === 'MISSED') return `${callKind}${scopeText} bị lỡ`;
+    if (metadata?.status === 'REJECTED') return `${callKind}${scopeText} bị từ chối`;
+    if (metadata?.status === 'CANCELED') return `${callKind}${scopeText} đã huỷ`;
+    return `${callKind}${scopeText} - ${formatCallDuration(metadata?.durationSeconds)}`;
+  };
+
+  const getCallHistoryDetailStatus = (metadata?: CallHistoryMetadata) => {
+    if (metadata?.status === 'MISSED') return 'Không ai bắt máy';
+    if (metadata?.status === 'REJECTED') return 'Người nhận đã từ chối';
+    if (metadata?.status === 'CANCELED') return 'Người gọi đã huỷ';
+    return formatCallDuration(metadata?.durationSeconds);
+  };
+
   const formatLastMessage = (msg: MessageResponse, isGroup: boolean) => {
     const isMe = msg.senderId === user?.id;
     let prefix = '';
@@ -1495,6 +1539,9 @@ export const Chat = () => {
     }
 
     if (msg.messageType === 'SYSTEM') {
+      if (isCallHistoryMessage(msg)) {
+        return getCallHistorySummary(msg);
+      }
       return `${msg.senderId === user?.id ? 'Bạn' : msg.senderUsername} ${msg.content}`;
     }
     
@@ -1589,6 +1636,17 @@ export const Chat = () => {
 
   // For group chat: determine if we're in a group conversation
   const isGroupConversation = activeConversation?.type === 'GROUP';
+  const activeCallTarget = activeConversation
+    ? isGroupConversation
+      ? {
+          id: activeConversation.id,
+          username: activeGroup?.name || activeConversation.name || activeFriend?.username || 'Nhóm chat',
+          avatarUrl: null,
+          isGroupCall: true,
+          memberCount: activeGroup?.memberCount ?? activeConversation.members.length,
+        }
+      : activeFriend
+    : null;
 
   // Get sender info in group chat
   const getSenderUsername = (msg: MessageResponse) => msg.senderUsername || 'Unknown';
@@ -2200,10 +2258,10 @@ export const Chat = () => {
 
               <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
                 {/* Voice Call Button */}
-                {!isGroupConversation && activeConversation && activeFriend && (
+                {activeConversation && activeCallTarget && (
                   <button
-                    onClick={() => initiateCall(activeConversation.id, 'voice', activeFriend)}
-                    title="Cuộc gọi thoại"
+                    onClick={() => initiateCall(activeConversation.id, 'voice', activeCallTarget)}
+                    title={isGroupConversation ? 'Cuộc gọi thoại nhóm' : 'Cuộc gọi thoại'}
                     className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                   >
                     <Phone className="w-4 h-4" />
@@ -2211,10 +2269,10 @@ export const Chat = () => {
                 )}
 
                 {/* Video Call Button */}
-                {!isGroupConversation && activeConversation && activeFriend && (
+                {activeConversation && activeCallTarget && (
                   <button
-                    onClick={() => initiateCall(activeConversation.id, 'video', activeFriend)}
-                    title="Cuộc gọi video"
+                    onClick={() => initiateCall(activeConversation.id, 'video', activeCallTarget)}
+                    title={isGroupConversation ? 'Cuộc gọi video nhóm' : 'Cuộc gọi video'}
                     className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                   >
                     <Video className="w-4 h-4" />
@@ -2407,6 +2465,8 @@ export const Chat = () => {
 
                 // Find parent message if replied to
                 const parentMessage = msg.parentId ? messages.find((m) => m.id === msg.parentId) : null;
+                const isCallLog = isCallHistoryMessage(msg);
+                const callMetadata = msg.metadata as any;
 
                 return (
                   <div
@@ -2428,15 +2488,88 @@ export const Chat = () => {
 
                     {msg.messageType === 'SYSTEM' ? (
                       <div className="flex justify-center py-1.5 select-none">
-                        <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
-                          <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
-                          <span className="min-w-0 truncate">
-                            <span className="font-semibold">
-                              {isMe ? 'Bạn' : msg.senderUsername}
-                            </span>{' '}
-                            {msg.content}
-                          </span>
-                        </div>
+                        {isCallLog ? (
+                          <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
+                              className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
+                              title="Xem chi tiết cuộc gọi"
+                            >
+                              {callMetadata?.callType === 'VIDEO' ? (
+                                <Video className="h-4 w-4 text-indigo-500" />
+                              ) : (
+                                <Phone className="h-4 w-4 text-indigo-500" />
+                              )}
+                              <span className="truncate">{getCallHistorySummary(msg)}</span>
+                            </button>
+
+                            {expandedCallLogId === msg.id && (
+                              <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <div>
+                                    <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
+                                    <p className="m-0 mt-0.5">{formatCallLogTime(callMetadata?.startedAt)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời lượng</p>
+                                    <p className="m-0 mt-0.5">{getCallHistoryDetailStatus(callMetadata)}</p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3">
+                                  <p className="m-0 mb-2 font-bold text-gray-700 dark:text-zinc-200">
+                                    Thành viên đã tham gia ({callMetadata?.participantCount ?? callMetadata?.participants?.length ?? 0})
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(callMetadata?.participants ?? []).map((participant: any) => (
+                                      <span
+                                        key={participant.id}
+                                        className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                      >
+                                        {participant.avatarUrl ? (
+                                          <img src={participant.avatarUrl} alt={participant.username} className="h-5 w-5 rounded-full object-cover" />
+                                        ) : (
+                                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                                            {(participant.username || '?').charAt(0).toUpperCase()}
+                                          </span>
+                                        )}
+                                        <span className="truncate">{participant.username}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {activeConversation && activeCallTarget && (
+                                  <div className="mt-3 flex justify-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => initiateCall(
+                                        activeConversation.id,
+                                        callMetadata?.callType === 'VIDEO' ? 'video' : 'voice',
+                                        activeCallTarget
+                                      )}
+                                      className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700"
+                                    >
+                                      {callMetadata?.callType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
+                                      <span>Gọi lại</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
+                            <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                            <span className="min-w-0 truncate">
+                              <span className="font-semibold">
+                                {isMe ? 'Bạn' : msg.senderUsername}
+                              </span>{' '}
+                              {msg.content}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
