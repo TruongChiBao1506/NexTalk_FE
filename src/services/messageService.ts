@@ -2,6 +2,16 @@ import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
 import type { MessageResponse } from '../types/chat';
 
+export interface CreatePollPayload {
+  conversationId: string;
+  question: string;
+  options: string[];
+  allowMultiple: boolean;
+  allowAddOptions: boolean;
+  anonymous: boolean;
+  expiresAt?: string | null;
+}
+
 export const messageService = {
   async getConversationMessages(
     conversationId: string,
@@ -78,6 +88,31 @@ export const messageService = {
     const response = await apiClient.get<ApiResponse<MessageResponse[]>>('/messages/search', {
       params: { query, conversationId }
     });
+    return response.data;
+  },
+
+  async createPoll(payload: CreatePollPayload): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse>>('/messages/polls', payload);
+    return response.data;
+  },
+
+  async votePoll(id: string, optionId: string): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse>>(`/messages/${id}/poll/vote`, { optionId });
+    return response.data;
+  },
+
+  async addPollOption(id: string, text: string): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse>>(`/messages/${id}/poll/options`, { text });
+    return response.data;
+  },
+
+  async lockPoll(id: string): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse>>(`/messages/${id}/poll/lock`);
+    return response.data;
+  },
+
+  async deletePoll(id: string): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.delete<ApiResponse<MessageResponse>>(`/messages/${id}/poll`);
     return response.data;
   }
 };

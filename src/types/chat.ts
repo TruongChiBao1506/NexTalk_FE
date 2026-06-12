@@ -20,7 +20,7 @@ export interface MessageRequest {
   parentId?: string;
 }
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'SYSTEM';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM';
 
 export interface MessageAttachment {
   url: string;
@@ -70,6 +70,35 @@ export interface CallHistoryMetadata {
   participants?: CallHistoryParticipant[];
 }
 
+export interface PollVoter {
+  id: string;
+  username: string;
+  avatarUrl?: string | null;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  createdById?: string;
+  createdByName?: string;
+  voterIds?: string[];
+  voters?: PollVoter[];
+}
+
+export interface PollMetadata {
+  systemType?: 'POLL' | string;
+  question?: string;
+  allowMultiple?: boolean;
+  allowAddOptions?: boolean;
+  anonymous?: boolean;
+  locked?: boolean;
+  expiresAt?: string | null;
+  lockedAt?: string | null;
+  creatorId?: string;
+  creatorName?: string;
+  options?: PollOption[];
+}
+
 export interface MessageResponse {
   id: string;
   conversationId: string;
@@ -89,7 +118,7 @@ export interface MessageResponse {
   isPinned?: boolean;
   pinnedAt?: string | null;
   reactions?: MessageReaction[];
-  metadata?: CallHistoryMetadata | Record<string, unknown>;
+  metadata?: CallHistoryMetadata | PollMetadata | Record<string, unknown>;
 }
 
 export interface ConversationSummaryResponse {

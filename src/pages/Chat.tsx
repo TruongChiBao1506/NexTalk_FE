@@ -20,7 +20,7 @@ import {
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink
+  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -30,7 +30,7 @@ import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
-import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse } from '../types/chat';
+import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata, PollOption } from '../types/chat';
 import type { GroupResponse } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
@@ -226,6 +226,16 @@ export const Chat = () => {
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
+  const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
+  const [pollAllowAddOptions, setPollAllowAddOptions] = useState(false);
+  const [pollAnonymous, setPollAnonymous] = useState(false);
+  const [pollExpiresAt, setPollExpiresAt] = useState('');
+  const [pollActionMessageId, setPollActionMessageId] = useState<string | null>(null);
+  const [pollVoterDialog, setPollVoterDialog] = useState<{ option: PollOption; anonymous: boolean } | null>(null);
+  const [pollNewOptionText, setPollNewOptionText] = useState<Record<string, string>>({});
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description: string;
@@ -1529,6 +1539,114 @@ export const Chat = () => {
     return formatCallDuration(metadata?.durationSeconds);
   };
 
+  const getPollMetadata = (msg: MessageResponse): PollMetadata => (msg.metadata ?? {}) as PollMetadata;
+
+  const updateMessageInChat = (updated: MessageResponse) => {
+    useChatStore.setState((state) => ({
+      messages: state.messages.map((message) => message.id === updated.id ? updated : message),
+      pinnedMessages: state.pinnedMessages.map((message) => message.id === updated.id ? updated : message),
+      lastMessages: state.lastMessages[updated.conversationId]?.id === updated.id
+        ? { ...state.lastMessages, [updated.conversationId]: updated }
+        : state.lastMessages
+    }));
+  };
+
+  const submitCreatePoll = async () => {
+    if (!activeConversation || activeConversation.type !== 'GROUP') return;
+    const options = pollOptions.map((option) => option.trim()).filter(Boolean);
+    if (!pollQuestion.trim() || options.length < 2) {
+      window.alert('Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn.');
+      return;
+    }
+
+    setPollActionMessageId('creating');
+    try {
+      const response = await messageService.createPoll({
+        conversationId: activeConversation.id,
+        question: pollQuestion.trim(),
+        options,
+        allowMultiple: pollAllowMultiple,
+        allowAddOptions: pollAllowAddOptions,
+        anonymous: pollAnonymous,
+        expiresAt: pollExpiresAt ? new Date(pollExpiresAt).toISOString().slice(0, 19) : null
+      });
+      if (response.success && response.data) {
+        updateMessageInChat(response.data);
+        setPollQuestion('');
+        setPollOptions(['', '']);
+        setPollAllowMultiple(false);
+        setPollAllowAddOptions(false);
+        setPollAnonymous(false);
+        setPollExpiresAt('');
+        setIsCreatePollOpen(false);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể tạo bình chọn.');
+    } finally {
+      setPollActionMessageId(null);
+    }
+  };
+
+  const handlePollVote = async (messageId: string, optionId: string) => {
+    setPollActionMessageId(messageId);
+    try {
+      const response = await messageService.votePoll(messageId, optionId);
+      if (response.success && response.data) {
+        updateMessageInChat(response.data);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật bình chọn.');
+    } finally {
+      setPollActionMessageId(null);
+    }
+  };
+
+  const handleAddPollOption = async (messageId: string) => {
+    const text = pollNewOptionText[messageId]?.trim();
+    if (!text) return;
+    setPollActionMessageId(messageId);
+    try {
+      const response = await messageService.addPollOption(messageId, text);
+      if (response.success && response.data) {
+        updateMessageInChat(response.data);
+        setPollNewOptionText((values) => ({ ...values, [messageId]: '' }));
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể thêm lựa chọn.');
+    } finally {
+      setPollActionMessageId(null);
+    }
+  };
+
+  const handleLockPoll = async (messageId: string) => {
+    setPollActionMessageId(messageId);
+    try {
+      const response = await messageService.lockPoll(messageId);
+      if (response.success && response.data) {
+        updateMessageInChat(response.data);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể khóa bình chọn.');
+    } finally {
+      setPollActionMessageId(null);
+    }
+  };
+
+  const handleDeletePoll = async (messageId: string) => {
+    if (!window.confirm('Xóa bình chọn này?')) return;
+    setPollActionMessageId(messageId);
+    try {
+      const response = await messageService.deletePoll(messageId);
+      if (response.success && response.data) {
+        updateMessageInChat(response.data);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể xóa bình chọn.');
+    } finally {
+      setPollActionMessageId(null);
+    }
+  };
+
   const formatLastMessage = (msg: MessageResponse, isGroup: boolean) => {
     const isMe = msg.senderId === user?.id;
     let prefix = '';
@@ -1543,6 +1661,11 @@ export const Chat = () => {
         return getCallHistorySummary(msg);
       }
       return `${msg.senderId === user?.id ? 'Bạn' : msg.senderUsername} ${msg.content}`;
+    }
+
+    if (msg.messageType === 'POLL') {
+      const metadata = getPollMetadata(msg);
+      return `${prefix}[Bình chọn] ${metadata.question || msg.content}`;
     }
     
     if (msg.attachments && msg.attachments.length > 0) {
@@ -2571,6 +2694,168 @@ export const Chat = () => {
                           </div>
                         )}
                       </div>
+                    ) : msg.messageType === 'POLL' ? (
+                      <div className="flex justify-center py-2">
+                        {(() => {
+                          const metadata = getPollMetadata(msg);
+                          const options = metadata.options ?? [];
+                          const totalVotes = options.reduce((sum, option) => sum + (option.voterIds?.length ?? 0), 0);
+                          const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
+                          const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
+                          const canManagePoll = msg.senderId === user?.id ||
+                            currentGroupMembership?.role === 'OWNER' ||
+                            currentGroupMembership?.role === 'ADMIN';
+
+                          if (msg.isRecalled) {
+                            return (
+                              <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-400">
+                                Bình chọn đã bị xóa
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                              <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                      <ListChecks className="h-3.5 w-3.5" />
+                                      <span>Bình chọn</span>
+                                      {msg.isPinned && <span>• Đã ghim</span>}
+                                    </div>
+                                    <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">{metadata.question || msg.content}</h4>
+                                    <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                                      {metadata.allowMultiple ? 'Có thể chọn nhiều phương án' : 'Chọn một phương án'}
+                                      {metadata.anonymous ? ' • Ẩn danh' : ''}
+                                      {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
+                                    </p>
+                                  </div>
+                                  {isLocked && (
+                                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                      Đã khóa
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 px-4 py-3">
+                                {options.map((option) => {
+                                  const voteCount = option.voterIds?.length ?? 0;
+                                  const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                                  const selected = Boolean(user?.id && option.voterIds?.includes(user.id));
+                                  return (
+                                    <div key={option.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                                      <div className="flex w-full items-center gap-3 text-left">
+                                        <button
+                                          type="button"
+                                          onClick={() => !isLocked && handlePollVote(msg.id, option.id)}
+                                          disabled={isLocked || pollActionMessageId === msg.id}
+                                          className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+                                        >
+                                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                                            selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
+                                          }`}>
+                                            {selected && <Check className="h-3.5 w-3.5" />}
+                                          </span>
+                                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">{option.text}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            if (!metadata.anonymous) {
+                                              setPollVoterDialog({ option, anonymous: Boolean(metadata.anonymous) });
+                                            }
+                                          }}
+                                          className={`shrink-0 text-xs font-bold ${metadata.anonymous ? 'cursor-default text-gray-400' : 'text-indigo-600 hover:underline dark:text-indigo-300'}`}
+                                          disabled={metadata.anonymous}
+                                          title={metadata.anonymous ? 'Bình chọn ẩn danh' : 'Xem người đã chọn'}
+                                        >
+                                          {voteCount} vote
+                                        </button>
+                                      </div>
+                                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
+                                        <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${percent}%` }} />
+                                      </div>
+                                      {!metadata.anonymous && (option.voters?.length ?? 0) > 0 && (
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                          <div className="flex -space-x-2">
+                                            {(option.voters ?? []).slice(-6).map((voter) => (
+                                              voter.avatarUrl ? (
+                                                <img
+                                                  key={voter.id}
+                                                  src={voter.avatarUrl}
+                                                  alt={voter.username}
+                                                  className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-950"
+                                                  title={voter.username}
+                                                />
+                                              ) : (
+                                                <div
+                                                  key={voter.id}
+                                                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-[10px] font-bold text-white shadow-sm dark:border-zinc-950"
+                                                  title={voter.username}
+                                                >
+                                                  {voter.username.charAt(0).toUpperCase()}
+                                                </div>
+                                              )
+                                            ))}
+                                          </div>
+                                          {(option.voters?.length ?? 0) > 6 && (
+                                            <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
+                                              +{(option.voters?.length ?? 0) - 6}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {metadata.allowAddOptions && !isLocked && (
+                                <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                                  <input
+                                    value={pollNewOptionText[msg.id] ?? ''}
+                                    onChange={(event) => setPollNewOptionText((values) => ({ ...values, [msg.id]: event.target.value }))}
+                                    placeholder="Thêm lựa chọn..."
+                                    className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddPollOption(msg.id)}
+                                    disabled={pollActionMessageId === msg.id || !pollNewOptionText[msg.id]?.trim()}
+                                    className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                                  >
+                                    Thêm
+                                  </button>
+                                </div>
+                              )}
+
+                              {canManagePoll && !isLocked && (
+                                <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLockPoll(msg.id)}
+                                    disabled={pollActionMessageId === msg.id}
+                                    className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                                  >
+                                    Khóa bình chọn
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePoll(msg.id)}
+                                    disabled={pollActionMessageId === msg.id}
+                                    className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                                  >
+                                    Xóa
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     ) : (
                       <>
                     {/* Quoted Message / Reply Preview above bubble */}
@@ -3089,6 +3374,16 @@ export const Chat = () => {
                     {/* Quick message */}
                     <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Quick Message Templates">
                       <Zap className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={!canSendInActiveConversation || !isGroupConversation}
+                      onClick={() => setIsCreatePollOpen(true)}
+                      className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                      title={isGroupConversation ? 'Tạo bình chọn' : 'Bình chọn chỉ dùng trong nhóm'}
+                    >
+                      <ListChecks className="w-4 h-4" />
                     </button>
 
                     {/* Credit card */}
@@ -3764,6 +4059,142 @@ export const Chat = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isCreatePollOpen && activeConversation?.type === 'GROUP' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setIsCreatePollOpen(false)}>
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-5 text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="m-0 flex items-center gap-2 text-lg font-bold">
+                <ListChecks className="h-5 w-5 text-indigo-600" />
+                Tạo bình chọn
+              </h3>
+              <button type="button" onClick={() => setIsCreatePollOpen(false)} className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                value={pollQuestion}
+                onChange={(event) => setPollQuestion(event.target.value)}
+                placeholder="Câu hỏi bình chọn"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+              />
+
+              <div className="space-y-2">
+                {pollOptions.map((option, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      value={option}
+                      onChange={(event) => setPollOptions((options) => options.map((item, i) => i === index ? event.target.value : item))}
+                      placeholder={`Lựa chọn ${index + 1}`}
+                      className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setPollOptions((options) => options.filter((_, i) => i !== index))}
+                        className="rounded-xl px-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPollOptions((options) => [...options, ''])}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Thêm lựa chọn
+                </button>
+              </div>
+
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
+                  <input type="checkbox" checked={pollAllowMultiple} onChange={(event) => setPollAllowMultiple(event.target.checked)} />
+                  <span>Chọn nhiều phương án</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
+                  <input type="checkbox" checked={pollAllowAddOptions} onChange={(event) => setPollAllowAddOptions(event.target.checked)} />
+                  <span>Cho thêm lựa chọn</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
+                  <input type="checkbox" checked={pollAnonymous} onChange={(event) => setPollAnonymous(event.target.checked)} />
+                  <span>Ẩn người bình chọn</span>
+                </label>
+                <label className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
+                  <span className="mb-1 block text-xs font-semibold text-gray-500 dark:text-zinc-400">Thời hạn khóa</span>
+                  <input
+                    type="datetime-local"
+                    value={pollExpiresAt}
+                    onChange={(event) => setPollExpiresAt(event.target.value)}
+                    className="w-full bg-transparent text-sm outline-none"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreatePollOpen(false)}
+                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitCreatePoll}
+                disabled={pollActionMessageId === 'creating'}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {pollActionMessageId === 'creating' ? 'Đang tạo...' : 'Tạo bình chọn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pollVoterDialog && !pollVoterDialog.anonymous && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setPollVoterDialog(null)}>
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="m-0 truncate text-base font-bold">{pollVoterDialog.option.text}</h3>
+              <button type="button" onClick={() => setPollVoterDialog(null)} className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {(pollVoterDialog.option.voters ?? []).length > 0 ? (
+                (pollVoterDialog.option.voters ?? []).map((voter) => (
+                  <div key={voter.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/60">
+                    {voter.avatarUrl ? (
+                      <img src={voter.avatarUrl} alt={voter.username} className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
+                        {voter.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="min-w-0 truncate text-sm font-semibold">{voter.username}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  Chưa có ai chọn phương án này.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
