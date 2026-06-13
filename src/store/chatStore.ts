@@ -111,7 +111,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectConversation: async (conversationId: string | null) => {
-    const { activeConversation, messages, currentPage, hasMoreMessages, pinnedMessages } = get();
+    const { activeConversation } = get();
     
     // Save current active conversation state to cache before switching
     if (activeConversation) {

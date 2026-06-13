@@ -2571,8 +2571,8 @@ export const Chat = () => {
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                         >
                           <div className="relative shrink-0">
-                            {c.avatarUrl ? (
-                              <img src={c.avatarUrl} alt={c.name} className="w-10 h-10 rounded-full object-cover" />
+                            {(c as any).avatarUrl ? (
+                              <img src={(c as any).avatarUrl as string} alt={c.name || ''} className="w-10 h-10 rounded-full object-cover" />
                             ) : (
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-sm">
                                 {c.name ? c.name.charAt(0).toUpperCase() : 'G'}
