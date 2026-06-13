@@ -92,6 +92,18 @@ export const Chat = () => {
   const [editInputText, setEditInputText] = useState('');
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'IMAGE' | 'VIDEO'; name?: string } | null>(null);
+
+  useEffect(() => {
+    if (!activeMedia) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveMedia(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeMedia]);
 
   const handleSaveEdit = async (messageId: string) => {
     if (!editInputText.trim()) return;
@@ -3362,41 +3374,61 @@ export const Chat = () => {
                               <div className={`grid gap-1.5 ${
                                 msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
                               }`}>
-                                {msg.attachments.map((attachment, index) => (
-                                  <a
-                                    key={`${attachment.url}-${index}`}
-                                    href={attachment.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`block overflow-hidden bg-black/10 ${
-                                      msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                    }`}
-                                    title={attachment.name || getFileName(attachment.url)}
-                                  >
-                                    {attachment.type === 'IMAGE' ? (
-                                      <img
-                                        src={attachment.url}
-                                        alt={attachment.name || 'Shared image'}
-                                        className="w-full max-h-72 object-cover"
-                                      />
-                                    ) : attachment.type === 'VIDEO' ? (
-                                      <video
-                                        src={attachment.url}
-                                        controls
-                                        className="w-full max-h-72 bg-black"
-                                      />
-                                    ) : (
-                                      <div className={`flex items-center gap-3 p-3 min-w-[220px] ${
-                                        isMe ? 'text-white' : 'text-gray-900 dark:text-white'
-                                      }`}>
-                                        <FileText className="w-5 h-5 shrink-0" />
-                                        <span className="text-xs font-semibold truncate">
-                                          {attachment.name || getFileName(attachment.url)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </a>
-                                ))}
+                                {msg.attachments.map((attachment, index) => {
+                                  if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={`${attachment.url}-${index}`}
+                                        onClick={() => setActiveMedia({ url: attachment.url, type: attachment.type, name: attachment.name })}
+                                        className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
+                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                        }`}
+                                        title={attachment.name || getFileName(attachment.url)}
+                                      >
+                                        {attachment.type === 'IMAGE' ? (
+                                          <img
+                                            src={attachment.url}
+                                            alt={attachment.name || 'Shared image'}
+                                            className="w-full max-h-72 object-cover"
+                                          />
+                                        ) : (
+                                          <div className="relative group w-full max-h-72 bg-black flex items-center justify-center aspect-video">
+                                            <video
+                                              src={attachment.url}
+                                              className="w-full max-h-72 bg-black"
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
+                                              <Video className="w-10 h-10 text-white drop-shadow-md" />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  } else {
+                                    return (
+                                      <a
+                                        key={`${attachment.url}-${index}`}
+                                        href={attachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`block overflow-hidden bg-black/10 ${
+                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                        }`}
+                                        title={attachment.name || getFileName(attachment.url)}
+                                      >
+                                        <div className={`flex items-center gap-3 p-3 min-w-[220px] ${
+                                          isMe ? 'text-white' : 'text-gray-900 dark:text-white'
+                                        }`}>
+                                          <FileText className="w-5 h-5 shrink-0" />
+                                          <span className="text-xs font-semibold truncate">
+                                            {attachment.name || getFileName(attachment.url)}
+                                          </span>
+                                        </div>
+                                      </a>
+                                    );
+                                  }
+                                })}
                               </div>
                               {msg.content && (
                                 <div className="mt-2 px-1">
@@ -3406,21 +3438,33 @@ export const Chat = () => {
                             </div>
                           ) : msg.messageType === 'IMAGE' ? (
                             <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
-                              <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                              <button
+                                type="button"
+                                onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
+                                className="w-full h-full p-0 border-0 outline-none"
+                              >
                                 <img
                                   src={msg.content}
                                   alt="Shared Image"
                                   className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
                                 />
-                              </a>
+                              </button>
                             </div>
                           ) : msg.messageType === 'VIDEO' ? (
                             <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
-                              <video
-                                src={msg.content}
-                                controls
-                                className="max-h-72 w-full"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setActiveMedia({ url: msg.content, type: 'VIDEO' })}
+                                className="relative group w-full p-0 border-0 outline-none flex items-center justify-center aspect-video cursor-zoom-in"
+                              >
+                                <video
+                                  src={msg.content}
+                                  className="max-h-72 w-full object-contain"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
+                                  <Video className="w-10 h-10 text-white drop-shadow-md" />
+                                </div>
+                              </button>
                             </div>
                           ) : msg.messageType === 'FILE' ? (
                             <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
@@ -5001,6 +5045,64 @@ export const Chat = () => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeMedia && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setActiveMedia(null)}
+        >
+          {/* Top bar with buttons */}
+          <div className="absolute top-4 right-4 z-[110] flex items-center gap-3">
+            <a
+              href={activeMedia.url}
+              download={activeMedia.name || 'download'}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition hover:bg-white/20 hover:scale-105"
+              title="Tải xuống tệp gốc"
+            >
+              <Download className="h-5 w-5" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setActiveMedia(null)}
+              className="rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition hover:bg-white/20 hover:scale-105"
+              title="Đóng (Esc)"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Media container */}
+          <div
+            className="relative flex max-h-[85vh] max-w-[90vw] items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {activeMedia.type === 'IMAGE' ? (
+              <img
+                src={activeMedia.url}
+                alt={activeMedia.name || 'Shared Media'}
+                className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl select-none"
+              />
+            ) : (
+              <video
+                src={activeMedia.url}
+                controls
+                autoPlay
+                className="max-h-[85vh] max-w-[90vw] rounded-lg shadow-2xl bg-black"
+              />
+            )}
+          </div>
+
+          {/* Optional Caption/Name at the bottom */}
+          {activeMedia.name && (
+            <p className="mt-4 max-w-[80vw] truncate text-sm font-semibold text-white/80 backdrop-blur-sm bg-black/20 px-3 py-1.5 rounded-full">
+              {activeMedia.name}
+            </p>
+          )}
         </div>
       )}
 
