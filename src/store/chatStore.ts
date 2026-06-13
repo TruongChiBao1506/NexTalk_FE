@@ -23,6 +23,12 @@ function isTokenExpired(token: string, offsetSeconds = 60): boolean {
   }
 }
 
+const sortConversations = (conversations: ConversationResponse[]) =>
+  [...conversations].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
 
 interface ChatState {
   conversations: ConversationResponse[];
@@ -59,6 +65,8 @@ interface ChatState {
   reactToMessage: (messageId: string, emoji: string) => Promise<void>;
   shareMessage: (messageId: string, targetConversationIds: string[]) => Promise<boolean>;
   setConversationSummary: (summary: ConversationSummaryResponse) => void;
+  togglePinConversation: (conversationId: string, pinned: boolean) => Promise<boolean>;
+  deleteConversation: (conversationId: string) => Promise<boolean>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -82,9 +90,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await conversationService.getUserConversations();
       if (response.success && response.data) {
         // Sort conversations by updatedAt descending
-        const sorted = response.data.sort(
-          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
+        const sorted = sortConversations(response.data);
         set({ conversations: sorted });
         
         // Mark all conversations as delivered
@@ -127,7 +133,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (response.success && response.data) {
           resolvedActive = response.data;
           set((state) => ({
-            conversations: [resolvedActive!, ...state.conversations],
+            conversations: sortConversations([resolvedActive!, ...state.conversations]),
           }));
         }
       } catch (err) {
@@ -245,7 +251,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const exists = state.conversations.some((c) => c.id === conversation.id);
           const updatedList = exists
             ? state.conversations
-            : [conversation, ...state.conversations];
+            : sortConversations([conversation, ...state.conversations]);
           return {
             conversations: updatedList,
           };
@@ -489,7 +495,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const target = { ...list[conversationIndex], updatedAt: message.createdAt };
         list.splice(conversationIndex, 1);
         return {
-          conversations: [target, ...list],
+          conversations: sortConversations([target, ...list]),
         };
       });
     } else {
@@ -497,7 +503,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       conversationService.getConversationById(message.conversationId).then((response) => {
         if (response.success && response.data) {
           set((state) => ({
-            conversations: [response.data, ...state.conversations],
+            conversations: sortConversations([response.data, ...state.conversations]),
           }));
         }
       });
@@ -727,5 +733,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
         [summary.conversationId]: summary,
       },
     }));
+  },
+
+  togglePinConversation: async (conversationId, pinned) => {
+    try {
+      const response = pinned
+        ? await conversationService.unpinConversation(conversationId)
+        : await conversationService.pinConversation(conversationId);
+      if (response.success && response.data) {
+        const updated = response.data;
+        set((state) => ({
+          activeConversation: state.activeConversation?.id === updated.id ? updated : state.activeConversation,
+          conversations: sortConversations(state.conversations.map((conversation) =>
+            conversation.id === updated.id ? updated : conversation
+          )),
+        }));
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to update conversation pin:', err);
+    }
+    return false;
+  },
+
+  deleteConversation: async (conversationId) => {
+    try {
+      const response = await conversationService.deleteConversation(conversationId);
+      if (response.success) {
+        set((state) => {
+          const isActive = state.activeConversation?.id === conversationId;
+          const nextLastMessages = { ...state.lastMessages };
+          delete nextLastMessages[conversationId];
+          return {
+            conversations: state.conversations.filter((conversation) => conversation.id !== conversationId),
+            activeConversation: isActive ? null : state.activeConversation,
+            messages: isActive ? [] : state.messages,
+            currentPage: isActive ? 0 : state.currentPage,
+            hasMoreMessages: isActive ? true : state.hasMoreMessages,
+            replyTo: isActive ? null : state.replyTo,
+            pinnedMessages: isActive ? [] : state.pinnedMessages,
+            lastMessages: nextLastMessages,
+          };
+        });
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+    }
+    return false;
   },
 }));

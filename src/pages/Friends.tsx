@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, User as UserIcon, Settings, LogOut, Check, X, UserMinus, Loader2, AlertCircle, Users } from 'lucide-react';
+import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
@@ -43,12 +43,11 @@ export const Friends = () => {
 
   useEffect(() => {
     fetchConversations();
+    fetchPending();
     if (activeTab === 'friends') {
       fetchFriends();
     } else if (activeTab === 'groups') {
       fetchGroups();
-    } else if (activeTab === 'pending') {
-      fetchPending();
     }
   }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending]);
 
@@ -133,9 +132,9 @@ export const Friends = () => {
         <div
           onClick={() => navigate('/profile')}
           className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
-          title="Settings & Profile"
+          title="Hồ sơ"
         >
-          <Settings className="w-5 h-5" />
+          <CircleUserRound className="w-5 h-5" />
         </div>
 
         <div className="mt-auto flex flex-col gap-4">
@@ -370,22 +369,22 @@ export const Friends = () => {
                         <p className="text-xs text-gray-500 dark:text-discord-muted truncate mt-0.5">Đã gửi lời mời kết bạn</p>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => handleAccept(req.id)}
                           disabled={actionLoadingId === req.id}
-                          className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all duration-200 disabled:opacity-50"
+                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50"
                           title="Chấp nhận"
                         >
-                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4.5 h-4.5" />}
+                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đồng ý'}
                         </button>
                         <button
                           onClick={() => handleReject(req.id)}
                           disabled={actionLoadingId === req.id}
-                          className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all duration-200 disabled:opacity-50"
+                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:scale-[0.98] disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                           title="Từ chối"
                         >
-                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4.5 h-4.5" />}
+                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Từ chối'}
                         </button>
                       </div>
                     </div>

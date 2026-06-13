@@ -45,11 +45,11 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
     e.preventDefault();
     setError(null);
     if (!groupName.trim()) {
-      setError('Group name is required.');
+      setError('Vui lòng nhập tên nhóm.');
       return;
     }
     if (groupName.trim().length < 2) {
-      setError('Group name must be at least 2 characters.');
+      setError('Tên nhóm phải có ít nhất 2 ký tự.');
       return;
     }
 
@@ -61,7 +61,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
     if (group) {
       onCreated(group);
     } else {
-      setError('Failed to create group. Please try again.');
+      setError('Không thể tạo nhóm. Vui lòng thử lại.');
     }
   };
 
@@ -78,8 +78,8 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
               <Users className="w-5 h-5 text-indigo-600 dark:text-discord-blurple" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-white m-0">Create Group</h2>
-              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Add friends to get started</p>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white m-0">Tạo nhóm</h2>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Thêm bạn bè để bắt đầu trò chuyện</p>
             </div>
           </div>
           <button
@@ -96,14 +96,14 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
             {/* Group Name */}
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
-                Group Name
+                Tên nhóm
               </label>
               <input
                 id="group-name-input"
                 type="text"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder="e.g. Study Squad, Project Team..."
+                placeholder="Ví dụ: Nhóm học tập, Dự án cuối kỳ..."
                 maxLength={50}
                 className="w-full bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-discord-blurple transition"
               />
@@ -112,10 +112,10 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
             {/* Members */}
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
-                Add Members
+                Thêm thành viên
                 {selectedIds.size > 0 && (
                   <span className="ml-2 normal-case font-semibold text-indigo-600 dark:text-discord-blurple">
-                    {selectedIds.size} selected
+                    Đã chọn {selectedIds.size}
                   </span>
                 )}
               </label>
@@ -125,7 +125,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="Search friends..."
+                  placeholder="Tìm bạn bè..."
                   value={friendSearch}
                   onChange={(e) => setFriendSearch(e.target.value)}
                   className="w-full bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-2 text-sm placeholder-gray-400 dark:placeholder-zinc-500 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-discord-blurple transition"
@@ -138,7 +138,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
                 </div>
               ) : filteredFriends.length === 0 ? (
                 <div className="text-center py-6 text-sm text-gray-400 dark:text-zinc-500">
-                  {friends.length === 0 ? 'You have no friends to add yet.' : 'No matches found.'}
+                  {friends.length === 0 ? 'Bạn chưa có bạn bè để thêm vào nhóm.' : 'Không tìm thấy bạn bè phù hợp.'}
                 </div>
               ) : (
                 <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
@@ -199,7 +199,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 transition"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="submit"
@@ -211,7 +211,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
               ) : (
                 <Plus className="w-4 h-4" />
               )}
-              Create Group
+              Tạo nhóm
             </button>
           </div>
         </form>

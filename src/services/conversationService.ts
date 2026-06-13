@@ -21,5 +21,27 @@ export const conversationService = {
   async summarizeConversation(id: string): Promise<ApiResponse<ConversationSummaryResponse>> {
     const response = await apiClient.post<ApiResponse<ConversationSummaryResponse>>(`/conversations/${id}/summary`);
     return response.data;
+  },
+
+  async updateSelfDestruct(id: string, selfDestructSeconds: number): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/self-destruct`, {
+      selfDestructSeconds,
+    });
+    return response.data;
+  },
+
+  async pinConversation(id: string): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/pin`);
+    return response.data;
+  },
+
+  async unpinConversation(id: string): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.delete<ApiResponse<ConversationResponse>>(`/conversations/${id}/pin`);
+    return response.data;
+  },
+
+  async deleteConversation(id: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>(`/conversations/${id}`);
+    return response.data;
   }
 };

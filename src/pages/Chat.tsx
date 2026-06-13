@@ -16,11 +16,11 @@ import { blockService } from '../services/blockService';
 import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
-  LogOut, User, Settings, MessageSquare,
+  LogOut, User, Settings, MessageSquare, CircleUserRound,
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks
+  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks, Trash2
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -74,7 +74,9 @@ export const Chat = () => {
     togglePinMessage,
     reactToMessage,
     shareMessage,
-    setConversationSummary
+    setConversationSummary,
+    togglePinConversation,
+    deleteConversation
   } = useChatStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -168,6 +170,7 @@ export const Chat = () => {
     try {
       const response = await chatRequestService.accept(requestId);
       if (response.success && response.data?.conversationId) {
+        setSelectedChatRequest(null);
         await fetchIncomingChatRequests();
         await fetchConversations();
         setConversationTab('chats');
@@ -180,23 +183,8 @@ export const Chat = () => {
     }
   };
 
-  const handleRejectChatRequest = async (requestId: string) => {
-    setChatRequestActionId(requestId);
-    try {
-      const response = await chatRequestService.reject(requestId);
-      if (response.success) {
-        await fetchIncomingChatRequests();
-      }
-    } catch (err) {
-      console.error('Failed to reject chat request:', err);
-    } finally {
-      setChatRequestActionId(null);
-    }
-  };
-
-
   const { groups, fetchGroups, removeMember: removeGroupMember } = useGroupStore();
-  const { friends, fetchFriends, sendFriendRequest, removeFriend } = useFriendStore();
+  const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const initiateCall = useCallStore((state) => state.initiateCall);
 
   const {
@@ -210,6 +198,7 @@ export const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
   const [incomingChatRequests, setIncomingChatRequests] = useState<ChatRequestResponse[]>([]);
+  const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
   const [isLoadingChatRequests, setIsLoadingChatRequests] = useState(false);
   const [chatRequestActionId, setChatRequestActionId] = useState<string | null>(null);
   const [isSendingBlockedChatRequest, setIsSendingBlockedChatRequest] = useState(false);
@@ -219,13 +208,24 @@ export const Chat = () => {
   const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
   const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [sentFriendRequestIds, setSentFriendRequestIds] = useState<string[]>([]);
+  const [sentChatRequestIds, setSentChatRequestIds] = useState<string[]>([]);
+  const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
+  const [profileChatMessage, setProfileChatMessage] = useState('');
+  const [profileChatActionId, setProfileChatActionId] = useState<string | null>(null);
+  const [groupMemberSearchQuery, setGroupMemberSearchQuery] = useState('');
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
+  const [isUpdatingSelfDestruct, setIsUpdatingSelfDestruct] = useState(false);
+  const [conversationActionId, setConversationActionId] = useState<string | null>(null);
+  const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
+  const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
+  const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
+  const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
   const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
@@ -243,6 +243,21 @@ export const Chat = () => {
     variant?: 'danger' | 'primary';
     onConfirm: () => void | Promise<void>;
   } | null>(null);
+
+  useEffect(() => {
+    if (!openConversationMenuId) return;
+
+    const closeConversationMenu = () => setOpenConversationMenuId(null);
+    document.addEventListener('click', closeConversationMenu);
+    return () => document.removeEventListener('click', closeConversationMenu);
+  }, [openConversationMenuId]);
+
+  useEffect(() => {
+    if (!isProfileModalOpen) {
+      setGroupMemberSearchQuery('');
+    }
+  }, [isProfileModalOpen]);
+
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -463,6 +478,7 @@ export const Chat = () => {
   useEffect(() => {
     let cancelled = false;
     let lastResumeSyncAt = 0;
+    let lastConversationResyncAt = 0;
 
     const reloadChatData = async (reselectActiveConversation = false) => {
       const accessToken = await ensureFreshAccessToken(120);
@@ -472,15 +488,17 @@ export const Chat = () => {
         fetchConversations(),
         fetchGroups(),
         fetchFriends(),
+        fetchPending(),
         fetchNotifications(),
         fetchIncomingChatRequests(),
       ]);
 
       if (cancelled) return;
 
-      if (reselectActiveConversation) {
+      if (reselectActiveConversation && Date.now() - lastConversationResyncAt > 60000) {
         const currentActiveConversationId = useChatStore.getState().activeConversation?.id;
         if (currentActiveConversationId) {
+          lastConversationResyncAt = Date.now();
           await useChatStore.getState().selectConversation(currentActiveConversationId);
         }
       }
@@ -511,7 +529,7 @@ export const Chat = () => {
       window.removeEventListener('focus', handleResume);
       document.removeEventListener('visibilitychange', handleResume);
     };
-  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications]);
+  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications, fetchPending]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -571,6 +589,7 @@ export const Chat = () => {
 
   useEffect(() => {
     if (activeConversation) {
+      setSelectedChatRequest(null);
       setIsProfileModalOpen(false);
       setIsConversationInfoOpen(false);
       setConversationArchiveMessages([]);
@@ -578,6 +597,14 @@ export const Chat = () => {
       return () => clearTimeout(timer);
     }
   }, [activeConversation?.id]);
+
+  useEffect(() => {
+    if (!selectedChatRequest) return;
+    const stillPending = incomingChatRequests.some((request) => request.id === selectedChatRequest.id);
+    if (!stillPending) {
+      setSelectedChatRequest(null);
+    }
+  }, [incomingChatRequests, selectedChatRequest]);
 
   useEffect(() => {
     if (!isConversationInfoOpen || !activeConversation?.id) return;
@@ -618,7 +645,7 @@ export const Chat = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeConversation?.id, isConversationInfoOpen, messages]);
+  }, [activeConversation?.id, isConversationInfoOpen]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -635,6 +662,12 @@ export const Chat = () => {
       prevFirstMessageIdRef.current = undefined;
     }
   }, [messages, user?.id]);
+
+  useEffect(() => {
+    if (!messages.some((message) => Boolean(message.expiresAt))) return;
+    const timer = window.setInterval(() => setMessageExpiryNow(Date.now()), 10000);
+    return () => window.clearInterval(timer);
+  }, [messages]);
 
   // Infinite scroll: Observe the sentinel element at the top of the message list
   useEffect(() => {
@@ -777,6 +810,54 @@ export const Chat = () => {
   const getCurrentInputMessage = () => {
     const quill = quillRef.current;
     return quill ? deltaToMessageContent(quill.getContents()) : inputMessage;
+  };
+
+  const emojiOptions = [
+    '😀', '😄', '😂', '😊', '😍', '😘', '😎', '🥳',
+    '😢', '😭', '😡', '😤', '😴', '🤔', '😅', '🙄',
+    '👍', '👎', '👏', '🙏', '💪', '👌', '✌️', '🤝',
+    '❤️', '💙', '🔥', '✨', '🎉', '✅', '⭐', '💯',
+  ];
+
+  const stickerOptions = [
+    { label: 'Cười lớn', value: '😂😂😂' },
+    { label: 'Yêu quá', value: '😍💖' },
+    { label: 'Đã rõ', value: '👍 OK!' },
+    { label: 'Cố lên', value: '💪 Cố lên!' },
+    { label: 'Chúc mừng', value: '🎉 Chúc mừng!' },
+    { label: 'Ôm một cái', value: '🤗' },
+    { label: 'Bất ngờ', value: '😮✨' },
+    { label: 'Buồn ngủ', value: '😴 Zzz' },
+    { label: 'Xin lỗi', value: '🙏 Xin lỗi nha' },
+    { label: 'Cảm ơn', value: '❤️ Cảm ơn!' },
+    { label: 'Tuyệt vời', value: '🌟 Tuyệt vời!' },
+    { label: 'Đang tới', value: '🏃 Đang tới!' },
+  ];
+
+  const insertTextToInput = (value: string) => {
+    const quill = quillRef.current;
+    if (quill) {
+      quill.focus();
+      const range = quill.getSelection(true);
+      const insertAt = range?.index ?? Math.max(0, quill.getLength() - 1);
+      quill.insertText(insertAt, value, 'user');
+      quill.setSelection(insertAt + value.length, 0);
+      return;
+    }
+    setInputMessage((current) => `${current}${value}`);
+  };
+
+  const handleSelectEmoji = (emoji: string) => {
+    insertTextToInput(emoji);
+  };
+
+  const handleSendSticker = (sticker: string) => {
+    if (!canSendInActiveConversation) return;
+    sendStompMessage(sticker, 'TEXT', replyTo?.id ?? undefined);
+    if (replyTo) {
+      setReplyTo(null);
+    }
+    setIsEmojiStickerOpen(false);
   };
 
   const clearQuillInput = () => {
@@ -1094,6 +1175,7 @@ export const Chat = () => {
     if (replyTo) {
       setReplyTo(null);
     }
+    setIsEmojiStickerOpen(false);
   };
 
   const handleSendThumbsUp = () => {
@@ -1194,6 +1276,72 @@ export const Chat = () => {
     setFriendRequestActionId(null);
     if (conversation) {
       setSearchQuery('');
+    }
+  };
+
+  const openSearchProfile = (targetUser: AuthUser) => {
+    setSearchProfileUser(targetUser);
+    setProfileChatMessage('');
+  };
+
+  const handleSendChatRequestFromProfile = async () => {
+    if (!searchProfileUser || profileChatActionId) return;
+
+    if (isExistingFriend(searchProfileUser.id)) {
+      await handleStartChatFromSearch(searchProfileUser.id);
+      setSearchProfileUser(null);
+      return;
+    }
+
+    const message = profileChatMessage.trim();
+    if (!message) return;
+
+    setProfileChatActionId(searchProfileUser.id);
+    try {
+      const response = await chatRequestService.create({
+        receiverId: searchProfileUser.id,
+        message,
+      });
+      if (response.success) {
+        setSentChatRequestIds((prev) => prev.includes(searchProfileUser.id) ? prev : [...prev, searchProfileUser.id]);
+        setProfileChatMessage('');
+      } else {
+        window.alert(response.message || 'Không thể gửi tin nhắn chờ.');
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn chờ.');
+    } finally {
+      setProfileChatActionId(null);
+    }
+  };
+
+  const handleBlockChatRequest = async (request: ChatRequestResponse) => {
+    setChatRequestActionId(request.id);
+    try {
+      await blockService.blockUser(request.sender.id);
+      await chatRequestService.reject(request.id);
+      setSelectedChatRequest((current) => current?.id === request.id ? null : current);
+      await fetchIncomingChatRequests();
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể chặn người gửi.');
+    } finally {
+      setChatRequestActionId(null);
+    }
+  };
+
+  const handleReportChatRequest = async (request: ChatRequestResponse) => {
+    setChatRequestActionId(request.id);
+    try {
+      const response = await chatRequestService.reject(request.id);
+      if (response.success) {
+        setSelectedChatRequest((current) => current?.id === request.id ? null : current);
+        await fetchIncomingChatRequests();
+        window.alert('Đã ghi nhận báo xấu và ẩn tin nhắn chờ này.');
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể báo xấu tin nhắn này.');
+    } finally {
+      setChatRequestActionId(null);
     }
   };
 
@@ -1396,6 +1544,13 @@ export const Chat = () => {
   );
   const currentGroupMembership = activeGroup?.members.find((member) => member.userId === user?.id) ?? null;
   const currentUserIsGroupOwner = currentGroupMembership?.role === 'OWNER';
+  const normalizedGroupMemberSearch = groupMemberSearchQuery.trim().toLowerCase();
+  const filteredGroupMembers = (activeGroup?.members ?? []).filter((member) => {
+    if (!normalizedGroupMemberSearch) return true;
+    return [member.username, member.role.toLowerCase()]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(normalizedGroupMemberSearch));
+  });
 
   const formatConversationTime = (dateString: string) => {
     if (!dateString) return '';
@@ -1417,6 +1572,76 @@ export const Chat = () => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Không rõ';
     return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const selfDestructOptions = [
+    { value: 0, label: 'Tắt' },
+    { value: 300, label: '5 phút' },
+    { value: 3600, label: '1 giờ' },
+    { value: 86400, label: '24 giờ' },
+  ];
+
+  const getSelfDestructLabel = (seconds?: number | null) =>
+    selfDestructOptions.find((option) => option.value === (seconds ?? 0))?.label ?? 'Tắt';
+
+  const isMessageExpired = (message: MessageResponse) =>
+    Boolean(message.expiresAt && new Date(message.expiresAt).getTime() <= messageExpiryNow);
+
+  const handleUpdateSelfDestruct = async (seconds: number) => {
+    if (!activeConversation || isUpdatingSelfDestruct) return;
+    setIsUpdatingSelfDestruct(true);
+    try {
+      const response = await conversationService.updateSelfDestruct(activeConversation.id, seconds);
+      if (response.success && response.data) {
+        const updated = response.data;
+        useChatStore.setState((state) => ({
+          activeConversation: state.activeConversation?.id === updated.id ? updated : state.activeConversation,
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === updated.id ? updated : conversation
+          ),
+        }));
+      } else {
+        window.alert(response.message || 'Không thể cập nhật chế độ tin nhắn tự xóa.');
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật chế độ tin nhắn tự xóa.');
+    } finally {
+      setIsUpdatingSelfDestruct(false);
+    }
+  };
+
+  const handleToggleConversationPin = async (conversationId: string, pinned?: boolean) => {
+    if (conversationActionId) return;
+    setOpenConversationMenuId(null);
+    setConversationActionId(`pin-${conversationId}`);
+    try {
+      const ok = await togglePinConversation(conversationId, Boolean(pinned));
+      if (!ok) {
+        window.alert('Không thể cập nhật trạng thái ghim hội thoại.');
+      }
+    } finally {
+      setConversationActionId(null);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (conversationActionId) return;
+    const confirmed = window.confirm('Xóa cuộc hội thoại này khỏi danh sách của bạn? Tin nhắn mới sau này sẽ làm hội thoại xuất hiện lại.');
+    if (!confirmed) return;
+
+    setConversationActionId(`delete-${conversationId}`);
+    try {
+      const ok = await deleteConversation(conversationId);
+      if (ok) {
+        setIsConversationInfoOpen(false);
+        setIsPinnedPanelOpen(false);
+        setIsSearchPanelOpen(false);
+      } else {
+        window.alert('Không thể xóa hội thoại.');
+      }
+    } finally {
+      setConversationActionId(null);
+    }
   };
 
   const formatDividerDate = (dateString: string) => {
@@ -1717,10 +1942,23 @@ export const Chat = () => {
     | { kind: 'dm'; conv: typeof conversations[number] }
     | { kind: 'group'; group: typeof groups[number] };
 
+  const visibleGroups = groups.filter((group) =>
+    !group.conversationId || conversations.some((conversation) => conversation.id === group.conversationId)
+  );
+
   const unifiedItems: UnifiedItem[] = [
     ...uniquePrivateConversations.map(c => ({ kind: 'dm' as const, conv: c })),
-    ...groups.map(g => ({ kind: 'group' as const, group: g })),
+    ...visibleGroups.map(g => ({ kind: 'group' as const, group: g })),
   ];
+
+  const getUnifiedConversation = (item: UnifiedItem) =>
+    item.kind === 'dm'
+      ? item.conv
+      : item.group.conversationId
+      ? conversations.find((conversation) => conversation.id === item.group.conversationId) ?? null
+      : null;
+
+  const isUnifiedPinned = (item: UnifiedItem) => getUnifiedConversation(item)?.pinned === true;
 
   const getUnifiedTime = (item: UnifiedItem): number => {
     if (item.kind === 'dm') {
@@ -1740,7 +1978,10 @@ export const Chat = () => {
       }
       return item.group.name.toLowerCase().includes(query);
     })
-    .sort((a, b) => getUnifiedTime(b) - getUnifiedTime(a));
+    .sort((a, b) => {
+      const pinnedDiff = Number(isUnifiedPinned(b)) - Number(isUnifiedPinned(a));
+      return pinnedDiff || getUnifiedTime(b) - getUnifiedTime(a);
+    });
 
   const isSearchActive = searchQuery.trim().length > 0;
   const textMessageResults = globalMessageResults
@@ -1750,6 +1991,7 @@ export const Chat = () => {
     .filter((message) => messageHasSearchableAttachment(message) || messageHasSharedLink(message))
     .slice(0, 8);
 
+  const visibleMessages = messages.filter((message) => !isMessageExpired(message));
 
 
   const activeFriend = activeConversation ? getFriendInfo(activeConversation) : null;
@@ -1792,18 +2034,23 @@ export const Chat = () => {
 
         <div
           onClick={() => navigate('/friends')}
-          className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="relative w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
           title="Friends List"
         >
           <User className="w-5 h-5" />
+          {pending.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-gray-250 dark:ring-zinc-950">
+              {pending.length > 99 ? '99+' : pending.length}
+            </span>
+          )}
         </div>
 
         <div
           onClick={() => navigate('/profile')}
           className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
-          title="Profile Settings"
+          title="Hồ sơ"
         >
-          <Settings className="w-5 h-5" />
+          <CircleUserRound className="w-5 h-5" />
         </div>
 
         <div className="mt-auto flex flex-col gap-3">
@@ -1911,10 +2158,23 @@ export const Chat = () => {
                 <p className="text-sm text-gray-400 dark:text-zinc-500">Không có tin nhắn chờ.</p>
               </div>
             ) : (
-              incomingChatRequests.map((request) => (
-                <div
+              <div>
+                <div className="mx-3 mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  <div className="flex items-start gap-2">
+                    <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Tin nhắn từ người chưa kết bạn được ẩn tại đây. Chỉ trả lời khi bạn nhận ra người gửi; bạn có thể kết bạn, trả lời hoặc chặn/báo xấu.</span>
+                  </div>
+                </div>
+                {incomingChatRequests.map((request) => (
+                <button
+                  type="button"
                   key={request.id}
-                  className="px-3 py-3 border-b border-gray-100 dark:border-zinc-800/60 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
+                  onClick={() => setSelectedChatRequest(request)}
+                  className={`block w-full px-3 py-3 text-left border-b border-gray-100 dark:border-zinc-800/60 transition-colors ${
+                    selectedChatRequest?.id === request.id
+                      ? 'bg-indigo-50 dark:bg-indigo-500/10'
+                      : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     {request.sender.avatarUrl ? (
@@ -1937,28 +2197,14 @@ export const Chat = () => {
                       <p className="text-[12px] text-gray-500 dark:text-zinc-400 truncate mt-0.5">
                         {request.message}
                       </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAcceptChatRequest(request.id)}
-                          disabled={chatRequestActionId === request.id}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition"
-                        >
-                          {chatRequestActionId === request.id ? '...' : 'Chấp nhận'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRejectChatRequest(request.id)}
-                          disabled={chatRequestActionId === request.id}
-                          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300 text-xs font-bold hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-50 transition"
-                        >
-                          Từ chối
-                        </button>
-                      </div>
+                      <p className="mt-2 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300">
+                        Mở trong khung chat
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))
+                </button>
+                ))}
+              </div>
             )
           ) : isSearchActive ? (
             <div className="px-3 pb-4 space-y-4">
@@ -1986,17 +2232,34 @@ export const Chat = () => {
                       const requestSent = sentFriendRequestIds.includes(result.id);
                       return (
                         <div key={result.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-                          {result.avatarUrl ? (
-                            <img src={result.avatarUrl} alt={result.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center shrink-0">
-                              {result.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openSearchProfile(result)}
+                            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            title="Mở hồ sơ"
+                          >
+                            {result.avatarUrl ? (
+                              <img src={result.avatarUrl} alt={result.username} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center">
+                                {result.username.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </button>
                           <div className="min-w-0 flex-1 text-left">
                             <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{result.username}</div>
                             <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">{result.email}</div>
                           </div>
+                          {!alreadyFriend && (
+                            <button
+                              type="button"
+                              onClick={() => openSearchProfile(result)}
+                              disabled={sentChatRequestIds.includes(result.id)}
+                              className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-500/10 disabled:text-indigo-500 disabled:opacity-80 transition"
+                            >
+                              {sentChatRequestIds.includes(result.id) ? 'Đã nhắn' : 'Nhắn'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => alreadyFriend ? handleStartChatFromSearch(result.id) : handleSendFriendRequestFromSearch(result.id)}
@@ -2027,6 +2290,7 @@ export const Chat = () => {
                     {filteredUnified.slice(0, 8).map((item) => {
                       if (item.kind === 'dm') {
                         const friend = getFriendInfo(item.conv);
+                        const friendId = item.conv.members.find((member) => member.id !== user?.id)?.id;
                         return (
                           <button
                             key={item.conv.id}
@@ -2042,7 +2306,9 @@ export const Chat = () => {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{friend.username}</div>
-                              <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">Bạn bè</div>
+                              <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">
+                                {friendId && isExistingFriend(friendId) ? 'Bạn bè' : 'Chưa là bạn bè'}
+                              </div>
                             </div>
                           </button>
                         );
@@ -2170,8 +2436,11 @@ export const Chat = () => {
                 return (
                   <div
                     key={c.id}
-                    onClick={() => selectConversation(c.id)}
-                    className={`flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                    onClick={() => {
+                      setOpenConversationMenuId(null);
+                      selectConversation(c.id);
+                    }}
+                    className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-indigo-900/20'
                         : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
@@ -2206,6 +2475,7 @@ export const Chat = () => {
                           hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
                         }`}>
                           {friend.username}
+                          {c.pinned && <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />}
                         </span>
                         {lastMsg && (
                           <span className={`text-[11px] shrink-0 ${
@@ -2221,6 +2491,59 @@ export const Chat = () => {
                         }`}>
                           {lastMsg ? formatLastMessage(lastMsg, false) : 'Bắt đầu cuộc trò chuyện'}
                         </p>
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenConversationMenuId((current) => current === c.id ? null : c.id);
+                            }}
+                            className={`rounded-md p-1.5 transition ${
+                              openConversationMenuId === c.id
+                                ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
+                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
+                            }`}
+                            title="Tùy chọn hội thoại"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          {openConversationMenuId === c.id && (
+                            <div
+                              className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleToggleConversationPin(c.id, c.pinned)}
+                                disabled={conversationActionId === `pin-${c.id}`}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                              >
+                                {conversationActionId === `pin-${c.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                ) : c.pinned ? (
+                                  <PinOff className="h-4 w-4 text-indigo-500" />
+                                ) : (
+                                  <Pin className="h-4 w-4 text-gray-500" />
+                                )}
+                                <span>{c.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
+                              </button>
+                              <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteConversation(c.id)}
+                                disabled={conversationActionId === `delete-${c.id}`}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                              >
+                                {conversationActionId === `delete-${c.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                                <span>Xóa hội thoại</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {hasUnread && (
                           <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
                             {unreadCount > 99 ? '99+' : unreadCount}
@@ -2235,6 +2558,7 @@ export const Chat = () => {
               // Group item
               const g = item.group;
               const isSelected = activeConversation?.id === g.conversationId;
+              const groupConversation = g.conversationId ? conversations.find((conversation) => conversation.id === g.conversationId) : null;
               const lastMsg = g.conversationId ? lastMessages[g.conversationId] : undefined;
               const unreadNotifs = notifications.filter(
                 (n) => n.referenceId === g.conversationId && !n.read && n.type === 'NEW_MESSAGE'
@@ -2245,8 +2569,11 @@ export const Chat = () => {
               return (
                 <div
                   key={g.id}
-                  onClick={() => handleOpenGroup(g)}
-                  className={`flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                  onClick={() => {
+                    setOpenConversationMenuId(null);
+                    handleOpenGroup(g);
+                  }}
+                  className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
                     isSelected
                       ? 'bg-blue-50 dark:bg-indigo-900/20'
                       : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
@@ -2270,6 +2597,7 @@ export const Chat = () => {
                         hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
                       }`}>
                         {g.name}
+                        {groupConversation?.pinned && <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />}
                       </span>
                       {lastMsg && (
                         <span className={`text-[11px] shrink-0 ${
@@ -2280,11 +2608,66 @@ export const Chat = () => {
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className={`text-[12px] truncate flex-1 ${
-                        hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
-                      }`}>
-                        {lastMsg ? formatLastMessage(lastMsg, true) : `${g.memberCount} thành viên`}
-                      </p>
+                        <p className={`text-[12px] truncate flex-1 ${
+                          hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
+                        }`}>
+                          {lastMsg ? formatLastMessage(lastMsg, true) : `${g.memberCount} thành viên`}
+                        </p>
+                        {g.conversationId && groupConversation && (
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenConversationMenuId((current) => current === g.conversationId ? null : g.conversationId!);
+                              }}
+                              className={`rounded-md p-1.5 transition ${
+                                openConversationMenuId === g.conversationId
+                                  ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
+                                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
+                              }`}
+                              title="Tùy chọn hội thoại"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                            {openConversationMenuId === g.conversationId && (
+                              <div
+                                className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleConversationPin(g.conversationId!, groupConversation.pinned)}
+                                  disabled={conversationActionId === `pin-${g.conversationId}`}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                >
+                                  {conversationActionId === `pin-${g.conversationId}` ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                  ) : groupConversation.pinned ? (
+                                    <PinOff className="h-4 w-4 text-indigo-500" />
+                                  ) : (
+                                    <Pin className="h-4 w-4 text-gray-500" />
+                                  )}
+                                  <span>{groupConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
+                                </button>
+                                <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteConversation(g.conversationId!)}
+                                  disabled={conversationActionId === `delete-${g.conversationId}`}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                >
+                                  {conversationActionId === `delete-${g.conversationId}` ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                  <span>Xóa hội thoại</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       {hasUnread && (
                         <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
                           {unreadCount > 99 ? '99+' : unreadCount}
@@ -2576,18 +2959,18 @@ export const Chat = () => {
             >
               <div ref={messagesEndRef} />
 
-              {messages.map((msg: MessageResponse, index: number) => {
+              {visibleMessages.map((msg: MessageResponse, index: number) => {
                 const isMe = msg.senderId === user?.id;
-                const nextMsg = messages[index + 1];
+                const nextMsg = visibleMessages[index + 1];
                 const showDivider = !nextMsg ||
                   new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
 
                 // In group chat, show sender names above non-self messages
-                const prevMsg = messages[index - 1];
+                const prevMsg = visibleMessages[index - 1];
                 const showSenderName = isGroupConversation && !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
 
                 // Find parent message if replied to
-                const parentMessage = msg.parentId ? messages.find((m) => m.id === msg.parentId) : null;
+                const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
                 const isCallLog = isCallHistoryMessage(msg);
                 const callMetadata = msg.metadata as any;
 
@@ -3178,6 +3561,92 @@ export const Chat = () => {
               )}
             </div>
 
+            {selectedChatRequest && (
+              <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    <div className="flex items-start gap-2">
+                      <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>Tin nhắn từ người chưa kết bạn. Chỉ trả lời khi bạn nhận ra người gửi.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    {selectedChatRequest.sender.avatarUrl ? (
+                      <img
+                        src={selectedChatRequest.sender.avatarUrl}
+                        alt={selectedChatRequest.sender.username}
+                        className="h-12 w-12 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white">
+                        {selectedChatRequest.sender.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="m-0 truncate text-sm font-bold text-gray-950 dark:text-white">
+                            {selectedChatRequest.sender.username}
+                          </h3>
+                          <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">
+                            {selectedChatRequest.sender.email}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-gray-400 dark:text-zinc-500">
+                          {formatConversationTime(selectedChatRequest.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
+                        {selectedChatRequest.message}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSendFriendRequestFromSearch(selectedChatRequest.sender.id)}
+                          disabled={friendRequestActionId === selectedChatRequest.sender.id || sentFriendRequestIds.includes(selectedChatRequest.sender.id)}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {friendRequestActionId === selectedChatRequest.sender.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                          {sentFriendRequestIds.includes(selectedChatRequest.sender.id) ? 'Đã gửi' : 'Kết bạn'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptChatRequest(selectedChatRequest.id)}
+                          disabled={chatRequestActionId === selectedChatRequest.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                        >
+                          {chatRequestActionId === selectedChatRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                          Nhắn tin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReportChatRequest(selectedChatRequest)}
+                          disabled={chatRequestActionId === selectedChatRequest.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                        >
+                          <Shield className="h-4 w-4" />
+                          Báo xấu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBlockChatRequest(selectedChatRequest)}
+                          disabled={chatRequestActionId === selectedChatRequest.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                        >
+                          <Lock className="h-4 w-4" />
+                          Chặn
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
               {/* Reply Preview */}
@@ -3299,7 +3768,20 @@ export const Chat = () => {
                 <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10">
                   <div className="flex items-center gap-0.5">
                     {/* Sticker/Smile */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Stickers">
+                    <button
+                      type="button"
+                      disabled={!canSendInActiveConversation}
+                      onClick={() => {
+                        setEmojiStickerTab('sticker');
+                        setIsEmojiStickerOpen((open) => !open);
+                      }}
+                      className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${
+                        isEmojiStickerOpen && emojiStickerTab === 'sticker'
+                          ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                      }`}
+                      title="Sticker"
+                    >
                       <Smile className="w-4 h-4" />
                     </button>
 
@@ -3448,6 +3930,66 @@ export const Chat = () => {
                   </div>
                 )}
 
+                {isEmojiStickerOpen && (
+                  <div className="border-b border-gray-200/80 bg-white px-3 py-3 dark:border-zinc-800/80 dark:bg-discord-mid">
+                    <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-zinc-900">
+                      <button
+                        type="button"
+                        onClick={() => setEmojiStickerTab('emoji')}
+                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                          emojiStickerTab === 'emoji'
+                            ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+                        }`}
+                      >
+                        Emoji
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmojiStickerTab('sticker')}
+                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                          emojiStickerTab === 'sticker'
+                            ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
+                            : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+                        }`}
+                      >
+                        Sticker
+                      </button>
+                    </div>
+
+                    {emojiStickerTab === 'emoji' ? (
+                      <div className="grid grid-cols-8 gap-1 sm:grid-cols-12">
+                        {emojiOptions.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleSelectEmoji(emoji)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-gray-100 dark:hover:bg-zinc-800"
+                            title={emoji}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {stickerOptions.map((sticker) => (
+                          <button
+                            key={sticker.label}
+                            type="button"
+                            onClick={() => handleSendSticker(sticker.value)}
+                            className="min-h-16 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/10"
+                            title={`Gửi ${sticker.label}`}
+                          >
+                            <span className="block text-xl">{sticker.value}</span>
+                            <span className="mt-1 block truncate text-[11px] font-semibold text-gray-500 dark:text-zinc-400">{sticker.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Input Text Area Row */}
                 <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid">
                   <input
@@ -3485,7 +4027,20 @@ export const Chat = () => {
 
                   <div className="flex items-center gap-1 shrink-0 pb-1">
                     {/* Emoji smile face */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded-lg hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Emoji">
+                    <button
+                      type="button"
+                      disabled={!canSendInActiveConversation}
+                      onClick={() => {
+                        setEmojiStickerTab('emoji');
+                        setIsEmojiStickerOpen((open) => !open);
+                      }}
+                      className={`p-1.5 rounded-lg transition disabled:opacity-45 disabled:hover:bg-transparent ${
+                        isEmojiStickerOpen && emojiStickerTab === 'emoji'
+                          ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                      }`}
+                      title="Emoji"
+                    >
                       <Smile className="w-5 h-5" />
                     </button>
 
@@ -3731,14 +4286,28 @@ export const Chat = () => {
                   <section className="mt-6">
                     <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Bảo mật & cài đặt</h4>
                     <div className="space-y-2">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
+                      <div className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 dark:bg-zinc-900/50 dark:text-zinc-200">
                         <Shield className="h-4 w-4 text-gray-500" />
-                        <span className="min-w-0 flex-1">Tin nhắn tự xóa</span>
-                        <span className="text-xs text-gray-400">Tắt</span>
-                      </button>
+                        <div className="min-w-0 flex-1">
+                          <span className="block">Tin nhắn tự xóa</span>
+                          <span className="mt-0.5 block text-xs font-normal text-gray-500 dark:text-zinc-400">
+                            Áp dụng cho tin nhắn mới
+                          </span>
+                        </div>
+                        <select
+                          value={activeConversation.selfDestructSeconds ?? 0}
+                          onChange={(event) => handleUpdateSelfDestruct(Number(event.target.value))}
+                          disabled={isUpdatingSelfDestruct}
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none transition focus:border-indigo-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                          title={`Đang đặt: ${getSelfDestructLabel(activeConversation.selfDestructSeconds)}`}
+                        >
+                          {selfDestructOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <button
                         type="button"
                         className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -3746,6 +4315,40 @@ export const Chat = () => {
                         <Lock className="h-4 w-4 text-gray-500" />
                         <span className="min-w-0 flex-1">Ẩn trò chuyện bằng PIN</span>
                         <span className="text-xs text-gray-400">Tắt</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleConversationPin(activeConversation.id, activeConversation.pinned)}
+                        disabled={conversationActionId === `pin-${activeConversation.id}`}
+                        className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        {conversationActionId === `pin-${activeConversation.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                        ) : activeConversation.pinned ? (
+                          <PinOff className="h-4 w-4 text-indigo-500" />
+                        ) : (
+                          <Pin className="h-4 w-4 text-gray-500" />
+                        )}
+                        <span className="min-w-0 flex-1">
+                          {activeConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {activeConversation.pinned ? 'Đang ghim' : 'Tắt'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteConversation(activeConversation.id)}
+                        disabled={conversationActionId === `delete-${activeConversation.id}`}
+                        className="flex w-full items-center gap-3 rounded-lg bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                      >
+                        {conversationActionId === `delete-${activeConversation.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span className="min-w-0 flex-1">Xóa hội thoại</span>
+                        <span className="text-xs font-semibold text-rose-400">Ẩn khỏi danh sách</span>
                       </button>
                       {isGroupConversation ? (
                         <button
@@ -3775,6 +4378,92 @@ export const Chat = () => {
               </div>
             </aside>
           </>
+        ) : selectedChatRequest ? (
+          <div className="flex-1 overflow-y-auto bg-gray-100 p-4 dark:bg-discord-dark">
+            <div className="mx-auto flex min-h-full max-w-2xl flex-col justify-center">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  <div className="flex items-start gap-2">
+                    <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Tin nhắn từ người chưa kết bạn. Chỉ trả lời khi bạn nhận ra người gửi.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  {selectedChatRequest.sender.avatarUrl ? (
+                    <img
+                      src={selectedChatRequest.sender.avatarUrl}
+                      alt={selectedChatRequest.sender.username}
+                      className="h-14 w-14 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xl font-bold text-white">
+                      {selectedChatRequest.sender.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="m-0 truncate text-base font-bold text-gray-950 dark:text-white">
+                          {selectedChatRequest.sender.username}
+                        </h3>
+                        <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">
+                          {selectedChatRequest.sender.email}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs text-gray-400 dark:text-zinc-500">
+                        {formatConversationTime(selectedChatRequest.createdAt)}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
+                      {selectedChatRequest.message}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSendFriendRequestFromSearch(selectedChatRequest.sender.id)}
+                        disabled={friendRequestActionId === selectedChatRequest.sender.id || sentFriendRequestIds.includes(selectedChatRequest.sender.id)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        {friendRequestActionId === selectedChatRequest.sender.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                        {sentFriendRequestIds.includes(selectedChatRequest.sender.id) ? 'Đã gửi' : 'Kết bạn'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptChatRequest(selectedChatRequest.id)}
+                        disabled={chatRequestActionId === selectedChatRequest.id}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                      >
+                        {chatRequestActionId === selectedChatRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                        Nhắn tin
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReportChatRequest(selectedChatRequest)}
+                        disabled={chatRequestActionId === selectedChatRequest.id}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                      >
+                        <Shield className="h-4 w-4" />
+                        Báo xấu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBlockChatRequest(selectedChatRequest)}
+                        disabled={chatRequestActionId === selectedChatRequest.id}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                      >
+                        <Lock className="h-4 w-4" />
+                        Chặn
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           /* Welcome / empty state */
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none bg-gradient-animate-light dark:bg-gradient-animate">
@@ -3930,8 +4619,20 @@ export const Chat = () => {
                       </button>
                     )}
                   </div>
+                  {activeGroup && (
+                    <div className="relative mb-2">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
+                      <input
+                        type="text"
+                        value={groupMemberSearchQuery}
+                        onChange={(event) => setGroupMemberSearchQuery(event.target.value)}
+                        placeholder="Tìm thành viên..."
+                        className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-500 dark:focus:bg-zinc-950"
+                      />
+                    </div>
+                  )}
                   <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                    {(activeGroup?.members ?? []).map((member) => {
+                    {filteredGroupMembers.map((member) => {
                       const canKick = canKickGroupMember(member);
                       return (
                         <div key={member.userId} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
@@ -3964,6 +4665,11 @@ export const Chat = () => {
                         </div>
                       );
                     })}
+                    {activeGroup && filteredGroupMembers.length === 0 && (
+                      <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-discord-black/35 dark:text-discord-muted">
+                        Không tìm thấy thành viên phù hợp.
+                      </p>
+                    )}
                     {!activeGroup && (
                       <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-discord-black/35 dark:text-discord-muted">
                         Chưa tải được thông tin nhóm.
@@ -4059,6 +4765,96 @@ export const Chat = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {searchProfileUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setSearchProfileUser(null)}>
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-white text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex justify-end px-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setSearchProfileUser(null)}
+                className="rounded-full bg-gray-100 p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-5 pb-5">
+              <div className="flex items-center gap-4">
+                {searchProfileUser.avatarUrl ? (
+                  <img src={searchProfileUser.avatarUrl} alt={searchProfileUser.username} className="h-20 w-20 shrink-0 rounded-full object-cover shadow" />
+                ) : (
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-3xl font-bold text-white shadow">
+                    {searchProfileUser.username.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 pb-1 text-left">
+                  <h3 className="m-0 truncate text-xl font-bold">{searchProfileUser.username}</h3>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
+                    <span className={`h-2 w-2 rounded-full ${searchProfileUser.status === 'AWAY' ? 'bg-amber-500' : searchProfileUser.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'}`} />
+                    <span className="capitalize">{searchProfileUser.status.toLowerCase()}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3 text-left">
+                <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
+                  <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Email</p>
+                  <p className="mt-1 break-all text-sm font-semibold">{searchProfileUser.email || 'Không có email'}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
+                  <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Giới thiệu</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-zinc-200">{searchProfileUser.bio || 'Chưa có giới thiệu.'}</p>
+                </div>
+
+                {isExistingFriend(searchProfileUser.id) ? (
+                  <button
+                    type="button"
+                    onClick={handleSendChatRequestFromProfile}
+                    disabled={profileChatActionId === searchProfileUser.id}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                    Nhắn tin
+                  </button>
+                ) : sentChatRequestIds.includes(searchProfileUser.id) ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                    Tin nhắn đã được gửi vào mục Tin nhắn chờ của người nhận.
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-zinc-800 dark:bg-discord-black/35">
+                    <p className="m-0 text-sm font-semibold">Nhắn tin với người chưa kết bạn</p>
+                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
+                      Tin đầu tiên sẽ nằm trong Tin nhắn chờ cho đến khi người nhận trả lời.
+                    </p>
+                    <textarea
+                      value={profileChatMessage}
+                      onChange={(event) => setProfileChatMessage(event.target.value)}
+                      placeholder={`Nhập lời nhắn tới ${searchProfileUser.username}...`}
+                      rows={3}
+                      maxLength={500}
+                      className="mt-3 w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendChatRequestFromProfile}
+                      disabled={!profileChatMessage.trim() || profileChatActionId === searchProfileUser.id}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                      {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Nhắn tin
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

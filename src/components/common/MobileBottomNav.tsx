@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Users, Settings } from 'lucide-react';
+import { useEffect } from 'react';
+import { MessageSquare, Users, CircleUserRound } from 'lucide-react';
 import { useFriendStore } from '../../store/friendStore';
 import { useChatStore } from '../../store/chatStore';
 
@@ -8,9 +9,13 @@ export const MobileBottomNav = () => {
   const navigate = useNavigate();
   
   const { selectConversation } = useChatStore();
-  const { pending } = useFriendStore();
+  const { pending, fetchPending } = useFriendStore();
 
   const currentPath = location.pathname;
+
+  useEffect(() => {
+    fetchPending();
+  }, [fetchPending]);
 
   const handleChatTabClick = () => {
     // Navigate to chat and clear active conversation to show list
@@ -47,7 +52,7 @@ export const MobileBottomNav = () => {
         <span className="text-[10px] font-bold mt-1 tracking-wide">Friends</span>
         {pending.length > 0 && (
           <span className="absolute top-2 right-1/2 translate-x-5 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-white dark:border-zinc-950 animate-pulse">
-            {pending.length}
+            {pending.length > 99 ? '99+' : pending.length}
           </span>
         )}
       </button>
@@ -61,7 +66,7 @@ export const MobileBottomNav = () => {
             : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white'
         }`}
       >
-        <Settings className="w-5.5 h-5.5" />
+        <CircleUserRound className="w-5.5 h-5.5" />
         <span className="text-[10px] font-bold mt-1 tracking-wide">Profile</span>
       </button>
 

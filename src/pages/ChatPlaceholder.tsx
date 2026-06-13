@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
-import { LogOut, User, Settings, ShieldAlert, ShieldCheck, Mail, Calendar, MessageSquare } from 'lucide-react';
+import { LogOut, User, CircleUserRound, ShieldAlert, ShieldCheck, Mail, Calendar, MessageSquare } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 
 export const ChatPlaceholder = () => {
@@ -45,9 +45,9 @@ export const ChatPlaceholder = () => {
         <div 
           onClick={() => navigate('/profile')}
           className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-600 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
-          title="Settings"
+          title="Hồ sơ"
         >
-          <Settings className="w-5 h-5" />
+          <CircleUserRound className="w-5 h-5" />
         </div>
         
         <div className="mt-auto flex flex-col gap-4">

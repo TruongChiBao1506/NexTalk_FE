@@ -7,6 +7,8 @@ export interface ConversationResponse {
   canSendMessages?: boolean;
   blockedByMe?: boolean;
   blockedMe?: boolean;
+  pinned?: boolean;
+  selfDestructSeconds?: number;
   members: User[];
   createdAt: string;
   updatedAt: string;
@@ -117,6 +119,7 @@ export interface MessageResponse {
   isRecalled?: boolean;
   isPinned?: boolean;
   pinnedAt?: string | null;
+  expiresAt?: string | null;
   reactions?: MessageReaction[];
   metadata?: CallHistoryMetadata | PollMetadata | Record<string, unknown>;
 }

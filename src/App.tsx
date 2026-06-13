@@ -10,6 +10,7 @@ import Friends from './pages/Friends';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
+import { useNotificationStore } from './store/notificationStore';
 import { ensureFreshAccessToken } from './api/apiClient';
 
 const queryClient = new QueryClient({
@@ -23,6 +24,32 @@ const queryClient = new QueryClient({
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const notifications = useNotificationStore((state) => state.notifications);
+
+  useEffect(() => {
+    const baseTitle = 'NexTalk';
+    if (!isAuthenticated) {
+      document.title = baseTitle;
+      return;
+    }
+
+    const unreadMessages = notifications
+      .filter((notification) => notification.type === 'NEW_MESSAGE' && !notification.read)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (unreadMessages.length === 0) {
+      document.title = baseTitle;
+      return;
+    }
+
+    const latestContent = unreadMessages[0]?.content?.trim() || 'Bạn có tin nhắn mới';
+    const compactContent = latestContent.length > 42 ? `${latestContent.slice(0, 39)}...` : latestContent;
+    document.title = `(${unreadMessages.length}) ${compactContent} - ${baseTitle}`;
+
+    return () => {
+      document.title = baseTitle;
+    };
+  }, [isAuthenticated, notifications]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
