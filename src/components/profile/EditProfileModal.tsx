@@ -1,15 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import {
+  Camera,
+  CheckCircle2,
+  Image as ImageIcon,
+  Link2,
+  Loader2,
+  Sparkles,
+  UploadCloud,
+  X,
+} from 'lucide-react';
+import { fileService } from '../../services/fileService';
 import { useUserStore } from '../../store/userStore';
 import type { User } from '../../types/auth';
 
 const editProfileSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters').max(30, 'Username cannot exceed 30 characters'),
-  avatarUrl: z.string().min(1, 'Avatar is required').max(250, 'Avatar URL must be under 250 characters'),
-  bio: z.string().max(160, 'Bio cannot exceed 160 characters'),
+  username: z.string().min(3, 'Tên hiển thị cần ít nhất 3 ký tự').max(30, 'Tên hiển thị không vượt quá 30 ký tự'),
+  avatarUrl: z.string().min(1, 'Vui lòng chọn ảnh đại diện'),
+  bio: z.string().max(160, 'Giới thiệu không vượt quá 160 ký tự'),
 });
 
 type EditProfileInput = z.infer<typeof editProfileSchema>;
@@ -29,14 +39,19 @@ const AVATAR_PRESETS = [
 ];
 
 const DICEBEAR_STYLES = ['adventurer', 'bottts', 'avataaars', 'lorelei', 'fun-emoji'];
+const MAX_AVATAR_SIZE_MB = 5;
 
 export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
   const updateProfile = useUserStore((state) => state.updateProfile);
   const isLoading = useUserStore((state) => state.isLoading);
   const error = useUserStore((state) => state.error);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAvatar, setSelectedAvatar] = useState(user.avatarUrl || AVATAR_PRESETS[0]);
   const [dicebearStyle, setDicebearStyle] = useState('adventurer');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
 
   const {
     register,
@@ -53,202 +68,252 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
   });
 
   useEffect(() => {
-    setValue('avatarUrl', selectedAvatar);
+    setValue('avatarUrl', selectedAvatar, { shouldValidate: true });
   }, [selectedAvatar, setValue]);
+
+  const setAvatar = (url: string) => {
+    setAvatarUploadError(null);
+    setSelectedAvatar(url);
+  };
 
   const generateDicebear = () => {
     const randomSeed = Math.random().toString(36).substring(7);
     const randomStyle = DICEBEAR_STYLES[Math.floor(Math.random() * DICEBEAR_STYLES.length)];
     setDicebearStyle(randomStyle);
-    const newAvatar = `https://api.dicebear.com/7.x/${randomStyle}/svg?seed=${randomSeed}`;
-    setSelectedAvatar(newAvatar);
+    setAvatar(`https://api.dicebear.com/7.x/${randomStyle}/svg?seed=${randomSeed}`);
   };
 
-  const handlePresetSelect = (url: string) => {
-    setSelectedAvatar(url);
+  const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarUploadError('Vui lòng chọn tệp hình ảnh.');
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_MB * 1024 * 1024) {
+      setAvatarUploadError(`Ảnh đại diện không được vượt quá ${MAX_AVATAR_SIZE_MB}MB.`);
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setUploadProgress(0);
+    setAvatarUploadError(null);
+
+    try {
+      const response = await fileService.uploadFile(file, setUploadProgress);
+      if (response.success && response.data?.url) {
+        setAvatar(response.data.url);
+      } else {
+        setAvatarUploadError(response.message || 'Không thể tải ảnh lên.');
+      }
+    } catch (err: any) {
+      setAvatarUploadError(err.response?.data?.message || err.message || 'Không thể tải ảnh lên.');
+    } finally {
+      setIsUploadingAvatar(false);
+      setUploadProgress(0);
+    }
   };
 
   const onSubmit = async (data: EditProfileInput) => {
+    if (isUploadingAvatar) return;
     const success = await updateProfile(data);
     if (success) {
       onClose();
     }
   };
 
+  const isSubmitting = isLoading || isUploadingAvatar;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop blur */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal box */}
-      <div className="relative w-full max-w-lg z-10 glass rounded-3xl p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 animate-scale-up text-left overflow-y-auto max-h-[90vh]">
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white m-0">Edit Profile</h3>
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white text-left text-gray-900 shadow-2xl dark:border-zinc-800 dark:bg-discord-mid dark:text-white">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-zinc-800">
+          <div>
+            <h3 className="m-0 text-xl font-bold">Chỉnh sửa hồ sơ</h3>
+            <p className="m-0 mt-1 text-sm text-gray-500 dark:text-zinc-400">
+              Cập nhật ảnh đại diện, tên hiển thị và giới thiệu của bạn.
+            </p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-all duration-200"
+            className="rounded-full bg-gray-100 p-2 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
+            title="Đóng"
           >
-            <X className="w-5 h-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {error && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-sm">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit(onSubmit)} className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+            <section className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <p className="m-0 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Ảnh đại diện</p>
 
-          {/* Avatar Section */}
-          <div className="space-y-3">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Lựa chọn hình đại diện
-            </label>
-            <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-gray-50/50 dark:bg-discord-black/20 p-4 rounded-2xl border border-gray-150 dark:border-zinc-850/60">
-
-              {/* Current Preview */}
-              <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-indigo-500 bg-zinc-200 shrink-0">
-                {selectedAvatar.endsWith('.svg') ? (
-                  <object
-                    data={selectedAvatar}
-                    type="image/svg+xml"
-                    className="w-full h-full object-cover"
-                    aria-label="Avatar preview"
-                  />
-                ) : (
+              <div className="mt-4 flex flex-col items-center">
+                <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-md ring-2 ring-indigo-500 dark:border-zinc-900 dark:bg-zinc-800">
                   <img
                     src={selectedAvatar}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
+                    alt="Ảnh đại diện"
+                    className="h-full w-full object-cover"
                   />
-                )}
-              </div>
-
-              {/* Picker tools */}
-              <div className="flex-1 space-y-3 w-full">
-                {/* Presets */}
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-gray-400">Presets</span>
-                  <div className="flex flex-wrap gap-2">
-                    {AVATAR_PRESETS.map((url, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handlePresetSelect(url)}
-                        className={`w-9 h-9 rounded-full overflow-hidden border-2 transition-all duration-200 hover:scale-105 active:scale-95 ${selectedAvatar === url ? 'border-indigo-600 dark:border-discord-blurple' : 'border-transparent'
-                          }`}
-                      >
-                        <img src={url} alt={`Preset ${idx}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
+                  {isUploadingAvatar && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-white">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                      <span className="mt-2 text-xs font-bold">{uploadProgress}%</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Dicebear Generator */}
-                <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFileChange}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                  <span>{isUploadingAvatar ? 'Đang tải lên...' : 'Tải ảnh từ máy'}</span>
+                </button>
+
+                <p className="m-0 mt-2 text-center text-xs text-gray-500 dark:text-zinc-400">
+                  JPG, PNG, GIF hoặc WebP. Tối đa {MAX_AVATAR_SIZE_MB}MB.
+                </p>
+              </div>
+            </section>
+
+            <section className="space-y-5">
+              {(error || avatarUploadError) && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+                  {avatarUploadError || error}
+                </div>
+              )}
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/35">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="m-0 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Chọn nhanh</p>
+                    <p className="m-0 mt-0.5 text-xs text-gray-400 dark:text-zinc-500">Dùng preset hoặc tạo avatar tự động.</p>
+                  </div>
                   <button
                     type="button"
                     onClick={generateDicebear}
-                    className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-discord-blurple border border-indigo-500/20 transition-all duration-200"
+                    disabled={isSubmitting}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 disabled:opacity-60 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generate Avatar</span>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Tạo avatar</span>
                   </button>
-                  <span className="text-[10px] text-gray-400 dark:text-discord-muted">
-                    Style: <span className="font-semibold text-gray-650 dark:text-zinc-350">{dicebearStyle}</span>
-                  </span>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {AVATAR_PRESETS.map((url, idx) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setAvatar(url)}
+                      disabled={isSubmitting}
+                      className={`relative h-10 w-10 overflow-hidden rounded-full border-2 transition hover:scale-105 disabled:opacity-60 ${
+                        selectedAvatar === url ? 'border-indigo-600' : 'border-transparent'
+                      }`}
+                      title={`Avatar mẫu ${idx + 1}`}
+                    >
+                      <img src={url} alt={`Avatar mẫu ${idx + 1}`} className="h-full w-full object-cover" />
+                      {selectedAvatar === url && (
+                        <span className="absolute bottom-0 right-0 rounded-full bg-indigo-600 text-white">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-zinc-950/60 dark:text-zinc-400">
+                  <Camera className="h-4 w-4 text-indigo-500" />
+                  <span>Kiểu tạo hiện tại: <strong>{dicebearStyle}</strong></span>
                 </div>
               </div>
-            </div>
 
-            {/* Custom URL Input */}
-            <div className="space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Hoặc dán link hình ảnh (dưới 250 ký tự)</span>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <ImageIcon className="h-4 w-4" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Link ảnh đại diện</label>
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="https://example.com/avatar.jpg"
+                    value={selectedAvatar}
+                    onChange={(event) => setAvatar(event.target.value)}
+                    disabled={isSubmitting}
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-white dark:focus:border-indigo-500 dark:focus:bg-zinc-950"
+                  />
                 </div>
+                {errors.avatarUrl && <p className="m-0 text-xs font-medium text-rose-500">{errors.avatarUrl.message}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Tên hiển thị</label>
                 <input
                   type="text"
-                  placeholder="https://example.com/avatar.jpg"
-                  value={selectedAvatar}
-                  onChange={(e) => setSelectedAvatar(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple transition-all duration-200"
+                  disabled={isSubmitting}
+                  placeholder="Tên hiển thị"
+                  {...register('username')}
+                  className={`h-11 w-full rounded-xl border bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:bg-white disabled:opacity-60 dark:bg-zinc-900/70 dark:text-white dark:focus:bg-zinc-950 ${
+                    errors.username
+                      ? 'border-rose-500 focus:border-rose-500'
+                      : 'border-gray-200 focus:border-indigo-500 dark:border-zinc-800 dark:focus:border-indigo-500'
+                  }`}
                 />
+                {errors.username && <p className="m-0 text-xs font-medium text-rose-500">{errors.username.message}</p>}
               </div>
-              {errors.avatarUrl && (
-                <p className="text-xs text-rose-500 font-medium pl-1 mt-0.5">{errors.avatarUrl.message}</p>
-              )}
-            </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Giới thiệu bản thân</label>
+                <textarea
+                  disabled={isSubmitting}
+                  rows={4}
+                  placeholder="Viết vài dòng giới thiệu về bạn..."
+                  {...register('bio')}
+                  className={`w-full resize-none rounded-xl border bg-gray-50 px-3 py-3 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:bg-white disabled:opacity-60 dark:bg-zinc-900/70 dark:text-white dark:focus:bg-zinc-950 ${
+                    errors.bio
+                      ? 'border-rose-500 focus:border-rose-500'
+                      : 'border-gray-200 focus:border-indigo-500 dark:border-zinc-800 dark:focus:border-indigo-500'
+                  }`}
+                />
+                {errors.bio && <p className="m-0 text-xs font-medium text-rose-500">{errors.bio.message}</p>}
+              </div>
+            </section>
           </div>
 
-          {/* Username Field */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Tên hiển thị
-            </label>
-            <input
-              type="text"
-              disabled={isLoading}
-              placeholder="Tên hiển thị"
-              {...register('username')}
-              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${errors.username
-                ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
-                : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
-                }`}
-            />
-            {errors.username && (
-              <p className="text-xs text-rose-500 font-medium pl-1 mt-0.5">{errors.username.message}</p>
-            )}
-          </div>
-
-          {/* Bio Field */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-              Giới thiệu bản thân
-            </label>
-            <textarea
-              disabled={isLoading}
-              rows={3}
-              placeholder="Tell us about yourself..."
-              {...register('bio')}
-              className={`w-full px-4 py-2.5 rounded-xl border bg-white/60 dark:bg-discord-black/40 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 resize-none ${errors.bio
-                ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
-                : 'border-gray-200 dark:border-zinc-800 focus:ring-indigo-500/20 dark:focus:ring-discord-blurple/20 focus:border-indigo-600 dark:focus:border-discord-blurple'
-                }`}
-            />
-            {errors.bio && (
-              <p className="text-xs text-rose-500 font-medium pl-1 mt-0.5">{errors.bio.message}</p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-150 dark:border-zinc-800/60">
+          <div className="mt-5 flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              disabled={isLoading}
-              className="py-2.5 px-4 rounded-xl text-sm font-semibold bg-gray-150 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-200 transition-all duration-200"
+              disabled={isSubmitting}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
-              Cancel
+              Hủy
             </button>
             <button
               type="submit"
-              disabled={isLoading}
-              className="flex items-center gap-1.5 py-2.5 px-5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-750 dark:bg-discord-blurple dark:hover:bg-indigo-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>Save Changes</span>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+              <span>{isUploadingAvatar ? 'Đang tải ảnh...' : isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

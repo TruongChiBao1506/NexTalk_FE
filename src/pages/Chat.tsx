@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
@@ -347,8 +347,17 @@ export const Chat = () => {
   };
 
   const addUploadedFile = async (file: File) => {
-    const id = createAttachmentId();
     const type = getFileMessageType(file);
+    let maxSizeMB = 20; // default for documents (20MB)
+    if (type === 'IMAGE') maxSizeMB = 10; // 10MB limit for images
+    if (type === 'VIDEO') maxSizeMB = 50; // 50MB limit for videos
+
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      window.alert(`Dung lượng ${type === 'IMAGE' ? 'ảnh' : type === 'VIDEO' ? 'video' : 'tệp tin'} "${file.name}" vượt quá giới hạn cho phép là ${maxSizeMB}MB.`);
+      return;
+    }
+
+    const id = createAttachmentId();
     const previewUrl = type === 'IMAGE' ? URL.createObjectURL(file) : null;
 
     setPendingAttachments((attachments) => [
