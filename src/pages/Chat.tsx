@@ -20,7 +20,7 @@ import {
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles, Camera,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown
+  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, Unlock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -48,6 +48,74 @@ import { InviteGroupMembersModal } from '../components/chat/InviteGroupMembersMo
 export const Chat = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinValue, setPinValue] = useState('');
+  const [confirmPinValue, setConfirmPinValue] = useState('');
+  const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
+  const [pendingHideId, setPendingHideId] = useState<string | null>(null);
+  const [pinError, setPinError] = useState('');
+  const [globalConversationResults, setGlobalConversationResults] = useState<ConversationResponse[]>([]);
+
+  const { toggleHideConversation } = useChatStore();
+
+  const handleHideClick = async (convId: string) => {
+    setOpenConversationMenuId(null);
+    const hasPin = user?.hasChatPin;
+    if (!hasPin) {
+      setPendingHideId(convId);
+      setPinValue('');
+      setConfirmPinValue('');
+      setPinStep('enter');
+      setPinError('');
+      setIsPinModalOpen(true);
+    } else {
+      setConversationActionId(`hide-${convId}`);
+      try {
+        const ok = await toggleHideConversation(convId, true);
+        if (ok) {
+          await fetchConversations();
+        }
+      } finally {
+        setConversationActionId(null);
+      }
+    }
+  };
+
+  const handlePinSubmit = async () => {
+    if (pinStep === 'enter') {
+      if (!pinValue.match(/^\d{4}$/)) {
+        setPinError('Mã PIN phải gồm đúng 4 chữ số.');
+        return;
+      }
+      setPinStep('confirm');
+      setPinError('');
+    } else {
+      if (pinValue !== confirmPinValue) {
+        setPinError('Mã PIN xác nhận không trùng khớp.');
+        return;
+      }
+      setConversationActionId('pin-setup');
+      try {
+        const response = await userService.setupChatPin(pinValue);
+        if (response.success) {
+          useAuthStore.getState().updateUser(response.data);
+          setIsPinModalOpen(false);
+          if (pendingHideId) {
+            await toggleHideConversation(pendingHideId, true);
+            await fetchConversations();
+          }
+        } else {
+          setPinError(response.message || 'Lỗi khi thiết lập PIN.');
+        }
+      } catch (err: any) {
+        setPinError(err.response?.data?.message || 'Không thể thiết lập PIN.');
+      } finally {
+        setConversationActionId(null);
+        setPendingHideId(null);
+      }
+    }
+  };
   const {
     conversations,
     activeConversation,
@@ -561,6 +629,7 @@ export const Chat = () => {
     if (query.length < 2) {
       setGlobalUserResults([]);
       setGlobalMessageResults([]);
+      setGlobalConversationResults([]);
       setGlobalSearchError(null);
       setIsGlobalSearching(false);
       return;
@@ -573,9 +642,10 @@ export const Chat = () => {
       const userLookupQuery = normalizeSearchTerm(query);
 
       try {
-        const [userResponse, messageResponse] = await Promise.allSettled([
+        const [userResponse, messageResponse, conversationResponse] = await Promise.allSettled([
           userService.searchUser(userLookupQuery),
           messageService.searchMessages(query),
+          conversationService.searchConversations(query),
         ]);
 
         if (cancelled) return;
@@ -592,7 +662,13 @@ export const Chat = () => {
           setGlobalMessageResults([]);
         }
 
-        if (userResponse.status === 'rejected' && messageResponse.status === 'rejected') {
+        if (conversationResponse.status === 'fulfilled' && conversationResponse.value.success && conversationResponse.value.data) {
+          setGlobalConversationResults(conversationResponse.value.data);
+        } else {
+          setGlobalConversationResults([]);
+        }
+
+        if (userResponse.status === 'rejected' && messageResponse.status === 'rejected' && conversationResponse.status === 'rejected') {
           setGlobalSearchError('Không thể tìm kiếm lúc này.');
         }
       } finally {
@@ -2425,31 +2501,57 @@ export const Chat = () => {
                 </div>
               )}
 
-              {filteredUnified.length > 0 && (
+              {globalConversationResults.length > 0 && (
                 <div>
-                  <div className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
-                    Cuộc trò chuyện & nhóm
+                  <div className="flex items-center justify-between px-1 pb-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
+                      Cuộc trò chuyện & nhóm
+                    </span>
+                    {searchQuery.match(/^\d{4}$/) && user?.hasChatPin && (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 animate-pulse">
+                        <Unlock className="h-3 w-3" />
+                        Đã mở khóa ẩn
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1">
-                    {filteredUnified.slice(0, 8).map((item) => {
-                      if (item.kind === 'dm') {
-                        const friend = getFriendInfo(item.conv);
-                        const friendId = item.conv.members.find((member) => member.id !== user?.id)?.id;
+                    {globalConversationResults.slice(0, 8).map((c) => {
+                      if (c.type === 'PRIVATE') {
+                        const friend = getFriendInfo(c);
+                        const friendId = c.members.find((member) => member.id !== user?.id)?.id;
                         return (
                           <button
-                            key={item.conv.id}
+                            key={c.id}
                             type="button"
                             onClick={() => {
-                              selectConversation(item.conv.id);
+                              selectConversation(c.id);
                               setSearchQuery('');
                             }}
-                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                           >
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center shrink-0">
-                              {friend.username.charAt(0).toUpperCase()}
+                            <div className="relative shrink-0">
+                              {friend.avatarUrl ? (
+                                <img src={friend.avatarUrl} alt={friend.username} className="w-10 h-10 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm">
+                                  {friend.username.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              {c.hidden && (
+                                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
+                                  <Lock className="h-2.5 w-2.5" />
+                                </span>
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{friend.username}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">{friend.username}</span>
+                                {c.hidden && (
+                                  <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                                    Bị ẩn
+                                  </span>
+                                )}
+                              </div>
                               <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">
                                 {friendId && isExistingFriend(friendId) ? 'Bạn bè' : 'Chưa là bạn bè'}
                               </div>
@@ -2460,20 +2562,38 @@ export const Chat = () => {
 
                       return (
                         <button
-                          key={item.group.id}
+                          key={c.id}
                           type="button"
                           onClick={() => {
-                            handleOpenGroup(item.group);
+                            selectConversation(c.id);
                             setSearchQuery('');
                           }}
-                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                         >
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center shrink-0">
-                            {item.group.name.charAt(0).toUpperCase()}
+                          <div className="relative shrink-0">
+                            {c.avatarUrl ? (
+                              <img src={c.avatarUrl} alt={c.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-sm">
+                                {c.name ? c.name.charAt(0).toUpperCase() : 'G'}
+                              </div>
+                            )}
+                            {c.hidden && (
+                              <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
+                                <Lock className="h-2.5 w-2.5" />
+                              </span>
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{item.group.name}</div>
-                            <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">{item.group.memberCount} thành viên</div>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">{c.name || 'Nhóm không tên'}</span>
+                              {c.hidden && (
+                                <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                                  Bị ẩn
+                                </span>
+                              )}
+                            </div>
+                            <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">{c.members?.length || 0} thành viên</div>
                           </div>
                         </button>
                       );
@@ -2544,7 +2664,7 @@ export const Chat = () => {
                 </div>
               )}
 
-              {!isGlobalSearching && !globalSearchError && globalUserResults.length === 0 && filteredUnified.length === 0 && textMessageResults.length === 0 && sharedDataResults.length === 0 && (
+              {!isGlobalSearching && !globalSearchError && globalUserResults.length === 0 && globalConversationResults.length === 0 && textMessageResults.length === 0 && sharedDataResults.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3">
                   <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
                     <Search className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
@@ -2670,6 +2790,20 @@ export const Chat = () => {
                                   <Pin className="h-4 w-4 text-gray-500" />
                                 )}
                                 <span>{c.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
+                              </button>
+                              <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                              <button
+                                type="button"
+                                onClick={() => handleHideClick(c.id)}
+                                disabled={conversationActionId === `hide-${c.id}`}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                              >
+                                {conversationActionId === `hide-${c.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                ) : (
+                                  <Lock className="h-4 w-4 text-gray-500" />
+                                )}
+                                <span>Ẩn trò chuyện</span>
                               </button>
                               <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
                               <button
@@ -2801,6 +2935,20 @@ export const Chat = () => {
                                     <Pin className="h-4 w-4 text-gray-500" />
                                   )}
                                   <span>{groupConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
+                                </button>
+                                <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleHideClick(g.conversationId!)}
+                                  disabled={conversationActionId === `hide-${g.conversationId}`}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                >
+                                  {conversationActionId === `hide-${g.conversationId}` ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                  ) : (
+                                    <Lock className="h-4 w-4 text-gray-500" />
+                                  )}
+                                  <span>Ẩn trò chuyện</span>
                                 </button>
                                 <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
                                 <button
@@ -4544,14 +4692,47 @@ export const Chat = () => {
                           ))}
                         </select>
                       </div>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <Lock className="h-4 w-4 text-gray-500" />
-                        <span className="min-w-0 flex-1">Ẩn trò chuyện bằng PIN</span>
-                        <span className="text-xs text-gray-400">Tắt</span>
-                      </button>
+                      {activeConversation.hidden ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setConversationActionId(`unhide-${activeConversation.id}`);
+                            try {
+                              const ok = await toggleHideConversation(activeConversation.id, false);
+                              if (ok) {
+                                await fetchConversations();
+                              }
+                            } finally {
+                              setConversationActionId(null);
+                            }
+                          }}
+                          disabled={conversationActionId === `unhide-${activeConversation.id}`}
+                          className="flex w-full items-center gap-3 rounded-lg bg-emerald-50 px-3 py-3 text-left text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                        >
+                          {conversationActionId === `unhide-${activeConversation.id}` ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                          ) : (
+                            <Unlock className="h-4 w-4 text-emerald-550" />
+                          )}
+                          <span className="min-w-0 flex-1">Bỏ ẩn trò chuyện</span>
+                          <span className="text-xs text-emerald-500 font-bold">Đang ẩn</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleHideClick(activeConversation.id)}
+                          disabled={conversationActionId === `hide-${activeConversation.id}`}
+                          className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          {conversationActionId === `hide-${activeConversation.id}` ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                          ) : (
+                            <Lock className="h-4 w-4 text-gray-500" />
+                          )}
+                          <span className="min-w-0 flex-1">Ẩn trò chuyện bằng PIN</span>
+                          <span className="text-xs text-gray-400">Tắt</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleToggleConversationPin(activeConversation.id, activeConversation.pinned)}
@@ -5352,6 +5533,100 @@ export const Chat = () => {
               {activeMedia.name}
             </p>
           )}
+        </div>
+      )}
+
+      {isPinModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsPinModalOpen(false)} />
+          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-zinc-800">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
+              Thiết lập mã PIN
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6 text-center">
+              {pinStep === 'enter'
+                ? 'Nhập mã PIN gồm 4 chữ số để ẩn cuộc trò chuyện này. Mã PIN này sẽ dùng chung cho tất cả cuộc trò chuyện bị ẩn.'
+                : 'Vui lòng nhập lại mã PIN để xác nhận.'}
+            </p>
+
+            <div className="flex justify-center mb-6">
+              <div className="flex gap-3">
+                {[0, 1, 2, 3].map((index) => {
+                  const currentValue = pinStep === 'enter' ? pinValue : confirmPinValue;
+                  const setFn = pinStep === 'enter' ? setPinValue : setConfirmPinValue;
+                  const inputId = `setup-pin-${pinStep}-${index}`;
+                  return (
+                    <input
+                      key={index}
+                      id={inputId}
+                      type="password"
+                      maxLength={1}
+                      autoFocus={index === 0 && !currentValue}
+                      className="w-12 h-14 text-center text-2xl font-bold rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                      value={currentValue[index] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val) {
+                          const newVal = currentValue.substring(0, index) + val + currentValue.substring(index + 1);
+                          setFn(newVal.slice(0, 4));
+                          setPinError('');
+                          if (index < 3) {
+                            document.getElementById(`setup-pin-${pinStep}-${index + 1}`)?.focus();
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace') {
+                          if (!currentValue[index] && index > 0) {
+                            const newVal = currentValue.substring(0, index - 1) + currentValue.substring(index);
+                            setFn(newVal);
+                            document.getElementById(`setup-pin-${pinStep}-${index - 1}`)?.focus();
+                          } else {
+                            const newVal = currentValue.substring(0, index) + currentValue.substring(index + 1);
+                            setFn(newVal);
+                          }
+                          setPinError('');
+                        } else if (e.key === 'Enter' && currentValue.length === 4) {
+                          handlePinSubmit();
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {pinError && (
+              <p className="text-sm text-rose-500 text-center mt-2 mb-4 font-medium">{pinError}</p>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handlePinSubmit}
+                disabled={conversationActionId === 'pin-setup' || (pinStep === 'enter' ? pinValue.length !== 4 : confirmPinValue.length !== 4)}
+                className="w-full py-3 px-4 rounded-xl text-white font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+              >
+                {conversationActionId === 'pin-setup' && <Loader2 className="w-4.5 h-4.5 animate-spin" />}
+                {pinStep === 'enter' ? 'Tiếp tục' : 'Xác nhận'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPinModalOpen(false)}
+                className="w-full py-3 px-4 rounded-xl text-gray-700 dark:text-zinc-300 font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+
+            <button
+              onClick={() => setIsPinModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

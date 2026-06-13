@@ -28,5 +28,20 @@ export const userService = {
       params: { query }
     });
     return response.data;
+  },
+
+  async setupChatPin(pin: string): Promise<ApiResponse<User>> {
+    const response = await apiClient.post<ApiResponse<User>>('/users/chat-pin/setup', { pin });
+    return response.data;
+  },
+
+  async resetChatPin(pin?: string): Promise<ApiResponse<User>> {
+    const response = await apiClient.post<ApiResponse<User>>('/users/chat-pin/reset', { pin });
+    return response.data;
+  },
+
+  async changePassword(data: { currentPassword: string; newPassword: string }): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>('/users/change-password', data);
+    return response.data;
   }
 };

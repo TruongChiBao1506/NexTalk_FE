@@ -43,5 +43,19 @@ export const conversationService = {
   async deleteConversation(id: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/conversations/${id}`);
     return response.data;
+  },
+
+  async searchConversations(query: string): Promise<ApiResponse<ConversationResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ConversationResponse[]>>('/conversations/search', {
+      params: { query }
+    });
+    return response.data;
+  },
+
+  async updateHidden(id: string, hidden: boolean): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/hidden`, null, {
+      params: { hidden }
+    });
+    return response.data;
   }
 };

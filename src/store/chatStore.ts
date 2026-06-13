@@ -41,6 +41,9 @@ interface ChatState {
   hasMoreMessages: boolean;
   currentPage: number;
   isLoading: boolean;
+  messagesCache: Record<string, MessageResponse[]>;
+  paginationCache: Record<string, { currentPage: number; hasMoreMessages: boolean }>;
+  pinnedMessagesCache: Record<string, MessageResponse[]>;
   stompClient: Client | null;
   replyTo: MessageResponse | null;
   pinnedMessages: MessageResponse[];
@@ -67,6 +70,7 @@ interface ChatState {
   setConversationSummary: (summary: ConversationSummaryResponse) => void;
   togglePinConversation: (conversationId: string, pinned: boolean) => Promise<boolean>;
   deleteConversation: (conversationId: string) => Promise<boolean>;
+  toggleHideConversation: (conversationId: string, hidden: boolean) => Promise<boolean>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -80,6 +84,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hasMoreMessages: true,
   currentPage: 0,
   isLoading: false,
+  messagesCache: {},
+  paginationCache: {},
+  pinnedMessagesCache: {},
   stompClient: null,
   replyTo: null,
   pinnedMessages: [],
@@ -104,6 +111,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectConversation: async (conversationId: string | null) => {
+    const { activeConversation, messages, currentPage, hasMoreMessages, pinnedMessages } = get();
+    
+    // Save current active conversation state to cache before switching
+    if (activeConversation) {
+      set((state) => ({
+        messagesCache: { ...state.messagesCache, [activeConversation.id]: state.messages },
+        paginationCache: { ...state.paginationCache, [activeConversation.id]: { currentPage: state.currentPage, hasMoreMessages: state.hasMoreMessages } },
+        pinnedMessagesCache: { ...state.pinnedMessagesCache, [activeConversation.id]: state.pinnedMessages }
+      }));
+    }
+
     if (!conversationId) {
       set({
         activeConversation: null,
@@ -123,7 +141,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       useNotificationStore.getState().markAsRead(n.id).catch(() => {});
     }
 
-    const { conversations } = get();
+    const { conversations, messagesCache, paginationCache, pinnedMessagesCache } = get();
     const active = conversations.find((c) => c.id === conversationId) || null;
 
     let resolvedActive = active;
@@ -142,18 +160,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
+    const cachedMessages = messagesCache[conversationId] || [];
+    const cachedPagination = paginationCache[conversationId] || { currentPage: 0, hasMoreMessages: true };
+    const cachedPinnedMessages = pinnedMessagesCache[conversationId] || [];
+
     set({
       activeConversation: resolvedActive,
-      messages: [],
-      currentPage: 0,
-      hasMoreMessages: true,
-      isLoading: true,
+      messages: cachedMessages,
+      currentPage: cachedPagination.currentPage,
+      hasMoreMessages: cachedPagination.hasMoreMessages,
+      isLoading: cachedMessages.length === 0,
       replyTo: null,
-      pinnedMessages: [],
+      pinnedMessages: cachedPinnedMessages,
     });
 
     try {
-      const response = await messageService.getConversationMessages(conversationId, 0, 10);
+      const response = await messageService.getConversationMessages(conversationId, 0, 40);
       if (response.success && response.data) {
         const history = response.data;
         
@@ -163,22 +185,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Fetch pinned messages in background
         get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
 
-        set((state) => {
-          const updatedLastMessages = { ...state.lastMessages };
-          if (history.length > 0) {
-            updatedLastMessages[conversationId] = history[0];
-          }
-          return {
-            messages: history,
-            hasMoreMessages: history.length === 10,
-            isLoading: false,
-            lastMessages: updatedLastMessages,
-          };
-        });
+        if (get().activeConversation?.id === conversationId) {
+          set((state) => {
+            const updatedLastMessages = { ...state.lastMessages };
+            if (history.length > 0) {
+              updatedLastMessages[conversationId] = history[0];
+            }
+
+            let newMessages = history;
+            let newHasMore = history.length === 40;
+
+            if (cachedMessages.length > 0) {
+              // Merge fresh data to avoid scroll jumps
+              const existingIds = new Set(state.messages.map((m) => m.id));
+              const missingMessages = history.filter((m) => !existingIds.has(m.id));
+              
+              let merged = [...missingMessages, ...state.messages];
+              merged = merged.map((m) => {
+                const fresh = history.find((h) => h.id === m.id);
+                return fresh ? fresh : m;
+              });
+              newMessages = merged;
+              newHasMore = state.hasMoreMessages;
+            }
+
+            return {
+              messages: newMessages,
+              hasMoreMessages: newHasMore,
+              isLoading: false,
+              lastMessages: updatedLastMessages,
+            };
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
-      set({ isLoading: false });
+      if (get().activeConversation?.id === conversationId) {
+        set({ isLoading: false });
+      }
     }
   },
 
@@ -193,14 +237,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await messageService.getConversationMessages(
         activeConversation.id,
         nextPage,
-        10
+        40
       );
       if (response.success && response.data) {
         const history = response.data;
         set({
           messages: [...messages, ...history],
           currentPage: nextPage,
-          hasMoreMessages: history.length === 10,
+          hasMoreMessages: history.length === 40,
           isLoading: false,
         });
       }
@@ -685,7 +729,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const response = await messageService.getPinnedMessages(conversationId);
       if (response.success && response.data) {
-        set({ pinnedMessages: response.data });
+        if (get().activeConversation?.id === conversationId) {
+          set({ pinnedMessages: response.data });
+        }
+        set((state) => ({
+          pinnedMessagesCache: { ...state.pinnedMessagesCache, [conversationId]: response.data }
+        }));
       }
     } catch (err) {
       console.error('Failed to fetch pinned messages:', err);
@@ -779,6 +828,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to delete conversation:', err);
+    }
+    return false;
+  },
+
+  toggleHideConversation: async (conversationId, hidden) => {
+    try {
+      const response = await conversationService.updateHidden(conversationId, hidden);
+      if (response.success && response.data) {
+        const updated = response.data;
+        set((state) => {
+          const isActive = state.activeConversation?.id === conversationId;
+          let nextConversations = [...state.conversations];
+          if (hidden) {
+            nextConversations = nextConversations.filter(c => c.id !== conversationId);
+          } else {
+            const exists = nextConversations.some(c => c.id === conversationId);
+            if (exists) {
+              nextConversations = nextConversations.map(c => c.id === conversationId ? updated : c);
+            } else {
+              nextConversations.push(updated);
+            }
+          }
+          return {
+            conversations: sortConversations(nextConversations),
+            activeConversation: isActive ? (hidden ? null : updated) : state.activeConversation,
+            messages: isActive && hidden ? [] : state.messages,
+          };
+        });
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to update conversation hidden status:', err);
     }
     return false;
   },

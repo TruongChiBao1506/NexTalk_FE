@@ -25,5 +25,15 @@ export const authService = {
     // According to postman collection: POST /api/auth/logout with body { refreshToken }
     const response = await apiClient.post<ApiResponse<void>>('/auth/logout', { refreshToken });
     return response.data;
+  },
+
+  async forgotPassword(email: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  async resetPassword(data: { token: string; newPassword: string }): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>('/auth/reset-password', data);
+    return response.data;
   }
 };

@@ -7,6 +7,7 @@ export interface User {
   status: string;
   lastSeen?: string;
   isVerified: boolean;
+  hasChatPin?: boolean;
   createdAt: string;
   updatedAt: string;
 }

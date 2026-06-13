@@ -75,10 +75,10 @@ export const Register = () => {
             <MessageSquareCode className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white m-0">
-            Create an account
+            Tạo tài khoản
           </h1>
           <p className="text-gray-500 dark:text-discord-muted mt-1.5 text-sm">
-            Join NexTalk and start chatting!
+            Tham gia NexTalk và bắt đầu trò chuyện!
           </p>
         </div>
 
@@ -92,20 +92,20 @@ export const Register = () => {
               </div>
               <div className="space-y-2">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Registration Successful!
+                  Đăng ký thành công!
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-discord-text/95">
-                  An email has been sent to <span className="font-semibold text-indigo-600 dark:text-discord-blurple">{registeredEmail}</span>.
+                  Một email đã được gửi đến <span className="font-semibold text-indigo-600 dark:text-discord-blurple">{registeredEmail}</span>.
                 </p>
               </div>
               
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-left space-y-2">
                 <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider">
                   <MailWarning className="w-4 h-4" />
-                  <span>Developer Sandbox Notice</span>
+                  <span>Lưu ý môi trường thử nghiệm</span>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-discord-muted leading-relaxed">
-                  Please verify your email using the link sent to your inbox. If you don't receive it, you can check the backend console log for the activation link.
+                  Vui lòng xác thực email qua đường link gửi tới hộp thư của bạn. Nếu không nhận được, bạn có thể kiểm tra màn hình console của Backend để lấy link kích hoạt.
                 </p>
               </div>
 
@@ -114,7 +114,7 @@ export const Register = () => {
                   to="/login"
                   className="inline-flex w-full items-center justify-center py-2.5 px-4 rounded-xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 transition-all duration-200"
                 >
-                  Back to Login
+                  Quay lại đăng nhập
                 </Link>
               </div>
             </div>
@@ -129,7 +129,7 @@ export const Register = () => {
               {/* Username Field */}
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                  Username
+                  Tên hiển thị
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-discord-blurple transition-colors duration-200">
@@ -155,7 +155,7 @@ export const Register = () => {
               {/* Email Field */}
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                  Email Address
+                  Địa chỉ Email
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-discord-blurple transition-colors duration-200">
@@ -181,7 +181,7 @@ export const Register = () => {
               {/* Password Field */}
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                  Password
+                  Mật khẩu
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-discord-blurple transition-colors duration-200">
@@ -214,7 +214,7 @@ export const Register = () => {
               {/* Confirm Password Field */}
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                  Confirm Password
+                  Xác nhận mật khẩu
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-discord-blurple transition-colors duration-200">
@@ -253,10 +253,10 @@ export const Register = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Creating Account...
+                    Đang tạo tài khoản...
                   </>
                 ) : (
-                  'Register'
+                  'Đăng ký'
                 )}
               </button>
             </form>
@@ -266,12 +266,12 @@ export const Register = () => {
           {!isSuccess && (
             <div className="mt-6 pt-5 border-t border-gray-150 dark:border-zinc-800/60 text-center">
               <p className="text-sm text-gray-500 dark:text-discord-muted">
-                Already have an account?{' '}
+                Đã có tài khoản?{' '}
                 <Link
                   to="/login"
                   className="font-medium text-indigo-600 dark:text-discord-blurple hover:underline"
                 >
-                  Log In
+                  Đăng nhập
                 </Link>
               </p>
             </div>

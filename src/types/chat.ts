@@ -8,6 +8,7 @@ export interface ConversationResponse {
   blockedByMe?: boolean;
   blockedMe?: boolean;
   pinned?: boolean;
+  hidden?: boolean;
   selfDestructSeconds?: number;
   members: User[];
   createdAt: string;

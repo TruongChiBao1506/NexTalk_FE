@@ -8,11 +8,13 @@ import type { LoginRequest } from '../types/authRequests';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/common/ThemeToggle';
+import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
 
 export const Login = () => {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -61,6 +63,10 @@ export const Login = () => {
         <ThemeToggle />
       </div>
 
+      {isForgotModalOpen && (
+        <ForgotPasswordModal onClose={() => setIsForgotModalOpen(false)} />
+      )}
+
       <div className="w-full max-w-md z-10">
         {/* Brand logo / header */}
         <div className="flex flex-col items-center mb-6">
@@ -68,10 +74,10 @@ export const Login = () => {
             <MessageSquareCode className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white m-0">
-            Welcome back!
+            Chào mừng trở lại!
           </h1>
           <p className="text-gray-500 dark:text-discord-muted mt-1.5 text-sm">
-            We're so excited to see you again!
+            Rất vui được gặp lại bạn!
           </p>
         </div>
 
@@ -87,7 +93,7 @@ export const Login = () => {
             {/* Email Field */}
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                Email Address
+                Địa chỉ Email
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-discord-blurple transition-colors duration-200">
@@ -114,17 +120,17 @@ export const Login = () => {
             <div className="space-y-1.5 text-left">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-discord-text/90">
-                  Password
+                  Mật khẩu
                 </label>
                 <a
                   href="#"
                   className="text-xs font-medium text-indigo-600 dark:text-discord-blurple hover:underline"
                   onClick={(e) => {
                     e.preventDefault();
-                    alert("Password recovery is coming soon in a future phase!");
+                    setIsForgotModalOpen(true);
                   }}
                 >
-                  Forgot password?
+                  Quên mật khẩu?
                 </a>
               </div>
               <div className="relative group">
@@ -164,10 +170,10 @@ export const Login = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Logging in...
+                  Đang đăng nhập...
                 </>
               ) : (
-                'Log In'
+                'Đăng nhập'
               )}
             </button>
           </form>
@@ -175,12 +181,12 @@ export const Login = () => {
           {/* Form Footer */}
           <div className="mt-6 pt-5 border-t border-gray-150 dark:border-zinc-800/60 text-center">
             <p className="text-sm text-gray-500 dark:text-discord-muted">
-              Need an account?{' '}
+              Chưa có tài khoản?{' '}
               <Link
                 to="/register"
                 className="font-medium text-indigo-600 dark:text-discord-blurple hover:underline"
               >
-                Register
+                Đăng ký ngay
               </Link>
             </p>
           </div>

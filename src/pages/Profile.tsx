@@ -1,19 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2 } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import EditProfileModal from '../components/profile/EditProfileModal';
+import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import ThemeToggle from '../components/common/ThemeToggle';
 import MobileBottomNav from '../components/common/MobileBottomNav';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { userService } from '../services/userService';
+import { useChatStore } from '../store/chatStore';
 
 export const Profile = () => {
   const navigate = useNavigate();
   const { profile, isLoading, error, fetchProfile } = useUserStore();
   const { logout } = useAuthStore();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isConfirmResetPinOpen, setIsConfirmResetPinOpen] = useState(false);
+  const [isResettingPin, setIsResettingPin] = useState(false);
+  const [isPinInputModalOpen, setIsPinInputModalOpen] = useState(false);
+  const [resetPinInput, setResetPinInput] = useState('');
+  const [resetPinError, setResetPinError] = useState('');
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -162,6 +172,35 @@ export const Profile = () => {
                     })}
                   </span>
                 </div>
+
+                {profile.hasChatPin && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+                    <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
+                      <Lock className="w-4.5 h-4.5 text-indigo-500" />
+                      <span>Khóa ẩn trò chuyện</span>
+                    </div>
+                    <div className="flex items-center gap-3 ml-auto sm:ml-0">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Đã thiết lập PIN</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetPinInput('');
+                          setResetPinError('');
+                          setIsPinInputModalOpen(true);
+                        }}
+                        disabled={isResettingPin}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/20 px-2.5 py-1.5 rounded-xl border border-rose-200/40 dark:border-rose-900/30 transition disabled:opacity-50"
+                      >
+                        {isResettingPin ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        <span>Xóa mã PIN</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Trigger Modal */}
@@ -171,6 +210,15 @@ export const Profile = () => {
               >
                 <Edit3 className="w-4.5 h-4.5" />
                 <span>Chỉnh sửa hồ sơ</span>
+              </button>
+
+              {/* Change Password Button */}
+              <button
+                onClick={() => setIsChangePasswordOpen(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-gray-700 dark:text-zinc-300 font-medium bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-gray-500/20 active:scale-[0.99] transition-all duration-200"
+              >
+                <Lock className="w-4.5 h-4.5" />
+                <span>Đổi mật khẩu</span>
               </button>
 
               {/* Log Out Button */}
@@ -198,6 +246,147 @@ export const Profile = () => {
           user={profile}
           onClose={() => setIsEditOpen(false)}
         />
+      )}
+
+      {/* Render Change Password Modal */}
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
+      )}
+
+      {/* Confirm PIN reset dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmResetPinOpen}
+        title="Xóa mã PIN ẩn cuộc trò chuyện?"
+        description="Nếu xóa mã PIN, toàn bộ tin nhắn trong các cuộc trò chuyện bị ẩn sẽ bị xóa sạch hoàn toàn (không thể khôi phục) và các cuộc trò chuyện đó sẽ tự động hiển thị lại ở danh sách chính. Bạn có chắc chắn muốn tiếp tục?"
+        confirmLabel="Xóa mã PIN"
+        variant="danger"
+        isLoading={isResettingPin}
+        onCancel={() => {
+          if (!isResettingPin) {
+            setIsConfirmResetPinOpen(false);
+          }
+        }}
+        onConfirm={async () => {
+          setIsResettingPin(true);
+          try {
+            const res = await userService.resetChatPin();
+            if (res.success) {
+              useAuthStore.getState().updateUser(res.data);
+              await fetchProfile();
+              useChatStore.getState().fetchConversations();
+              setIsConfirmResetPinOpen(false);
+            } else {
+              window.alert(res.message || 'Lỗi khi xóa mã PIN.');
+            }
+          } catch (err: any) {
+            window.alert(err.response?.data?.message || 'Không thể xóa mã PIN.');
+          } finally {
+            setIsResettingPin(false);
+          }
+        }}
+      />
+
+      {/* Pin Input Reset Modal */}
+      {isPinInputModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsPinInputModalOpen(false)} />
+          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-zinc-800">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">Xóa mã PIN ẩn trò chuyện</h3>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6 text-center">
+              Nhập mã PIN hiện tại của bạn để tiếp tục. Các cuộc trò chuyện sẽ được bỏ ẩn và KHÔNG bị mất tin nhắn.
+            </p>
+            
+            <div className="flex justify-center mb-6">
+              <div className="flex gap-3">
+                {[0, 1, 2, 3].map((index) => (
+                  <input
+                    key={index}
+                    id={`reset-pin-${index}`}
+                    type="password"
+                    maxLength={1}
+                    className="w-12 h-14 text-center text-2xl font-bold rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    value={resetPinInput[index] || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val) {
+                        const newVal = resetPinInput.substring(0, index) + val + resetPinInput.substring(index + 1);
+                        setResetPinInput(newVal.slice(0, 4));
+                        setResetPinError('');
+                        if (index < 3) {
+                          document.getElementById(`reset-pin-${index + 1}`)?.focus();
+                        }
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace') {
+                        if (!resetPinInput[index] && index > 0) {
+                          const newVal = resetPinInput.substring(0, index - 1) + resetPinInput.substring(index);
+                          setResetPinInput(newVal);
+                          document.getElementById(`reset-pin-${index - 1}`)?.focus();
+                        } else {
+                          const newVal = resetPinInput.substring(0, index) + resetPinInput.substring(index + 1);
+                          setResetPinInput(newVal);
+                        }
+                        setResetPinError('');
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {resetPinError && (
+              <p className="text-sm text-rose-500 text-center mt-2 mb-4 font-medium">{resetPinError}</p>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <button
+                disabled={resetPinInput.length !== 4 || isResettingPin}
+                onClick={async () => {
+                  setIsResettingPin(true);
+                  setResetPinError('');
+                  try {
+                    const res = await userService.resetChatPin(resetPinInput);
+                    if (res.success) {
+                      useAuthStore.getState().updateUser(res.data);
+                      await fetchProfile();
+                      useChatStore.getState().fetchConversations();
+                      setIsPinInputModalOpen(false);
+                      setResetPinInput('');
+                    } else {
+                      setResetPinError(res.message || 'Mã PIN không chính xác.');
+                    }
+                  } catch (err: any) {
+                    setResetPinError(err.response?.data?.message || 'Mã PIN không chính xác.');
+                  } finally {
+                    setIsResettingPin(false);
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-xl text-white font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+              >
+                {isResettingPin && <Loader2 className="w-4.5 h-4.5 animate-spin" />}
+                Xác nhận xóa
+              </button>
+              
+              <button
+                onClick={() => {
+                  setIsPinInputModalOpen(false);
+                  setIsConfirmResetPinOpen(true);
+                }}
+                className="w-full py-3 px-4 rounded-xl text-gray-700 dark:text-zinc-300 font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all"
+              >
+                Quên mã PIN?
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setIsPinInputModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Mobile Bottom Navigation */}

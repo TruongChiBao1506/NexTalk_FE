@@ -9,13 +9,13 @@ export const VerifyEmail = () => {
   const token = searchParams.get('token');
   
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState<string>('Verifying your email address...');
+  const [message, setMessage] = useState<string>('Đang xác thực địa chỉ email...');
 
   useEffect(() => {
     const performVerification = async () => {
       if (!token) {
         setStatus('error');
-        setMessage('Verification failed. No token provided in the URL.');
+        setMessage('Xác thực thất bại. Không tìm thấy token trong đường dẫn.');
         return;
       }
 
@@ -23,14 +23,14 @@ export const VerifyEmail = () => {
         const response = await authService.verifyEmail(token);
         if (response.success) {
           setStatus('success');
-          setMessage(response.message || 'Email verified successfully! You can now log in.');
+          setMessage(response.message || 'Xác thực email thành công! Bây giờ bạn có thể đăng nhập.');
         } else {
           setStatus('error');
-          setMessage(response.message || 'Verification failed. The link may have expired or is invalid.');
+          setMessage(response.message || 'Xác thực thất bại. Đường link có thể đã hết hạn hoặc không hợp lệ.');
         }
       } catch (err: any) {
         console.error(err);
-        const msg = err.response?.data?.message || 'Verification failed. The token is invalid or has already been used.';
+        const msg = err.response?.data?.message || 'Xác thực thất bại. Token không hợp lệ hoặc đã được sử dụng.';
         setStatus('error');
         setMessage(msg);
       }
@@ -58,7 +58,7 @@ export const VerifyEmail = () => {
             <MessageSquareCode className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white m-0">
-            Email Verification
+            Xác thực Email
           </h1>
         </div>
 
@@ -71,7 +71,7 @@ export const VerifyEmail = () => {
                 <Loader2 className="h-12 w-12 animate-spin text-indigo-600 dark:text-discord-blurple" />
               </div>
               <h3 className="text-lg font-semibold text-gray-800 dark:text-zinc-200">
-                Checking Token
+                Đang kiểm tra
               </h3>
               <p className="text-sm text-gray-500 dark:text-discord-muted">
                 {message}
@@ -86,7 +86,7 @@ export const VerifyEmail = () => {
               </div>
               <div className="space-y-2">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Email Verified!
+                  Xác thực thành công!
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-discord-text/90">
                   {message}
@@ -97,7 +97,7 @@ export const VerifyEmail = () => {
                   to="/login"
                   className="flex w-full items-center justify-center py-2.5 px-4 rounded-xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 transition-all duration-200"
                 >
-                  Proceed to Login
+                  Tiến hành đăng nhập
                 </Link>
               </div>
             </div>
@@ -110,7 +110,7 @@ export const VerifyEmail = () => {
               </div>
               <div className="space-y-2">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Verification Failed
+                  Xác thực thất bại
                 </h3>
                 <p className="text-sm text-gray-650 dark:text-rose-350 px-2">
                   {message}
@@ -121,13 +121,13 @@ export const VerifyEmail = () => {
                   to="/register"
                   className="flex w-full items-center justify-center py-2.5 px-4 rounded-xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 transition-all duration-200"
                 >
-                  Create New Account
+                  Tạo tài khoản mới
                 </Link>
                 <Link
                   to="/login"
                   className="text-sm font-medium text-indigo-600 dark:text-discord-blurple hover:underline mt-2"
                 >
-                  Back to Login
+                  Quay lại đăng nhập
                 </Link>
               </div>
             </div>
