@@ -1,4 +1,4 @@
-export type GroupRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+export type GroupRole = 'OWNER' | 'LEADER' | 'DEPUTY' | 'ADMIN' | 'MEMBER';
 
 export interface GroupMemberResponse {
   userId: string;
@@ -10,6 +10,7 @@ export interface GroupMemberResponse {
 export interface GroupResponse {
   id: string;
   name: string;
+  avatarUrl: string | null;
   ownerId: string;
   ownerUsername: string;
   conversationId: string | null;
@@ -25,9 +26,14 @@ export interface CreateGroupRequest {
 }
 
 export interface UpdateGroupRequest {
-  name: string;
+  name?: string;
+  avatarUrl?: string | null;
 }
 
 export interface AddMemberRequest {
   userId: string;
+}
+
+export interface UpdateMemberRoleRequest {
+  role: GroupRole;
 }

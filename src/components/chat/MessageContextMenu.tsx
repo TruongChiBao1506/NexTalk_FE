@@ -11,6 +11,8 @@ interface MessageActionsBarProps {
   onDelete: () => void;
   onPinToggle: () => void;
   onShare: () => void;
+  canPin?: boolean;
+  canRecall?: boolean;
   onMenuOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -125,6 +127,8 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
   onDelete,
   onPinToggle,
   onShare,
+  canPin = true,
+  canRecall,
   onMenuOpenChange,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -210,6 +214,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
               <span>Sao chép nội dung</span>
             </button>
 
+            {canPin && (
             <button
               type="button"
               onClick={() => {
@@ -230,8 +235,9 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
                 </>
               )}
             </button>
+            )}
 
-            {isMe && !message.isRecalled && (
+            {(canRecall ?? isMe) && !message.isRecalled && (
               <button
                 type="button"
                 onClick={() => {

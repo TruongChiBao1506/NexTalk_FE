@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { groupService } from '../services/groupService';
-import type { GroupResponse, CreateGroupRequest } from '../types/group';
+import type { GroupResponse, CreateGroupRequest, GroupRole, UpdateGroupRequest } from '../types/group';
 
 interface GroupState {
   groups: GroupResponse[];
@@ -9,9 +9,11 @@ interface GroupState {
 
   fetchGroups: () => Promise<void>;
   createGroup: (data: CreateGroupRequest) => Promise<GroupResponse | null>;
+  updateGroup: (id: string, data: UpdateGroupRequest) => Promise<GroupResponse | null>;
   deleteGroup: (id: string) => Promise<boolean>;
   addMember: (groupId: string, userId: string) => Promise<boolean>;
   removeMember: (groupId: string, userId: string) => Promise<boolean>;
+  updateMemberRole: (groupId: string, userId: string, role: GroupRole) => Promise<boolean>;
   upsertGroup: (group: GroupResponse) => void;
 }
 
@@ -46,6 +48,19 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       }
     } catch (err: any) {
       set({ error: err.message || 'Failed to create group', isLoading: false });
+    }
+    return null;
+  },
+
+  updateGroup: async (id: string, data: UpdateGroupRequest) => {
+    try {
+      const response = await groupService.updateGroup(id, data);
+      if (response.success && response.data) {
+        get().upsertGroup(response.data);
+        return response.data;
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to update group' });
     }
     return null;
   },
@@ -85,6 +100,19 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       return true;
     } catch (err: any) {
       set({ error: err.message || 'Failed to remove member' });
+    }
+    return false;
+  },
+
+  updateMemberRole: async (groupId: string, userId: string, role: GroupRole) => {
+    try {
+      const response = await groupService.updateMemberRole(groupId, userId, { role });
+      if (response.success && response.data) {
+        get().upsertGroup(response.data);
+        return true;
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to update member role' });
     }
     return false;
   },

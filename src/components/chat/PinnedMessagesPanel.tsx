@@ -8,6 +8,7 @@ interface PinnedMessagesPanelProps {
   pinnedMessages: MessageResponse[];
   onUnpin: (messageId: string) => void;
   onJumpToMessage: (messageId: string) => void;
+  canUnpin?: boolean;
 }
 
 export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
@@ -16,6 +17,7 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
   pinnedMessages,
   onUnpin,
   onJumpToMessage,
+  canUnpin = true,
 }) => {
   if (!isOpen) return null;
 
@@ -84,6 +86,7 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
                   <ExternalLink className="w-3 h-3" />
                   <span>Đi đến</span>
                 </button>
+                {canUnpin && (
                 <button
                   onClick={() => onUnpin(msg.id)}
                   className="flex items-center space-x-1 text-[10px] text-rose-500 hover:text-rose-600 hover:underline font-semibold"
@@ -92,6 +95,7 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
                   <PinOff className="w-3 h-3" />
                   <span>Bỏ ghim</span>
                 </button>
+                )}
               </div>
             </div>
           ))

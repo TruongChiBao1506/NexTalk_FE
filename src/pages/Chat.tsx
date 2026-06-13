@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { ChangeEvent, ReactNode } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
@@ -18,9 +18,9 @@ import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   LogOut, User, Settings, MessageSquare, CircleUserRound,
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
-  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles,
+  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles, Camera,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks, Trash2
+  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -31,7 +31,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata, PollOption } from '../types/chat';
-import type { GroupResponse } from '../types/group';
+import type { GroupResponse, GroupRole } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
 
@@ -195,7 +195,7 @@ export const Chat = () => {
     }
   };
 
-  const { groups, fetchGroups, removeMember: removeGroupMember } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole } = useGroupStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const initiateCall = useCallStore((state) => state.initiateCall);
 
@@ -231,6 +231,7 @@ export const Chat = () => {
   const [conversationActionId, setConversationActionId] = useState<string | null>(null);
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
+  const [isUpdatingGroupAvatar, setIsUpdatingGroupAvatar] = useState(false);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
@@ -238,6 +239,7 @@ export const Chat = () => {
   const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
@@ -277,6 +279,7 @@ export const Chat = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const prevFirstMessageIdRef = useRef<string | undefined>(undefined);
+  const lastScrollDistanceFromBottomRef = useRef(0);
 
   type PendingAttachment = {
     id: string;
@@ -291,6 +294,7 @@ export const Chat = () => {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const quillEditorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
 
@@ -605,7 +609,33 @@ export const Chat = () => {
   }, [searchQuery, user?.id]);
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
+    setShowScrollToLatest(false);
+    lastScrollDistanceFromBottomRef.current = 0;
     messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const getDistanceFromChatBottom = (container: HTMLDivElement) => {
+    const normalDistance = container.scrollHeight - container.clientHeight - container.scrollTop;
+    return Math.max(0, Math.min(Math.abs(container.scrollTop), normalDistance));
+  };
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = getDistanceFromChatBottom(container);
+    const previousDistance = lastScrollDistanceFromBottomRef.current;
+    const isMovingAwayFromLatest = distanceFromBottom > previousDistance + 8;
+    const isMovingTowardLatest = distanceFromBottom < previousDistance - 8;
+    const isFarFromBottom = distanceFromBottom > 260;
+
+    if (!isFarFromBottom || isMovingTowardLatest) {
+      setShowScrollToLatest(false);
+    } else if (isMovingAwayFromLatest) {
+      setShowScrollToLatest(true);
+    }
+
+    lastScrollDistanceFromBottomRef.current = distanceFromBottom;
   };
 
   useEffect(() => {
@@ -614,6 +644,8 @@ export const Chat = () => {
       setIsProfileModalOpen(false);
       setIsConversationInfoOpen(false);
       setConversationArchiveMessages([]);
+      setShowScrollToLatest(false);
+      lastScrollDistanceFromBottomRef.current = 0;
       const timer = setTimeout(() => scrollToBottom('auto'), 50);
       return () => clearTimeout(timer);
     }
@@ -1254,6 +1286,34 @@ export const Chat = () => {
     }
   };
 
+  const handleGroupAvatarSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !activeGroup || !currentUserIsGroupOwner || isUpdatingGroupAvatar) return;
+    if (!file.type.startsWith('image/')) {
+      window.alert('Vui lòng chọn một tệp hình ảnh.');
+      event.target.value = '';
+      return;
+    }
+
+    setIsUpdatingGroupAvatar(true);
+    try {
+      const uploadResponse = await fileService.uploadFile(file);
+      if (uploadResponse.success && uploadResponse.data?.url) {
+        const updatedGroup = await updateGroup(activeGroup.id, { avatarUrl: uploadResponse.data.url });
+        if (!updatedGroup) {
+          throw new Error('Khong the luu anh nhom.');
+        }
+      } else {
+        throw new Error(uploadResponse.message || 'Upload anh that bai.');
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật ảnh nhóm.');
+    } finally {
+      setIsUpdatingGroupAvatar(false);
+      event.target.value = '';
+    }
+  };
+
   // Helper to extract display info for a PRIVATE conversation
   const getFriendInfo = (conversation: ConversationResponse) => {
     if (conversation.type === 'PRIVATE') {
@@ -1486,14 +1546,61 @@ export const Chat = () => {
     }
   };
 
-  const canKickGroupMember = (member: GroupResponse['members'][number]) => {
-    if (!activeGroup || !currentGroupMembership || member.userId === user?.id || member.role === 'OWNER') {
+  const groupLeaderRoles: GroupRole[] = ['OWNER', 'LEADER', 'ADMIN'];
+  const groupModeratorRoles: GroupRole[] = ['OWNER', 'LEADER', 'ADMIN', 'DEPUTY'];
+  const roleLabels: Record<GroupRole, string> = {
+    OWNER: 'Trưởng nhóm',
+    LEADER: 'Trưởng nhóm',
+    DEPUTY: 'Phó nhóm',
+    ADMIN: 'Trưởng nhóm',
+    MEMBER: 'Thành viên',
+  };
+
+  const isGroupLeaderRole = (role?: GroupRole | null) => Boolean(role && groupLeaderRoles.includes(role));
+  const isGroupModeratorRole = (role?: GroupRole | null) => Boolean(role && groupModeratorRoles.includes(role));
+
+  const canSetGroupMemberRole = (member: GroupResponse['members'][number], role: GroupRole) => {
+    if (!activeGroup || !currentGroupMembership || member.userId === user?.id || member.role === role) {
       return false;
     }
-    if (currentGroupMembership.role === 'OWNER') {
+    return isGroupLeaderRole(currentGroupMembership.role)
+      && !isGroupLeaderRole(member.role)
+      && (role === 'DEPUTY' || role === 'MEMBER');
+  };
+
+  const canKickGroupMember = (member: GroupResponse['members'][number]) => {
+    if (!activeGroup || !currentGroupMembership || member.userId === user?.id || isGroupLeaderRole(member.role)) {
+      return false;
+    }
+    if (isGroupLeaderRole(currentGroupMembership.role)) {
       return true;
     }
-    return currentGroupMembership.role === 'ADMIN' && member.role === 'MEMBER';
+    return currentGroupMembership.role === 'DEPUTY' && member.role === 'MEMBER';
+  };
+
+  const handleUpdateGroupMemberRole = async (member: GroupResponse['members'][number], role: GroupRole) => {
+    if (!activeGroup || !canSetGroupMemberRole(member, role) || groupMemberActionId) return;
+    const groupId = activeGroup.id;
+    const actionId = `${member.userId}:${role}`;
+
+    setConfirmDialog({
+      title: 'Cập nhật vai trò',
+      description: `Bạn có chắc muốn cập nhật ${member.username} thành ${roleLabels[role]}?`,
+      confirmLabel: 'Cập nhật',
+      variant: 'primary',
+      onConfirm: async () => {
+        setGroupMemberActionId(actionId);
+        try {
+          const ok = await updateMemberRole(groupId, member.userId, role);
+          if (ok) {
+            await fetchGroups();
+          }
+        } finally {
+          setGroupMemberActionId(null);
+          setConfirmDialog(null);
+        }
+      },
+    });
   };
 
   const handleKickGroupMember = async (member: GroupResponse['members'][number]) => {
@@ -1560,11 +1667,27 @@ export const Chat = () => {
     : null;
   const canInviteToActiveGroup = Boolean(
     activeGroup?.members.some((member) =>
-      member.userId === user?.id && (member.role === 'OWNER' || member.role === 'ADMIN')
+      member.userId === user?.id && isGroupModeratorRole(member.role)
     )
   );
   const currentGroupMembership = activeGroup?.members.find((member) => member.userId === user?.id) ?? null;
-  const currentUserIsGroupOwner = currentGroupMembership?.role === 'OWNER';
+  const currentUserIsGroupOwner = isGroupLeaderRole(currentGroupMembership?.role);
+  const canModerateActiveGroup = isGroupModeratorRole(currentGroupMembership?.role);
+  const canPinMessageInActiveConversation = activeConversation?.type !== 'GROUP' || canModerateActiveGroup;
+  const canPinMessage = (message: MessageResponse) =>
+    Boolean(canPinMessageInActiveConversation && !message.isRecalled && message.messageType !== 'SYSTEM');
+  const canRecallMessageInActiveConversation = (message: MessageResponse) => {
+    if (message.senderId === user?.id) {
+      return true;
+    }
+    if (activeConversation?.type !== 'GROUP' || !currentGroupMembership) {
+      return false;
+    }
+    if (isGroupLeaderRole(currentGroupMembership.role)) {
+      return true;
+    }
+    return currentGroupMembership.role === 'DEPUTY';
+  };
   const normalizedGroupMemberSearch = groupMemberSearchQuery.trim().toLowerCase();
   const filteredGroupMembers = (activeGroup?.members ?? []).filter((member) => {
     if (!normalizedGroupMemberSearch) return true;
@@ -1814,7 +1937,7 @@ export const Chat = () => {
         allowMultiple: pollAllowMultiple,
         allowAddOptions: pollAllowAddOptions,
         anonymous: pollAnonymous,
-        expiresAt: pollExpiresAt ? new Date(pollExpiresAt).toISOString().slice(0, 19) : null
+        expiresAt: pollExpiresAt ? new Date(pollExpiresAt).toISOString() : null
       });
       if (response.success && response.data) {
         updateMessageInChat(response.data);
@@ -2027,7 +2150,7 @@ export const Chat = () => {
       ? {
           id: activeConversation.id,
           username: activeGroup?.name || activeConversation.name || activeFriend?.username || 'Nhóm chat',
-          avatarUrl: null,
+          avatarUrl: activeGroup?.avatarUrl ?? null,
           isGroupCall: true,
           memberCount: activeGroup?.memberCount ?? activeConversation.members.length,
         }
@@ -2088,7 +2211,7 @@ export const Chat = () => {
       </aside>
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
-      <section className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-[#1e1e2e] flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
+      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-[#1e1e2e] flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
         <div className="h-[60px] flex items-center justify-between px-4 shrink-0 border-b border-gray-100 dark:border-zinc-800/60">
@@ -2602,9 +2725,17 @@ export const Chat = () => {
                 >
                   {/* Group Avatar */}
                   <div className="relative shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg">
-                      {g.name.charAt(0).toUpperCase()}
-                    </div>
+                    {g.avatarUrl ? (
+                      <img
+                        src={g.avatarUrl}
+                        alt={g.name}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg">
+                        {g.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     {/* Group badge */}
                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center">
                       <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
@@ -2724,7 +2855,7 @@ export const Chat = () => {
       </section>
 
       {/* Column 3: Chat Window */}
-      <main className={`${activeConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}>
+      <main className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}>
         {activeConversation && activeFriend ? (
           <>
             {/* Chat Header */}
@@ -2745,9 +2876,13 @@ export const Chat = () => {
                   title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
                 >
                   {isGroupConversation ? (
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
-                      {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
-                    </div>
+                    activeGroup?.avatarUrl ? (
+                      <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="w-9 h-9 rounded-xl object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
+                        {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
+                      </div>
+                    )
                   ) : activeFriend.avatarUrl ? (
                     <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
                   ) : (
@@ -2940,6 +3075,7 @@ export const Chat = () => {
                         Xem tất cả
                       </button>
                     )}
+                    {canPinMessage(latestPinned) && (
                     <button
                       onClick={() => togglePinMessage(latestPinned.id, true)}
                       className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors"
@@ -2947,6 +3083,7 @@ export const Chat = () => {
                     >
                       <PinOff className="w-3.5 h-3.5" />
                     </button>
+                    )}
                   </div>
                 </div>
               );
@@ -2976,6 +3113,7 @@ export const Chat = () => {
             {/* Messages */}
             <div
               ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
               className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse transition-[margin] duration-300 ${conversationInfoOffsetClass}`}
             >
               <div ref={messagesEndRef} />
@@ -3107,8 +3245,7 @@ export const Chat = () => {
                           const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
                           const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
                           const canManagePoll = msg.senderId === user?.id ||
-                            currentGroupMembership?.role === 'OWNER' ||
-                            currentGroupMembership?.role === 'ADMIN';
+                            isGroupModeratorRole(currentGroupMembership?.role);
 
                           if (msg.isRecalled) {
                             return (
@@ -3135,11 +3272,27 @@ export const Chat = () => {
                                       {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
                                     </p>
                                   </div>
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    {canPinMessage(msg) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                                        className={`rounded-full p-1.5 transition ${
+                                          msg.isPinned
+                                            ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                                        }`}
+                                        title={msg.isPinned ? 'Bo ghim binh chon' : 'Ghim binh chon'}
+                                      >
+                                        {msg.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
                                   {isLocked && (
                                     <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
                                       Đã khóa
                                     </span>
                                   )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -3343,6 +3496,8 @@ export const Chat = () => {
                                 }}
                                 onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
                                 onShare={() => setSharingMessage(msg)}
+                                canPin={canPinMessage(msg)}
+                                canRecall={canRecallMessageInActiveConversation(msg)}
                                 onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
                               />
                             </div>
@@ -3376,11 +3531,12 @@ export const Chat = () => {
                               }`}>
                                 {msg.attachments.map((attachment, index) => {
                                   if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
+                                    const mediaType = attachment.type;
                                     return (
                                       <button
                                         type="button"
                                         key={`${attachment.url}-${index}`}
-                                        onClick={() => setActiveMedia({ url: attachment.url, type: attachment.type, name: attachment.name })}
+                                        onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
                                         className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
                                           msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
                                         }`}
@@ -3613,6 +3769,18 @@ export const Chat = () => {
                 </div>
               )}
             </div>
+
+            {showScrollToLatest && (
+              <button
+                type="button"
+                onClick={() => scrollToBottom('smooth')}
+                className={`absolute bottom-28 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-100 bg-white/95 px-4 py-2 text-sm font-bold text-indigo-600 shadow-lg shadow-indigo-950/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-indigo-50 active:translate-y-0 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-indigo-300 dark:hover:bg-zinc-800 ${conversationInfoOffsetClass}`}
+                title="Cuộn về tin nhắn mới nhất"
+              >
+                <ArrowDown className="h-4 w-4" />
+                <span>Cuộn về tin nhắn mới nhất</span>
+              </button>
+            )}
 
             {selectedChatRequest && (
               <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
@@ -3913,7 +4081,7 @@ export const Chat = () => {
 
                     <button
                       type="button"
-                      disabled={!canSendInActiveConversation || !isGroupConversation}
+                      disabled={!canSendInActiveConversation || !isGroupConversation || !isGroupModeratorRole(currentGroupMembership?.role)}
                       onClick={() => setIsCreatePollOpen(true)}
                       className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
                       title={isGroupConversation ? 'Tạo bình chọn' : 'Bình chọn chỉ dùng trong nhóm'}
@@ -4052,6 +4220,13 @@ export const Chat = () => {
                     multiple
                     className="hidden"
                   />
+                  <input
+                    type="file"
+                    ref={groupAvatarInputRef}
+                    onChange={handleGroupAvatarSelected}
+                    accept="image/*"
+                    className="hidden"
+                  />
 
                   <div
                     className="min-w-0 flex-1"
@@ -4154,9 +4329,17 @@ export const Chat = () => {
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
                   <section className="flex flex-col items-center text-center">
                     {isGroupConversation ? (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow-sm">
-                        {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
-                      </div>
+                      activeGroup?.avatarUrl ? (
+                        <img
+                          src={activeGroup.avatarUrl}
+                          alt={activeGroup.name}
+                          className="h-20 w-20 rounded-2xl object-cover shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700"
+                        />
+                      ) : (
+                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow-sm">
+                          {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
+                        </div>
+                      )
                     ) : activeFriend.avatarUrl ? (
                       <img
                         src={activeFriend.avatarUrl}
@@ -4434,6 +4617,19 @@ export const Chat = () => {
         ) : selectedChatRequest ? (
           <div className="flex-1 overflow-y-auto bg-gray-100 p-4 dark:bg-discord-dark">
             <div className="mx-auto flex min-h-full max-w-2xl flex-col justify-center">
+              {/* Mobile Back Button */}
+              <div className="md:hidden mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedChatRequest(null)}
+                  className="p-2 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 inline-flex items-center gap-2"
+                  title="Quay lại danh sách"
+                >
+                  <ArrowLeft className="w-4.5 h-4.5" />
+                  <span className="text-xs font-bold">Quay lại</span>
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                   <div className="flex items-start gap-2">
@@ -4554,6 +4750,7 @@ export const Chat = () => {
         pinnedMessages={pinnedMessages}
         onUnpin={(msgId) => togglePinMessage(msgId, true)}
         onJumpToMessage={handleJumpToMessage}
+        canUnpin={Boolean(canPinMessageInActiveConversation)}
       />
 
       {/* Search Messages Panel */}
@@ -4593,7 +4790,7 @@ export const Chat = () => {
       )}
 
       {isProfileModalOpen && activeConversation && activeFriend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setIsProfileModalOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}>
           <div
             className="w-full max-w-md overflow-hidden rounded-2xl bg-white text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
             onClick={(event) => event.stopPropagation()}
@@ -4601,8 +4798,9 @@ export const Chat = () => {
             <div className="flex justify-end px-4 pt-4">
               <button
                 type="button"
-                onClick={() => setIsProfileModalOpen(false)}
-                className="rounded-full bg-gray-100 p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
+                onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}
+                disabled={isUpdatingGroupAvatar}
+                className="rounded-full bg-gray-100 p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
                 title="Đóng"
               >
                 <X className="w-4 h-4" />
@@ -4612,9 +4810,28 @@ export const Chat = () => {
             {isGroupConversation ? (
               <div className="px-5 pb-5">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow">
-                    {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => currentUserIsGroupOwner && groupAvatarInputRef.current?.click()}
+                    disabled={!currentUserIsGroupOwner || isUpdatingGroupAvatar}
+                    className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow disabled:cursor-default"
+                    title={currentUserIsGroupOwner ? 'Đổi ảnh nhóm' : 'Chỉ trưởng nhóm được đổi ảnh nhóm'}
+                  >
+                    {activeGroup?.avatarUrl ? (
+                      <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span>{(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}</span>
+                    )}
+                    {currentUserIsGroupOwner && (
+                      <span className={`absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 text-white transition ${isUpdatingGroupAvatar ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                        {isUpdatingGroupAvatar ? (
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        ) : (
+                          <Camera className="h-6 w-6" />
+                        )}
+                      </span>
+                    )}
+                  </button>
                   <div className="min-w-0 pb-1 text-left">
                     <h3 className="m-0 truncate text-xl font-bold">{activeGroup?.name || activeConversation.name || 'Nhóm chat'}</h3>
                     <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
@@ -4663,9 +4880,11 @@ export const Chat = () => {
                       <button
                         type="button"
                         onClick={() => {
+                          if (isUpdatingGroupAvatar) return;
                           setIsProfileModalOpen(false);
                           setIsInviteMembersOpen(true);
                         }}
+                        disabled={isUpdatingGroupAvatar}
                         className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-indigo-700"
                       >
                         Mời thêm
@@ -4687,6 +4906,9 @@ export const Chat = () => {
                   <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                     {filteredGroupMembers.map((member) => {
                       const canKick = canKickGroupMember(member);
+                      const canMakeDeputy = canSetGroupMemberRole(member, 'DEPUTY');
+                      const canMakeMember = canSetGroupMemberRole(member, 'MEMBER') && member.role !== 'MEMBER';
+                      const roleActionLoading = groupMemberActionId?.startsWith(`${member.userId}:`);
                       return (
                         <div key={member.userId} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
                           {member.avatarUrl ? (
@@ -4698,13 +4920,39 @@ export const Chat = () => {
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="m-0 truncate text-sm font-semibold">{member.username}</p>
-                            <p className="m-0 text-[11px] capitalize text-gray-400 dark:text-zinc-500">{member.role.toLowerCase()}</p>
+                            <p className="m-0 text-[11px] text-gray-400 dark:text-zinc-500">{roleLabels[member.role]}</p>
                           </div>
+                          {(canMakeDeputy || canMakeMember) && (
+                            <div className="flex shrink-0 items-center gap-1">
+                              {canMakeDeputy && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateGroupMemberRole(member, 'DEPUTY')}
+                                  disabled={Boolean(groupMemberActionId)}
+                                  className="rounded-lg p-2 text-sky-500 transition hover:bg-sky-50 hover:text-sky-600 disabled:opacity-60 dark:hover:bg-sky-500/10"
+                                  title="Đặt làm phó nhóm"
+                                >
+                                  {roleActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCog className="h-4 w-4" />}
+                                </button>
+                              )}
+                              {canMakeMember && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateGroupMemberRole(member, 'MEMBER')}
+                                  disabled={Boolean(groupMemberActionId)}
+                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-60 dark:hover:bg-zinc-800"
+                                  title="Hạ xuống thành viên"
+                                >
+                                  {roleActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
+                                </button>
+                              )}
+                            </div>
+                          )}
                           {canKick && (
                             <button
                               type="button"
                               onClick={() => handleKickGroupMember(member)}
-                              disabled={groupMemberActionId === member.userId}
+                              disabled={Boolean(groupMemberActionId)}
                               className="rounded-lg p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-60 dark:hover:bg-rose-500/10"
                               title="Kick khỏi nhóm"
                             >
@@ -4810,8 +5058,9 @@ export const Chat = () => {
                 <div className="mt-5 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => setIsProfileModalOpen(false)}
-                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700"
+                    onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}
+                    disabled={isUpdatingGroupAvatar}
+                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Đóng
                   </button>
@@ -4912,7 +5161,7 @@ export const Chat = () => {
         </div>
       )}
 
-      {isCreatePollOpen && activeConversation?.type === 'GROUP' && (
+      {isCreatePollOpen && activeConversation?.type === 'GROUP' && isGroupModeratorRole(currentGroupMembership?.role) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setIsCreatePollOpen(false)}>
           <div
             className="w-full max-w-lg rounded-2xl bg-white p-5 text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
@@ -5112,9 +5361,9 @@ export const Chat = () => {
         description={confirmDialog?.description ?? ''}
         confirmLabel={confirmDialog?.confirmLabel}
         variant={confirmDialog?.variant}
-        isLoading={profileActionLoading || blockActionLoading}
+        isLoading={profileActionLoading || blockActionLoading || Boolean(groupMemberActionId)}
         onCancel={() => {
-          if (!profileActionLoading && !blockActionLoading) {
+          if (!profileActionLoading && !blockActionLoading && !groupMemberActionId) {
             setConfirmDialog(null);
           }
         }}
@@ -5127,7 +5376,7 @@ export const Chat = () => {
       <CallOverlay />
 
       {/* Mobile Bottom Navigation */}
-      {!activeConversation && <MobileBottomNav />}
+      {!activeConversation && !selectedChatRequest && <MobileBottomNav />}
     </div>
   );
 };

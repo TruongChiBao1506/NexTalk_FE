@@ -288,27 +288,32 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { conversationId, caller } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
-    if (!conversationId || !caller || !currentUser || !stompClient || !stompClient.connected) return;
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
 
-    // Send ANSWER signal with accept = false
-    const signalPayload = {
-      callId: get().callId,
-      conversationId,
-      callerId: caller.id,
-      receiverId: currentUser.id,
-      type: get().callType.toUpperCase(),
-      signalType: 'ANSWER',
-      accept: false,
-      reason: 'rejected'
-    };
+    if (conversationId && caller && currentUser && stompClient && stompClient.connected) {
+      try {
+        // Send ANSWER signal with accept = false
+        const signalPayload = {
+          callId: get().callId,
+          conversationId,
+          callerId: caller.id,
+          receiverId: currentUser.id,
+          type: get().callType.toUpperCase(),
+          signalType: 'ANSWER',
+          accept: false,
+          reason: 'rejected'
+        };
 
-    stompClient.publish({
-      destination: '/app/call.answer',
-      body: JSON.stringify(signalPayload)
-    });
+        stompClient.publish({
+          destination: '/app/call.answer',
+          body: JSON.stringify(signalPayload)
+        });
+      } catch (err) {
+        console.error('Failed to send reject call signal:', err);
+      }
+    }
 
     audioSynth.playEndCall();
     set({
@@ -332,26 +337,33 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { conversationId, receiver, isGroupCall } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
-    if (!conversationId || (!isGroupCall && !receiver) || !currentUser || !stompClient || !stompClient.connected) return;
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
 
-    // Send CANCEL WebSocket signal
-    const signalPayload = {
-      callId: get().callId,
-      conversationId,
-      callerId: currentUser.id,
-      receiverId: isGroupCall ? undefined : receiver?.id,
-      type: get().callType.toUpperCase(),
-      signalType: 'CANCEL',
-      reason
-    };
+    const cleanReason = typeof reason === 'string' ? reason : 'canceled';
 
-    stompClient.publish({
-      destination: '/app/call.cancel',
-      body: JSON.stringify(signalPayload)
-    });
+    if (conversationId && (isGroupCall || receiver) && currentUser && stompClient && stompClient.connected) {
+      try {
+        // Send CANCEL WebSocket signal
+        const signalPayload = {
+          callId: get().callId,
+          conversationId,
+          callerId: currentUser.id,
+          receiverId: isGroupCall ? undefined : receiver?.id,
+          type: get().callType.toUpperCase(),
+          signalType: 'CANCEL',
+          reason: cleanReason
+        };
+
+        stompClient.publish({
+          destination: '/app/call.cancel',
+          body: JSON.stringify(signalPayload)
+        });
+      } catch (err) {
+        console.error('Failed to send cancel call signal:', err);
+      }
+    }
 
     audioSynth.playEndCall();
     set({
@@ -381,26 +393,30 @@ export const useCallStore = create<CallStore>((set, get) => ({
     get().clearTracks();
 
     if (conversationId && stompClient && stompClient.connected && currentUser) {
-      const isGroupCall = get().isGroupCall;
-      // Target is caller if we are receiver, or receiver if we are caller
-      const targetId = isGroupCall ? undefined : currentUser.id === caller?.id ? receiver?.id : caller?.id;
+      try {
+        const isGroupCall = get().isGroupCall;
+        // Target is caller if we are receiver, or receiver if we are caller
+        const targetId = isGroupCall ? undefined : currentUser.id === caller?.id ? receiver?.id : caller?.id;
 
-      // Send HANGUP signal
-      const signalPayload = {
-        callId: get().callId,
-        conversationId,
-        callerId: currentUser.id,
-        callerName: currentUser.username,
-        callerAvatar: currentUser.avatarUrl,
-        receiverId: targetId,
-        type: get().callType.toUpperCase(),
-        signalType: isGroupCall ? 'LEAVE' : 'HANGUP'
-      };
+        // Send HANGUP signal
+        const signalPayload = {
+          callId: get().callId,
+          conversationId,
+          callerId: currentUser.id,
+          callerName: currentUser.username,
+          callerAvatar: currentUser.avatarUrl,
+          receiverId: targetId,
+          type: get().callType.toUpperCase(),
+          signalType: isGroupCall ? 'LEAVE' : 'HANGUP'
+        };
 
-      stompClient.publish({
-        destination: '/app/call.hangup',
-        body: JSON.stringify(signalPayload)
-      });
+        stompClient.publish({
+          destination: '/app/call.hangup',
+          body: JSON.stringify(signalPayload)
+        });
+      } catch (err) {
+        console.error('Failed to send hangup call signal:', err);
+      }
     }
 
     audioSynth.playEndCall();

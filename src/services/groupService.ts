@@ -5,6 +5,7 @@ import type {
   CreateGroupRequest,
   UpdateGroupRequest,
   AddMemberRequest,
+  UpdateMemberRoleRequest,
 } from '../types/group';
 
 export const groupService = {
@@ -30,6 +31,11 @@ export const groupService = {
 
   async removeMember(groupId: string, userId: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/groups/${groupId}/members/${userId}`);
+    return response.data;
+  },
+
+  async updateMemberRole(groupId: string, userId: string, data: UpdateMemberRoleRequest): Promise<ApiResponse<GroupResponse>> {
+    const response = await apiClient.put<ApiResponse<GroupResponse>>(`/groups/${groupId}/members/${userId}/role`, data);
     return response.data;
   },
 

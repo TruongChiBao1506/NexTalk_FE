@@ -347,7 +347,7 @@ export const CallOverlay = () => {
           </p>
 
           <div className="flex items-center justify-center gap-8">
-            <EndCallButton onClick={callState === 'ringing_incoming' ? rejectCall : cancelCall} />
+            <EndCallButton onClick={callState === 'ringing_incoming' ? () => rejectCall() : () => cancelCall('canceled')} />
             {callState === 'ringing_incoming' && (
               <button
                 type="button"
