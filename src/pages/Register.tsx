@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound, Mail, User as UserIcon, Eye, EyeOff, Loader2, MessageSquareCode, CheckCircle, MailWarning } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
+import { useAuthStore } from '../store/authStore';
 import { registerSchema } from '../types/authRequests';
 import type { RegisterFormInput } from '../types/authRequests';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
 
 export const Register = () => {
+  const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -29,6 +33,28 @@ export const Register = () => {
       confirmPassword: '',
     },
   });
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!credentialResponse.credential) return;
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const response = await authService.googleLogin(credentialResponse.credential);
+      if (response.success && response.data) {
+        const { user, accessToken, refreshToken } = response.data;
+        login(user, accessToken, refreshToken);
+        navigate('/chat');
+      } else {
+        setApiError(response.message || 'Google Login failed');
+      }
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.response?.data?.message || 'Lỗi khi đăng nhập bằng Google';
+      setApiError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onSubmit = async (data: RegisterFormInput) => {
     setIsLoading(true);
@@ -259,6 +285,27 @@ export const Register = () => {
                   'Đăng ký'
                 )}
               </button>
+
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-gray-200 dark:border-zinc-800"></div>
+                <span className="flex-shrink-0 mx-4 text-xs font-medium text-gray-400 dark:text-zinc-500 uppercase">Hoặc</span>
+                <div className="flex-grow border-t border-gray-200 dark:border-zinc-800"></div>
+              </div>
+
+              <div className="flex justify-center w-full [&>div]:w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => {
+                    setApiError('Đăng nhập Google thất bại');
+                  }}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                  width="100%"
+                />
+              </div>
             </form>
           )}
 

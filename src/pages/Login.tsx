@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound, Mail, Eye, EyeOff, Loader2, MessageSquareCode } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { loginSchema } from '../types/authRequests';
 import type { LoginRequest } from '../types/authRequests';
 import { authService } from '../services/authService';
@@ -29,6 +30,28 @@ export const Login = () => {
       password: '',
     },
   });
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!credentialResponse.credential) return;
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const response = await authService.googleLogin(credentialResponse.credential);
+      if (response.success && response.data) {
+        const { user, accessToken, refreshToken } = response.data;
+        login(user, accessToken, refreshToken);
+        navigate('/chat');
+      } else {
+        setApiError(response.message || 'Google Login failed');
+      }
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.response?.data?.message || 'Lỗi khi đăng nhập bằng Google';
+      setApiError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onSubmit = async (data: LoginRequest) => {
     setIsLoading(true);
@@ -176,6 +199,27 @@ export const Login = () => {
                 'Đăng nhập'
               )}
             </button>
+
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-gray-200 dark:border-zinc-800"></div>
+              <span className="flex-shrink-0 mx-4 text-xs font-medium text-gray-400 dark:text-zinc-500 uppercase">Hoặc</span>
+              <div className="flex-grow border-t border-gray-200 dark:border-zinc-800"></div>
+            </div>
+
+            <div className="flex justify-center w-full [&>div]:w-full">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setApiError('Đăng nhập Google thất bại');
+                }}
+                useOneTap
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="rectangular"
+                width="100%"
+              />
+            </div>
           </form>
 
           {/* Form Footer */}

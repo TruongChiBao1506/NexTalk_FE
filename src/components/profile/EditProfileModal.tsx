@@ -17,7 +17,10 @@ import { useUserStore } from '../../store/userStore';
 import type { User } from '../../types/auth';
 
 const editProfileSchema = z.object({
-  username: z.string().min(3, 'Tên hiển thị cần ít nhất 3 ký tự').max(30, 'Tên hiển thị không vượt quá 30 ký tự'),
+  username: z.string()
+    .min(3, 'Username cần ít nhất 3 ký tự')
+    .max(30, 'Username không vượt quá 30 ký tự')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Username chỉ được chứa chữ, số, dấu chấm, gạch dưới và gạch ngang'),
   avatarUrl: z.string().min(1, 'Vui lòng chọn ảnh đại diện'),
   bio: z.string().max(160, 'Giới thiệu không vượt quá 160 ký tự'),
 });
@@ -262,7 +265,7 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Tên hiển thị</label>
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Tên người dùng (Username)</label>
                 <input
                   type="text"
                   disabled={isSubmitting}
