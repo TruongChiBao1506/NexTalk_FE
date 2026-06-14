@@ -6,6 +6,7 @@ import type {
   UpdateGroupRequest,
   AddMemberRequest,
   UpdateMemberRoleRequest,
+  ChannelResponse,
 } from '../types/group';
 
 export const groupService = {
@@ -46,6 +47,26 @@ export const groupService = {
 
   async getMyGroups(): Promise<ApiResponse<GroupResponse[]>> {
     const response = await apiClient.get<ApiResponse<GroupResponse[]>>('/groups');
+    return response.data;
+  },
+
+  async createChannel(groupId: string, data: { name: string; type?: string; isPrivate?: boolean }): Promise<ApiResponse<ChannelResponse>> {
+    const response = await apiClient.post<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels`, data);
+    return response.data;
+  },
+
+  async updateChannel(groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean }): Promise<ApiResponse<ChannelResponse>> {
+    const response = await apiClient.put<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels/${channelId}`, data);
+    return response.data;
+  },
+
+  async deleteChannel(groupId: string, channelId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>(`/groups/${groupId}/channels/${channelId}`);
+    return response.data;
+  },
+
+  async getChannels(groupId: string): Promise<ApiResponse<ChannelResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ChannelResponse[]>>(`/groups/${groupId}/channels`);
     return response.data;
   },
 };

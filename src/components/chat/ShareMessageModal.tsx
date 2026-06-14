@@ -80,9 +80,11 @@ export const ShareMessageModal = ({
     }
 
     for (const group of groups) {
-      if (!group.conversationId || targetMap.has(group.conversationId)) continue;
-      targetMap.set(group.conversationId, {
-        id: group.conversationId,
+      if (!group.channels || group.channels.length === 0) continue;
+      const conversationId = group.channels[0].conversationId;
+      if (targetMap.has(conversationId)) continue;
+      targetMap.set(conversationId, {
+        id: conversationId,
         title: group.name,
         subtitle: `${group.memberCount} thành viên`,
         avatarUrl: null,

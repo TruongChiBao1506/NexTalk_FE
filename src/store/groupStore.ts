@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { groupService } from '../services/groupService';
 import type { GroupResponse, CreateGroupRequest, GroupRole, UpdateGroupRequest } from '../types/group';
 
+const dedupeGroups = (groups: GroupResponse[]) => {
+  const byId = new Map<string, GroupResponse>();
+  for (const group of groups) {
+    byId.set(group.id, group);
+  }
+  return Array.from(byId.values());
+};
+
 interface GroupState {
   groups: GroupResponse[];
   isLoading: boolean;
@@ -15,6 +23,9 @@ interface GroupState {
   removeMember: (groupId: string, userId: string) => Promise<boolean>;
   updateMemberRole: (groupId: string, userId: string, role: GroupRole) => Promise<boolean>;
   upsertGroup: (group: GroupResponse) => void;
+  createChannel: (groupId: string, data: { name: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
+  updateChannel: (groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
+  deleteChannel: (groupId: string, channelId: string) => Promise<boolean>;
 }
 
 export const useGroupStore = create<GroupState>((set, get) => ({
@@ -27,7 +38,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     try {
       const response = await groupService.getMyGroups();
       if (response.success && response.data) {
-        set({ groups: response.data, isLoading: false });
+        set({ groups: dedupeGroups(response.data), isLoading: false });
       }
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch groups', isLoading: false });
@@ -41,7 +52,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       if (response.success && response.data) {
         const newGroup = response.data;
         set((state) => ({
-          groups: [newGroup, ...state.groups],
+          groups: dedupeGroups([newGroup, ...state.groups]),
           isLoading: false,
         }));
         return newGroup;
@@ -123,9 +134,56 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       if (idx > -1) {
         const list = [...state.groups];
         list[idx] = group;
-        return { groups: list };
+        return { groups: dedupeGroups(list) };
       }
-      return { groups: [group, ...state.groups] };
+      return { groups: dedupeGroups([group, ...state.groups]) };
     });
+  },
+
+  createChannel: async (groupId: string, data) => {
+    try {
+      const response = await groupService.createChannel(groupId, data);
+      if (response.success && response.data) {
+        // Refresh the group to get updated channels list
+        const groupResponse = await groupService.getGroup(groupId);
+        if (groupResponse.success && groupResponse.data) {
+          get().upsertGroup(groupResponse.data);
+        }
+        return true;
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to create channel' });
+    }
+    return false;
+  },
+
+  updateChannel: async (groupId: string, channelId: string, data) => {
+    try {
+      const response = await groupService.updateChannel(groupId, channelId, data);
+      if (response.success && response.data) {
+        const groupResponse = await groupService.getGroup(groupId);
+        if (groupResponse.success && groupResponse.data) {
+          get().upsertGroup(groupResponse.data);
+        }
+        return true;
+      }
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to update channel' });
+    }
+    return false;
+  },
+
+  deleteChannel: async (groupId: string, channelId: string) => {
+    try {
+      await groupService.deleteChannel(groupId, channelId);
+      const groupResponse = await groupService.getGroup(groupId);
+      if (groupResponse.success && groupResponse.data) {
+        get().upsertGroup(groupResponse.data);
+      }
+      return true;
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to delete channel' });
+    }
+    return false;
   },
 }));

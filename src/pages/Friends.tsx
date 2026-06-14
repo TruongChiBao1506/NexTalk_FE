@@ -323,8 +323,8 @@ export const Friends = () => {
                       </div>
 
                       <button
-                        onClick={() => handleOpenGroupChat(group.id, group.conversationId)}
-                        disabled={!group.conversationId || actionLoadingId === group.id}
+                        onClick={() => handleOpenGroupChat(group.id, group.channels?.[0]?.conversationId ?? null)}
+                        disabled={!group.channels || group.channels.length === 0 || actionLoadingId === group.id}
                         className="p-2 rounded-xl text-indigo-600 dark:text-discord-blurple hover:bg-indigo-600/10 dark:hover:bg-discord-blurple/10 active:scale-95 transition-all duration-200 disabled:opacity-45"
                         title="Nhắn tin nhóm"
                       >

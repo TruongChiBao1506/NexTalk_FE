@@ -21,7 +21,8 @@ import {
   Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
   X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles, Camera,
   Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, Unlock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown
+  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, Unlock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown,
+  ChevronDown, ChevronRight, Hash, Volume2, Mic, Headphones
 } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -32,7 +33,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata, PollOption } from '../types/chat';
-import type { GroupResponse, GroupRole } from '../types/group';
+import type { ChannelResponse, GroupResponse, GroupRole } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
 
@@ -44,6 +45,7 @@ import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
 import { SearchPanel } from '../components/chat/SearchPanel';
 import { ShareMessageModal } from '../components/chat/ShareMessageModal';
 import { InviteGroupMembersModal } from '../components/chat/InviteGroupMembersModal';
+import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
 
 
 export const Chat = () => {
@@ -264,7 +266,7 @@ export const Chat = () => {
     }
   };
 
-  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, createChannel } = useGroupStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const initiateCall = useCallStore((state) => state.initiateCall);
 
@@ -277,6 +279,54 @@ export const Chat = () => {
 
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
+  const [createChannelGroupId, setCreateChannelGroupId] = useState<string | null>(null);
+  const [createChannelName, setCreateChannelName] = useState('');
+  const [createChannelType, setCreateChannelType] = useState<'TEXT' | 'VOICE'>('TEXT');
+  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
+
+  const handleCreateChannel = async () => {
+    if (!createChannelGroupId || !createChannelName.trim() || isCreatingChannel) return;
+    setIsCreatingChannel(true);
+    try {
+      const ok = await createChannel(createChannelGroupId, {
+        name: createChannelName.trim(),
+        type: createChannelType,
+        isPrivate: false,
+      });
+      if (ok) {
+        setExpandedGroups((prev) => new Set([...prev, createChannelGroupId]));
+        setCreateChannelGroupId(null);
+        setCreateChannelName('');
+        setCreateChannelType('TEXT');
+      } else {
+        window.alert('Không thể tạo kênh. Vui lòng thử lại.');
+      }
+    } catch (err: any) {
+      window.alert(err?.response?.data?.message || err?.message || 'Không thể tạo kênh.');
+    } finally {
+      setIsCreatingChannel(false);
+    }
+  };
+
+  const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const getGroupConversationId = (group: GroupResponse) =>
+    group.conversationId
+      ?? group.channels?.find((channel) => channel.name === 'Chung')?.conversationId
+      ?? group.channels?.find((channel) => channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
+      ?? group.channels?.[0]?.conversationId
+      ?? null;
+
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
   const [incomingChatRequests, setIncomingChatRequests] = useState<ChatRequestResponse[]>([]);
   const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
@@ -301,6 +351,9 @@ export const Chat = () => {
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isUpdatingGroupAvatar, setIsUpdatingGroupAvatar] = useState(false);
+  const [isEditingGroupName, setIsEditingGroupName] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
@@ -874,7 +927,7 @@ export const Chat = () => {
     : !canSendInActiveConversation
     ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
     : activeConversation?.type === 'GROUP'
-    ? `Nhập @, tin nhắn tới #${groups.find(group => group.conversationId === activeConversation.id)?.name || 'group'}...`
+    ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
     : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
 
 
@@ -1138,7 +1191,7 @@ export const Chat = () => {
     if (/^\s*<(p|div|ul|ol|h[1-6]|blockquote)/i.test(content)) {
       return (
         <div 
-          className="m-0 whitespace-pre-wrap break-words ql-editor px-0 py-0"
+          className="m-0 whitespace-pre-wrap break-words ql-editor !p-0 !min-h-0"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { ADD_ATTR: ['target'] }) }} 
         />
       );
@@ -1349,14 +1402,16 @@ export const Chat = () => {
   const handleGroupCreated = (group: GroupResponse) => {
     setShowCreateGroupModal(false);
     // Open the group conversation immediately
-    if (group.conversationId) {
-      selectConversation(group.conversationId);
+    const groupConversationId = getGroupConversationId(group);
+    if (groupConversationId) {
+      selectConversation(groupConversationId);
     }
   };
 
   const handleOpenGroup = (group: GroupResponse) => {
-    if (group.conversationId) {
-      selectConversation(group.conversationId);
+    const groupConversationId = getGroupConversationId(group);
+    if (groupConversationId) {
+      selectConversation(groupConversationId);
     }
   };
 
@@ -1385,6 +1440,28 @@ export const Chat = () => {
     } finally {
       setIsUpdatingGroupAvatar(false);
       event.target.value = '';
+    }
+  };
+
+  const handleRenameGroup = async () => {
+    const newName = editingGroupName.trim();
+    if (!activeGroup || !newName || isRenamingGroup) return;
+    if (newName === activeGroup.name) {
+      setIsEditingGroupName(false);
+      return;
+    }
+    setIsRenamingGroup(true);
+    try {
+      const updatedGroup = await updateGroup(activeGroup.id, { name: newName });
+      if (updatedGroup) {
+        setIsEditingGroupName(false);
+      } else {
+        window.alert('Không thể đổi tên nhóm. Vui lòng thử lại.');
+      }
+    } catch (err: any) {
+      window.alert(err?.response?.data?.message || err?.message || 'Không thể đổi tên nhóm.');
+    } finally {
+      setIsRenamingGroup(false);
     }
   };
 
@@ -1697,7 +1774,7 @@ export const Chat = () => {
     const conversation = conversations.find((item) => item.id === conversationId);
     if (!conversation) return 'Cuộc trò chuyện';
     if (conversation.type === 'GROUP') {
-      return groups.find((group) => group.conversationId === conversation.id)?.name || conversation.name || 'Nhóm chat';
+      return groups.find((group) => getGroupConversationId(group) === conversation.id)?.name || conversation.name || 'Nhóm chat';
     }
     return getFriendInfo(conversation).username;
   };
@@ -1744,8 +1821,9 @@ export const Chat = () => {
 
   // Active conversation: find matching group for header enrichment
   const activeGroup = activeConversation?.type === 'GROUP'
-    ? groups.find(g => g.conversationId === activeConversation.id) || null
+    ? groups.find(g => getGroupConversationId(g) === activeConversation.id || g.channels?.some(ch => ch.conversationId === activeConversation.id)) || null
     : null;
+  const activeChannel = activeGroup?.channels?.find(ch => ch.conversationId === activeConversation?.id) || null;
   const canInviteToActiveGroup = Boolean(
     activeGroup?.members.some((member) =>
       member.userId === user?.id && isGroupModeratorRole(member.role)
@@ -2145,7 +2223,18 @@ export const Chat = () => {
 
 
   // Build unified conversation list (private + group), sorted by updatedAt desc
-  const privateConversations = conversations.filter(c => c.type === 'PRIVATE');
+  const groupConversationIds = new Set(
+    groups
+      .flatMap((group) => [
+        getGroupConversationId(group),
+        ...(group.channels ?? []).map((channel) => channel.conversationId),
+      ])
+      .filter((conversationId): conversationId is string => Boolean(conversationId))
+  );
+
+  const privateConversations = conversations.filter(c =>
+    c.type === 'PRIVATE' && !groupConversationIds.has(c.id)
+  );
 
   // Deduplicate private conversations by the other member's ID
   const uniquePrivateConversations: typeof privateConversations = [];
@@ -2167,9 +2256,10 @@ export const Chat = () => {
     | { kind: 'dm'; conv: typeof conversations[number] }
     | { kind: 'group'; group: typeof groups[number] };
 
-  const visibleGroups = groups.filter((group) =>
-    !group.conversationId || conversations.some((conversation) => conversation.id === group.conversationId)
-  );
+  const visibleGroups = groups.filter((group) => {
+    const groupConversationId = getGroupConversationId(group);
+    return !groupConversationId || conversations.some((conversation) => conversation.id === groupConversationId);
+  });
 
   const unifiedItems: UnifiedItem[] = [
     ...uniquePrivateConversations.map(c => ({ kind: 'dm' as const, conv: c })),
@@ -2179,8 +2269,8 @@ export const Chat = () => {
   const getUnifiedConversation = (item: UnifiedItem) =>
     item.kind === 'dm'
       ? item.conv
-      : item.group.conversationId
-      ? conversations.find((conversation) => conversation.id === item.group.conversationId) ?? null
+      : getGroupConversationId(item.group)
+      ? conversations.find((conversation) => conversation.id === getGroupConversationId(item.group)) ?? null
       : null;
 
   const isUnifiedPinned = (item: UnifiedItem) => getUnifiedConversation(item)?.pinned === true;
@@ -2190,7 +2280,8 @@ export const Chat = () => {
       const lm = lastMessages[item.conv.id];
       return lm ? new Date(lm.createdAt).getTime() : new Date(item.conv.updatedAt).getTime();
     }
-    const lm = item.group.conversationId ? lastMessages[item.group.conversationId] : undefined;
+    const groupConversationId = getGroupConversationId(item.group);
+    const lm = groupConversationId ? lastMessages[groupConversationId] : undefined;
     return lm ? new Date(lm.createdAt).getTime() : 0;
   };
 
@@ -2840,29 +2931,32 @@ export const Chat = () => {
 
               // Group item
               const g = item.group;
-              const isSelected = activeConversation?.id === g.conversationId;
-              const groupConversation = g.conversationId ? conversations.find((conversation) => conversation.id === g.conversationId) : null;
-              const lastMsg = g.conversationId ? lastMessages[g.conversationId] : undefined;
+              const groupConversationId = getGroupConversationId(g);
+              const isGroupExpanded = expandedGroups.has(g.id);
+              const isSelected = activeConversation?.id === groupConversationId;
+              const groupConversation = groupConversationId ? conversations.find((conversation) => conversation.id === groupConversationId) : null;
+              const lastMsg = groupConversationId ? lastMessages[groupConversationId] : undefined;
               const unreadNotifs = notifications.filter(
-                (n) => n.referenceId === g.conversationId && !n.read && n.type === 'NEW_MESSAGE'
+                (n) => n.referenceId === groupConversationId && !n.read && n.type === 'NEW_MESSAGE'
               );
               const unreadCount = unreadNotifs.length;
               const hasUnread = unreadCount > 0;
 
               return (
-                <div
-                  key={g.id}
-                  onClick={() => {
-                    setOpenConversationMenuId(null);
-                    handleOpenGroup(g);
-                  }}
-                  className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
-                    isSelected
-                      ? 'bg-blue-50 dark:bg-indigo-900/20'
-                      : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
-                  }`}
-                >
-                  {/* Group Avatar */}
+                <div key={g.id} className="flex flex-col">
+                  <div
+                    onClick={(e) => {
+                      setOpenConversationMenuId(null);
+                      handleOpenGroup(g);
+                      toggleGroupExpand(g.id, e);
+                    }}
+                    className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                      isSelected
+                        ? 'bg-blue-50 dark:bg-indigo-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+                    }`}
+                  >
+                    {/* Group Avatar */}
                   <div className="relative shrink-0">
                     {g.avatarUrl ? (
                       <img
@@ -2904,73 +2998,99 @@ export const Chat = () => {
                         }`}>
                           {lastMsg ? formatLastMessage(lastMsg, true) : `${g.memberCount} thành viên`}
                         </p>
-                        {g.conversationId && groupConversation && (
-                          <div className="relative shrink-0">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenConversationMenuId((current) => current === g.conversationId ? null : g.conversationId!);
-                              }}
-                              className={`rounded-md p-1.5 transition ${
-                                openConversationMenuId === g.conversationId
-                                  ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
-                                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
-                              }`}
-                              title="Tùy chọn hội thoại"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                            {openConversationMenuId === g.conversationId && (
-                              <div
-                                className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                                onClick={(event) => event.stopPropagation()}
+                        {groupConversationId && groupConversation && (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {g.channels && g.channels.length > 0 && (
+                              <button
+                                type="button"
+                                className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); toggleGroupExpand(g.id, e); }}
+                                title={isGroupExpanded ? 'Thu gọn' : 'Mở rộng'}
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleConversationPin(g.conversationId!, groupConversation.pinned)}
-                                  disabled={conversationActionId === `pin-${g.conversationId}`}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                                >
-                                  {conversationActionId === `pin-${g.conversationId}` ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                  ) : groupConversation.pinned ? (
-                                    <PinOff className="h-4 w-4 text-indigo-500" />
-                                  ) : (
-                                    <Pin className="h-4 w-4 text-gray-500" />
-                                  )}
-                                  <span>{groupConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
-                                </button>
-                                <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                                <button
-                                  type="button"
-                                  onClick={() => handleHideClick(g.conversationId!)}
-                                  disabled={conversationActionId === `hide-${g.conversationId}`}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                                >
-                                  {conversationActionId === `hide-${g.conversationId}` ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                  ) : (
-                                    <Lock className="h-4 w-4 text-gray-500" />
-                                  )}
-                                  <span>Ẩn trò chuyện</span>
-                                </button>
-                                <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteConversation(g.conversationId!)}
-                                  disabled={conversationActionId === `delete-${g.conversationId}`}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                                >
-                                  {conversationActionId === `delete-${g.conversationId}` ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                  <span>Xóa hội thoại</span>
-                                </button>
-                              </div>
+                                {isGroupExpanded ? (
+                                  <ChevronDown className="w-4 h-4" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4" />
+                                )}
+                              </button>
                             )}
+                            {(g.ownerId === user?.id || ['OWNER', 'LEADER', 'ADMIN'].includes(g.members?.find(m => m.userId === user?.id)?.role || '')) && (
+                              <button
+                                type="button"
+                                className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setCreateChannelGroupId(g.id); setCreateChannelName(''); setCreateChannelType('TEXT'); }}
+                                title="Tạo kênh mới"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            )}
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenConversationMenuId((current) => current === groupConversationId ? null : groupConversationId);
+                                }}
+                                className={`rounded-md p-1.5 transition ${
+                                  openConversationMenuId === groupConversationId
+                                    ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
+                                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
+                                }`}
+                                title="Tùy chọn hội thoại"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {openConversationMenuId === groupConversationId && (
+                                <div
+                                  className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleConversationPin(groupConversationId, groupConversation.pinned)}
+                                    disabled={conversationActionId === `pin-${groupConversationId}`}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                  >
+                                    {conversationActionId === `pin-${groupConversationId}` ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                    ) : groupConversation.pinned ? (
+                                      <PinOff className="h-4 w-4 text-indigo-500" />
+                                    ) : (
+                                      <Pin className="h-4 w-4 text-gray-500" />
+                                    )}
+                                    <span>{groupConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
+                                  </button>
+                                  <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleHideClick(groupConversationId)}
+                                    disabled={conversationActionId === `hide-${groupConversationId}`}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                  >
+                                    {conversationActionId === `hide-${groupConversationId}` ? (
+                                      <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                    ) : (
+                                      <Lock className="h-4 w-4 text-gray-500" />
+                                    )}
+                                    <span>Ẩn trò chuyện</span>
+                                  </button>
+                                  <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteConversation(groupConversationId)}
+                                    disabled={conversationActionId === `delete-${groupConversationId}`}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                  >
+                                    {conversationActionId === `delete-${groupConversationId}` ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                    <span>Xóa hội thoại</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       {hasUnread && (
@@ -2979,7 +3099,72 @@ export const Chat = () => {
                         </span>
                       )}
                     </div>
+
+
                   </div>
+                </div>
+
+                  {/* Render channels if expanded */}
+                  {isGroupExpanded && g.channels && g.channels.length > 0 && (
+                    <div className="flex flex-col ml-14 mr-3 my-1 gap-0.5 border-l-2 border-gray-100 dark:border-zinc-800/50 pl-2">
+                      {g.channels.map(ch => {
+                        const isChannelSelected = activeConversation?.id === ch.conversationId;
+                        const channelNotifs = notifications.filter(
+                          (n) => n.referenceId === ch.conversationId && !n.read && n.type === 'NEW_MESSAGE'
+                        );
+                        const channelUnreadCount = channelNotifs.length;
+                        const channelHasUnread = channelUnreadCount > 0;
+
+                        let Icon = Hash;
+                        if (ch.type === 'VOICE') Icon = Volume2;
+                        else if (ch.isPrivate) Icon = Lock;
+
+                        return (
+                          <div
+                            key={ch.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectConversation(ch.conversationId);
+                            }}
+                            className={`group flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer rounded-lg transition-colors ${
+                              isChannelSelected
+                                ? 'bg-indigo-50/80 dark:bg-indigo-500/15'
+                                : 'hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'
+                            }`}
+                          >
+                            <Icon className={`w-4 h-4 shrink-0 ${channelHasUnread ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-zinc-500'}`} />
+                            <span className={`text-[13px] truncate flex-1 ${
+                              channelHasUnread
+                                ? 'font-bold text-gray-900 dark:text-white'
+                                : isChannelSelected
+                                ? 'font-bold text-indigo-700 dark:text-indigo-300'
+                                : 'font-medium text-gray-600 dark:text-zinc-400'
+                            }`}>
+                              {ch.name}
+                            </span>
+                            {channelHasUnread && (
+                              <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                                {channelUnreadCount > 99 ? '99+' : channelUnreadCount}
+                              </span>
+                            )}
+                            {(g.ownerId === user?.id || ['ADMIN', 'LEADER', 'DEPUTY'].includes(g.members?.find(m => m.userId === user?.id)?.role || '')) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChannelSettingsData({ groupId: g.id, channel: ch });
+                                }}
+                                className={`shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-all ${isChannelSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                title="Cài đặt kênh"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -3177,6 +3362,34 @@ export const Chat = () => {
               </div>
             </header>
 
+            {activeChannel?.type === 'VOICE' ? (
+              <div className="flex flex-col items-center justify-center flex-1 h-full text-gray-500 space-y-6">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                    <Mic className="w-12 h-12 text-indigo-400 dark:text-indigo-500" />
+                  </div>
+                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 ring-4 ring-gray-100 dark:ring-discord-dark text-[10px] font-black text-white">
+                    <Sparkles className="w-3 h-3" />
+                  </span>
+                </div>
+                <div className="text-center px-4 max-w-md">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    Kênh thoại WebRTC
+                  </h3>
+                  <p className="text-sm leading-relaxed text-gray-500 dark:text-zinc-400 mb-6">
+                    Kênh thoại hiện đang trong quá trình phát triển. Sắp tới bạn sẽ có thể kết nối âm thanh thời gian thực và chia sẻ màn hình với mọi người trong nhóm!
+                  </p>
+                  <button 
+                    disabled 
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white opacity-50 cursor-not-allowed shadow"
+                  >
+                    <Headphones className="w-4 h-4" />
+                    <span>Tham gia kênh (Sắp ra mắt)</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Pinned Messages Banner */}
             {pinnedMessages && pinnedMessages.length > 0 && (() => {
               const latestPinned = [...pinnedMessages].sort(
@@ -3701,7 +3914,7 @@ export const Chat = () => {
                             <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
                               isMe
                                 ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
-                                : 'bg-gray-250 dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                             }`}>
                               <div className={`grid gap-1.5 ${
                                 msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
@@ -3803,7 +4016,7 @@ export const Chat = () => {
                             <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
                               isMe
                                 ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-500/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
-                                : 'bg-gray-250 dark:bg-discord-mid border-gray-300/65 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                                : 'bg-white dark:bg-discord-mid border-gray-300/65 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                             }`}>
                               <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
                                 <FileText className="w-5 h-5" />
@@ -3871,7 +4084,7 @@ export const Chat = () => {
                             <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
                               isMe
                                 ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
-                                : 'bg-gray-250 dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                             }`}>
                               <div className="m-0">
                                 {renderFormattedMessage(msg.content)}
@@ -4483,6 +4696,8 @@ export const Chat = () => {
                 </div>
               </div>
             </form>
+              </>
+            )}
 
             <aside
               className={`absolute bottom-0 right-0 top-14 z-30 w-full border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 dark:border-zinc-800 dark:bg-discord-mid md:w-[360px] xl:w-[25vw] ${
@@ -4999,6 +5214,14 @@ export const Chat = () => {
         />
       )}
 
+      {channelSettingsData && (
+        <ChannelSettingsModal
+          groupId={channelSettingsData.groupId}
+          channel={channelSettingsData.channel}
+          onClose={() => setChannelSettingsData(null)}
+        />
+      )}
+
       {isProfileModalOpen && activeConversation && activeFriend && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}>
           <div
@@ -5042,8 +5265,54 @@ export const Chat = () => {
                       </span>
                     )}
                   </button>
-                  <div className="min-w-0 pb-1 text-left">
-                    <h3 className="m-0 truncate text-xl font-bold">{activeGroup?.name || activeConversation.name || 'Nhóm chat'}</h3>
+                  <div className="min-w-0 pb-1 text-left flex-1">
+                    {isEditingGroupName && currentUserIsGroupOwner ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingGroupName}
+                          onChange={(e) => setEditingGroupName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameGroup();
+                            if (e.key === 'Escape') setIsEditingGroupName(false);
+                          }}
+                          maxLength={100}
+                          autoFocus
+                          disabled={isRenamingGroup}
+                          className="flex-1 min-w-0 text-xl font-bold bg-gray-100 dark:bg-zinc-800 rounded-lg px-2 py-1 text-gray-900 dark:text-white border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none transition-colors disabled:opacity-60"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRenameGroup}
+                          disabled={!editingGroupName.trim() || isRenamingGroup}
+                          className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                        >
+                          {isRenamingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingGroupName(false)}
+                          disabled={isRenamingGroup}
+                          className="shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group/name">
+                        <h3 className="m-0 truncate text-xl font-bold">{activeGroup?.name || activeConversation.name || 'Nhóm chat'}</h3>
+                        {currentUserIsGroupOwner && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingGroupName(activeGroup?.name || activeConversation.name || ''); setIsEditingGroupName(true); }}
+                            className="shrink-0 opacity-0 group-hover/name:opacity-100 rounded-md p-1 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"
+                            title="Đổi tên nhóm"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
                       <Users className="h-3.5 w-3.5" />
                       <span>{activeGroup?.memberCount ?? activeConversation.members.length} thành viên</span>
@@ -5675,6 +5944,121 @@ export const Chat = () => {
           confirmDialog?.onConfirm();
         }}
       />
+
+      {/* Create Channel Modal */}
+      {createChannelGroupId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setCreateChannelGroupId(null); } }}
+        >
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-700 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800">
+              <div>
+                <h2 className="text-base font-bold text-gray-900 dark:text-white">Tạo kênh mới</h2>
+                <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                  {groups.find(g => g.id === createChannelGroupId)?.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreateChannelGroupId(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-5 space-y-4">
+              {/* Channel type selector */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">Loại kênh</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateChannelType('TEXT')}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                      createChannelType === 'TEXT'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                        : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <Hash className="w-5 h-5 shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm font-semibold">Văn bản</div>
+                      <div className="text-[11px] opacity-70">Gửi tin nhắn</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateChannelType('VOICE')}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                      createChannelType === 'VOICE'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                        : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <Volume2 className="w-5 h-5 shrink-0" />
+                    <div className="text-left">
+                      <div className="text-sm font-semibold">Giọng nói</div>
+                      <div className="text-[11px] opacity-70">Kênh voice</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Channel name */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
+                  Tên kênh
+                </label>
+                <div className="relative">
+                  {createChannelType === 'TEXT' ? (
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  ) : (
+                    <Volume2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  )}
+                  <input
+                    type="text"
+                    value={createChannelName}
+                    onChange={(e) => setCreateChannelName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChannel(); }}
+                    placeholder="Nhập tên kênh..."
+                    maxLength={100}
+                    autoFocus
+                    className="w-full pl-9 pr-4 py-2.5 bg-gray-100 dark:bg-zinc-800 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none transition-colors"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1.5">Tối đa 100 ký tự.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => setCreateChannelGroupId(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 dark:text-zinc-300 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateChannel}
+                disabled={!createChannelName.trim() || isCreatingChannel}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {isCreatingChannel ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+                ) : (
+                  <><Plus className="w-4 h-4" /> Tạo kênh</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Call Overlay */}
       <CallOverlay />

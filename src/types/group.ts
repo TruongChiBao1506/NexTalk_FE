@@ -1,5 +1,18 @@
 export type GroupRole = 'OWNER' | 'LEADER' | 'DEPUTY' | 'ADMIN' | 'MEMBER';
 
+export type ChannelType = 'TEXT' | 'FORUM' | 'VOICE';
+
+export interface ChannelResponse {
+  id: string;
+  name: string;
+  type: ChannelType;
+  isPrivate: boolean;
+  groupId: string;
+  conversationId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GroupMemberResponse {
   userId: string;
   username: string;
@@ -11,9 +24,10 @@ export interface GroupResponse {
   id: string;
   name: string;
   avatarUrl: string | null;
+  conversationId?: string | null;
   ownerId: string;
   ownerUsername: string;
-  conversationId: string | null;
+  channels: ChannelResponse[];
   members: GroupMemberResponse[];
   memberCount: number;
   createdAt: string;
