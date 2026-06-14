@@ -3565,15 +3565,41 @@ export const Chat = () => {
                       <>
                     {/* Quoted Message / Reply Preview above bubble */}
                     {msg.parentId && (
-                      <div className={`flex items-center space-x-1.5 text-[11px] text-gray-500 dark:text-discord-muted italic mb-0.5 ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
-                        <CornerUpLeft className="w-3 h-3 text-gray-400 dark:text-zinc-550 shrink-0" />
-                        <span>Trả lời</span>
-                        <span className="font-semibold text-gray-700 dark:text-zinc-300">
-                          @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
-                        </span>
-                        <span className="truncate max-w-[180px]">
-                          : {parentMessage ? (parentMessage.isRecalled ? 'Tin nhắn đã bị thu hồi' : parentMessage.content) : 'tin nhắn đã bị xoá hoặc không tìm thấy'}
-                        </span>
+                      <div className={`flex mb-1 max-w-[min(85vw,26rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
+                        <div 
+                          className="flex w-full bg-gray-100 dark:bg-zinc-800/80 rounded-lg border-l-[3px] border-indigo-400 dark:border-indigo-500 overflow-hidden hover:brightness-95 transition cursor-pointer"
+                          onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
+                        >
+                          <div className="px-3 py-1.5 flex items-center gap-1.5 overflow-hidden w-full">
+                            <CornerUpLeft className="w-3.5 h-3.5 text-gray-500 dark:text-zinc-400 shrink-0" />
+                            <span className="text-[12.5px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                              @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
+                            </span>
+                            <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-1.5 min-w-0">
+                              {parentMessage ? (
+                                parentMessage.isRecalled ? (
+                                  <span className="truncate">Tin nhắn đã bị thu hồi</span>
+                                ) : (
+                                  <>
+                                    {parentMessage.content && <span className="truncate">{parentMessage.content}</span>}
+                                    {parentMessage.attachments && parentMessage.attachments.length > 0 && (
+                                      <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
+                                        {parentMessage.attachments[0].type === 'IMAGE' && (
+                                          <img src={parentMessage.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
+                                        )}
+                                        <span>
+                                          {parentMessage.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : parentMessage.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
+                                        </span>
+                                      </span>
+                                    )}
+                                  </>
+                                )
+                              ) : (
+                                <span className="truncate">tin nhắn đã bị xoá hoặc không tìm thấy</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     )}
 

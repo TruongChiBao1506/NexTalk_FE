@@ -15,8 +15,24 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({ replyTo, onCancel })
         <span className="text-discord-gray-400">
           Đang trả lời <span className="font-semibold text-discord-gray-200">@{replyTo.senderUsername}</span>
         </span>
-        <span className="truncate italic text-discord-gray-400">
-          "{replyTo.isRecalled ? 'Tin nhắn đã bị thu hồi' : replyTo.content}"
+        <span className="italic text-discord-gray-400 flex items-center gap-1.5 min-w-0">
+          {replyTo.isRecalled ? (
+            <span className="truncate">"Tin nhắn đã bị thu hồi"</span>
+          ) : (
+            <>
+              {replyTo.content && <span className="truncate">"{replyTo.content}"</span>}
+              {replyTo.attachments && replyTo.attachments.length > 0 && (
+                <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
+                  {replyTo.attachments[0].type === 'IMAGE' && (
+                    <img src={replyTo.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
+                  )}
+                  <span>
+                    {replyTo.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : replyTo.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
+                  </span>
+                </span>
+              )}
+            </>
+          )}
         </span>
       </div>
       <button
