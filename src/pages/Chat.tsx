@@ -3616,13 +3616,11 @@ export const Chat = () => {
                           {/* Context menu actions bar */}
                           {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
                             <div
-                              className="absolute z-20 animate-in fade-in zoom-in-95 duration-100"
-                              style={{
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                right: isMe ? 'calc(100% + 8px)' : 'auto',
-                                left: isMe ? 'auto' : 'calc(100% + 8px)',
-                              }}
+                              className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${
+                                isMe 
+                                  ? 'right-0 md:right-[calc(100%+8px)] md:left-auto' 
+                                  : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
+                              }`}
                             >
                               <MessageActionsBar
                                 message={msg}
