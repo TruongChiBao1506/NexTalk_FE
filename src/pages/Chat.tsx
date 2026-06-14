@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
+import DOMPurify from 'dompurify';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
@@ -303,6 +304,7 @@ export const Chat = () => {
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
+  const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
   const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
   const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
@@ -875,70 +877,14 @@ export const Chat = () => {
     ? `Nhập @, tin nhắn tới #${groups.find(group => group.conversationId === activeConversation.id)?.name || 'group'}...`
     : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
 
-  type QuillAttributes = Record<string, unknown>;
-  type QuillOp = {
-    insert?: string | Record<string, unknown>;
-    attributes?: QuillAttributes;
-  };
 
-  const formatInlineDeltaText = (text: string, attributes?: QuillAttributes) => {
-    if (!attributes) return text;
-
-    let formatted = text;
-    if (attributes.code) formatted = `\`${formatted}\``;
-    if (attributes.bold) formatted = `**${formatted}**`;
-    if (attributes.italic) formatted = `_${formatted}_`;
-    if (attributes.underline) formatted = `<u>${formatted}</u>`;
-    if (attributes.strike) formatted = `~~${formatted}~~`;
-    if (attributes.background) formatted = `<mark>${formatted}</mark>`;
-    if (typeof attributes.link === 'string') formatted = `[${formatted}](${attributes.link})`;
-
-    return formatted;
-  };
-
-  const applyLineDeltaFormat = (line: string, attributes: QuillAttributes | undefined, orderedIndex: number) => {
-    if (!attributes) return line;
-    let formattedLine = line;
-    if (attributes.blockquote) formattedLine = `> ${formattedLine}`;
-    if (attributes.list === 'bullet') formattedLine = `- ${formattedLine}`;
-    if (attributes.list === 'ordered') formattedLine = `${orderedIndex}. ${formattedLine}`;
-    if (typeof attributes.align === 'string') formattedLine = `[${attributes.align}]${formattedLine}[/${attributes.align}]`;
-    return formattedLine;
-  };
-
-  const deltaToMessageContent = (delta: { ops?: QuillOp[] }) => {
-    const lines: string[] = [];
-    let currentLine = '';
-    let orderedIndex = 1;
-
-    (delta.ops ?? []).forEach((op) => {
-      if (typeof op.insert !== 'string') return;
-
-      const parts = op.insert.split('\n');
-      parts.forEach((part, index) => {
-        if (part) {
-          currentLine += formatInlineDeltaText(part, op.attributes);
-        }
-
-        if (index < parts.length - 1) {
-          const line = applyLineDeltaFormat(currentLine, op.attributes, orderedIndex);
-          lines.push(line);
-          orderedIndex = op.attributes?.list === 'ordered' ? orderedIndex + 1 : 1;
-          currentLine = '';
-        }
-      });
-    });
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-
-    return lines.join('\n').trim();
-  };
 
   const getCurrentInputMessage = () => {
     const quill = quillRef.current;
-    return quill ? deltaToMessageContent(quill.getContents()) : inputMessage;
+    if (!quill) return inputMessage;
+    let html = quill.root.innerHTML;
+    if (html === '<p><br></p>') html = '';
+    return html;
   };
 
   const emojiOptions = [
@@ -1004,10 +950,18 @@ export const Chat = () => {
   const applyQuillInlineFormat = (format: string, value: unknown = true) => {
     const quill = quillRef.current;
     if (!quill) return;
-    quill.focus();
-    const range = quill.getSelection(true);
+    
+    let range = quill.getSelection();
+    if (!range) {
+      quill.focus();
+      range = quill.getSelection(true);
+    }
+    
     const currentValue = range ? quill.getFormat(range)[format] : false;
     quill.format(format, currentValue ? false : value);
+    
+    const newRange = quill.getSelection();
+    if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
 
   const applyInlineFormat = (prefix: string, _suffix = prefix, _placeholder?: string) => {
@@ -1027,29 +981,53 @@ export const Chat = () => {
   const applyLineFormat = (prefix: string) => {
     const quill = quillRef.current;
     if (!quill) return;
-    quill.focus();
+    
+    let range = quill.getSelection();
+    if (!range) {
+      quill.focus();
+      range = quill.getSelection(true);
+    }
+    
     const format = prefix.trim() === '>' ? 'blockquote' : 'list';
     const value = prefix.trim() === '>' ? true : 'bullet';
-    const range = quill.getSelection(true);
-    const currentValue = range ? quill.getFormat(range)[format] : false;
-    quill.formatLine(range?.index ?? 0, range?.length ?? 0, format, currentValue ? false : value);
+    const currentFormat = range ? quill.getFormat(range)[format] : false;
+    quill.format(format, currentFormat === value ? false : value);
+    
+    const newRange = quill.getSelection();
+    if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
 
   const applyNumberedList = () => {
     const quill = quillRef.current;
     if (!quill) return;
-    quill.focus();
-    const range = quill.getSelection(true);
+    
+    let range = quill.getSelection();
+    if (!range) {
+      quill.focus();
+      range = quill.getSelection(true);
+    }
+    
     const currentValue = range ? quill.getFormat(range).list : false;
-    quill.formatLine(range?.index ?? 0, range?.length ?? 0, 'list', currentValue === 'ordered' ? false : 'ordered');
+    quill.format('list', currentValue === 'ordered' ? false : 'ordered');
+    
+    const newRange = quill.getSelection();
+    if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
 
   const applyAlignment = (align: 'left' | 'center' | 'right') => {
     const quill = quillRef.current;
     if (!quill) return;
-    quill.focus();
-    const range = quill.getSelection(true);
-    quill.formatLine(range?.index ?? 0, range?.length ?? 0, 'align', align === 'left' ? false : align);
+    
+    let range = quill.getSelection();
+    if (!range) {
+      quill.focus();
+      range = quill.getSelection(true);
+    }
+    
+    quill.format('align', align === 'left' ? false : align);
+    
+    const newRange = quill.getSelection();
+    if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
 
   const clearFormatting = () => {
@@ -1091,7 +1069,17 @@ export const Chat = () => {
 
     quillRef.current = quill;
     quill.on('text-change', () => {
-      setInputMessage(deltaToMessageContent(quill.getContents()));
+      let html = quill.root.innerHTML;
+      if (html === '<p><br></p>') html = '';
+      setInputMessage(html);
+    });
+    quill.on('editor-change', () => {
+      const range = quill.getSelection();
+      if (range) {
+        setActiveFormats(quill.getFormat(range));
+      } else {
+        setActiveFormats({});
+      }
     });
 
   }, [activeConversation?.id]);
@@ -1146,6 +1134,16 @@ export const Chat = () => {
   };
 
   const renderFormattedMessage = (content: string) => {
+    // Check if the content is an HTML string generated by Quill (always wraps in block elements like <p>)
+    if (/^\s*<(p|div|ul|ol|h[1-6]|blockquote)/i.test(content)) {
+      return (
+        <div 
+          className="m-0 whitespace-pre-wrap break-words ql-editor px-0 py-0"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { ADD_ATTR: ['target'] }) }} 
+        />
+      );
+    }
+
     let text = content;
     let alignClass = 'text-left';
     const alignMatch = text.match(/^\[(left|center|right)]([\s\S]*)\[\/\1]$/);
@@ -1704,8 +1702,14 @@ export const Chat = () => {
     return getFriendInfo(conversation).username;
   };
 
-  const stripMessageMarkup = (value: string) =>
-    value
+  const stripMessageMarkup = (value: string) => {
+    let result = value;
+    // Strip HTML tags if any (replace with space to preserve separation between tags like <p>a</p><p>b</p>)
+    if (/<[a-z][\s\S]*>/i.test(result)) {
+      result = result.replace(/<br\s*\/?>/gi, '\n');
+      result = result.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return result
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/_(.*?)_/g, '$1')
       .replace(/~~(.*?)~~/g, '$1')
@@ -1714,6 +1718,7 @@ export const Chat = () => {
       .replace(/<mark>(.*?)<\/mark>/g, '$1')
       .replace(/\[(left|center|right)]([\s\S]*?)\[\/\1]/g, '$2')
       .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '$1');
+  };
 
   const messageHasSharedLink = (message: MessageResponse) => /https?:\/\/\S+/i.test(message.content);
   const messageHasSearchableAttachment = (message: MessageResponse) =>
@@ -3581,7 +3586,7 @@ export const Chat = () => {
                                   <span className="truncate">Tin nhắn đã bị thu hồi</span>
                                 ) : (
                                   <>
-                                    {parentMessage.content && <span className="truncate">{parentMessage.content}</span>}
+                                    {parentMessage.content && <span className="truncate">{stripMessageMarkup(parentMessage.content)}</span>}
                                     {parentMessage.attachments && parentMessage.attachments.length > 0 && (
                                       <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
                                         {parentMessage.attachments[0].type === 'IMAGE' && (
@@ -3654,7 +3659,7 @@ export const Chat = () => {
                                 onReply={() => setReplyTo(msg)}
                                 onEdit={() => {
                                   setEditingMessageId(msg.id);
-                                  setEditInputText(msg.content);
+                                  setEditInputText(stripMessageMarkup(msg.content));
                                 }}
                                 onRecall={() => {
                                   if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
@@ -4275,49 +4280,49 @@ export const Chat = () => {
 
                 {isFormattingOpen && (
                   <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-discord-mid overflow-x-auto">
-                    <button type="button" onClick={() => applyInlineFormat('**', '**', 'đậm')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Đậm">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('**', '**', 'đậm'); }} className={`p-1.5 rounded transition ${activeFormats.bold ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Đậm">
                       <Bold className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('_', '_', 'nghiêng')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Nghiêng">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('_', '_', 'nghiêng'); }} className={`p-1.5 rounded transition ${activeFormats.italic ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Nghiêng">
                       <Italic className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('<u>', '</u>', 'gạch chân')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Gạch chân">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('<u>', '</u>', 'gạch chân'); }} className={`p-1.5 rounded transition ${activeFormats.underline ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Gạch chân">
                       <Underline className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('~~', '~~', 'gạch ngang')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Gạch ngang">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('~~', '~~', 'gạch ngang'); }} className={`p-1.5 rounded transition ${activeFormats.strike ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Gạch ngang">
                       <Strikethrough className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('<mark>', '</mark>', 'đánh dấu')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Đánh dấu">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('<mark>', '</mark>', 'đánh dấu'); }} className={`p-1.5 rounded transition ${activeFormats.background ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Đánh dấu">
                       <Highlighter className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('`', '`', 'code')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Code">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('`', '`', 'code'); }} className={`p-1.5 rounded transition ${activeFormats.code ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Code">
                       <Code className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyInlineFormat('[', '](https://)', 'liên kết')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Liên kết">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('[', '](https://)', 'liên kết'); }} className={`p-1.5 rounded transition ${activeFormats.link ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Liên kết">
                       <Link className="w-4 h-4" />
                     </button>
                     <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onClick={() => applyLineFormat('> ')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Trích dẫn">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLineFormat('> '); }} className={`p-1.5 rounded transition ${activeFormats.blockquote ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Trích dẫn">
                       <Quote className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyLineFormat('- ')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Danh sách">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLineFormat('- '); }} className={`p-1.5 rounded transition ${activeFormats.list === 'bullet' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Danh sách">
                       <List className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={applyNumberedList} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Danh sách số">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyNumberedList(); }} className={`p-1.5 rounded transition ${activeFormats.list === 'ordered' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Danh sách số">
                       <ListOrdered className="w-4 h-4" />
                     </button>
                     <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onClick={() => applyAlignment('left')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Căn trái">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('left'); }} className={`p-1.5 rounded transition ${!activeFormats.align || activeFormats.align === 'left' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn trái">
                       <AlignLeft className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyAlignment('center')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Căn giữa">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('center'); }} className={`p-1.5 rounded transition ${activeFormats.align === 'center' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn giữa">
                       <AlignCenter className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => applyAlignment('right')} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Căn phải">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('right'); }} className={`p-1.5 rounded transition ${activeFormats.align === 'right' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn phải">
                       <AlignRight className="w-4 h-4" />
                     </button>
                     <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onClick={clearFormatting} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Xóa định dạng">
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); clearFormatting(); }} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition" title="Xóa định dạng">
                       <Eraser className="w-4 h-4" />
                     </button>
                   </div>

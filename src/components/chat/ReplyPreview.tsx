@@ -8,6 +8,13 @@ interface ReplyPreviewProps {
 }
 
 export const ReplyPreview: React.FC<ReplyPreviewProps> = ({ replyTo, onCancel }) => {
+  const getPreviewText = (content: string) => {
+    if (/<[a-z][\s\S]*>/i.test(content)) {
+      return content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return content;
+  };
+
   return (
     <div className="flex items-center justify-between bg-discord-dark-secondary px-4 py-2 border-t border-discord-gray-600 rounded-t-lg text-xs text-discord-gray-300 animate-in slide-in-from-bottom-2 duration-150">
       <div className="flex items-center space-x-2 truncate">
@@ -20,7 +27,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({ replyTo, onCancel })
             <span className="truncate">"Tin nhắn đã bị thu hồi"</span>
           ) : (
             <>
-              {replyTo.content && <span className="truncate">"{replyTo.content}"</span>}
+              {replyTo.content && <span className="truncate">"{getPreviewText(replyTo.content)}"</span>}
               {replyTo.attachments && replyTo.attachments.length > 0 && (
                 <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
                   {replyTo.attachments[0].type === 'IMAGE' && (
