@@ -76,9 +76,6 @@ interface ConversationListProps {
   handleOpenGroup: any;
   toggleGroupExpand: any;
   formatLastMessage: any;
-  setCreateChannelGroupId: any;
-  setCreateChannelName: any;
-  setCreateChannelType: any;
   conversations: any;
   searchQuery: any;
   setSearchQuery: any;
@@ -128,9 +125,6 @@ export const ConversationList = ({
   handleOpenGroup,
   toggleGroupExpand,
   formatLastMessage,
-  setCreateChannelGroupId,
-  setCreateChannelName,
-  setCreateChannelType,
   conversations,
   searchQuery,
   setSearchQuery,
@@ -819,9 +813,6 @@ export const ConversationList = ({
                             className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setCreateChannelGroupId(g.id);
-                              setCreateChannelName("");
-                              setCreateChannelType("TEXT");
                             }}
                             title="Tạo kênh mới"
                           >
@@ -950,26 +941,39 @@ export const ConversationList = ({
                     const channelUnreadCount = channelNotifs.length;
                     const channelHasUnread = channelUnreadCount > 0;
 
+                    const isMemberOfChannel = conversations.some((c: any) => c.id === ch.conversationId);
+                    const channelIsPrivate = Boolean(ch.isPrivate ?? (ch as any).private);
+
                     let Icon = Hash;
                     if (ch.type === "VOICE") Icon = Volume2;
-                    else if (ch.isPrivate) Icon = Lock;
+                    if (channelIsPrivate && !isMemberOfChannel) Icon = Lock;
 
                     return (
                       <div
                         key={ch.id}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (channelIsPrivate && !isMemberOfChannel) return;
                           selectConversation(ch.conversationId);
                         }}
-                        className={`group flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer rounded-lg transition-colors ${
+                        className={`group flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors ${
+                          channelIsPrivate && !isMemberOfChannel 
+                            ? "cursor-not-allowed opacity-60" 
+                            : "cursor-pointer"
+                        } ${
                           isChannelSelected
                             ? "bg-indigo-50/80 dark:bg-indigo-500/15"
                             : "hover:bg-gray-100/80 dark:hover:bg-zinc-800/60"
                         }`}
                       >
-                        <Icon
-                          className={`w-4 h-4 shrink-0 ${channelHasUnread ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-zinc-500"}`}
-                        />
+                        <div className="relative">
+                          <Icon
+                            className={`w-4 h-4 shrink-0 ${channelHasUnread ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-zinc-500"}`}
+                          />
+                          {channelIsPrivate && isMemberOfChannel && (
+                            <Lock className="w-2 h-2 absolute -bottom-0.5 -right-0.5 text-indigo-500 dark:text-indigo-400" />
+                          )}
+                        </div>
                         <span
                           className={`text-[13px] truncate flex-1 ${
                             channelHasUnread

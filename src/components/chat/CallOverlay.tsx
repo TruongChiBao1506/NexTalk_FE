@@ -47,7 +47,7 @@ const VideoTrackPlayer = ({ track, className }: VideoPlayerProps) => {
     };
   }, [track]);
 
-  return <div ref={containerRef} className={`${className} overflow-hidden bg-zinc-950`} />;
+  return <div ref={containerRef} className={`${className} overflow-hidden bg-slate-950`} />;
 };
 
 const formatDuration = (seconds: number) => {
@@ -82,7 +82,7 @@ const Avatar = ({ tile, size = 'large' }: { tile: Tile; size?: 'small' | 'large'
   return tile.avatarUrl ? (
     <img src={tile.avatarUrl} alt={tile.name} className={`${sizeClass} rounded-full object-cover shadow-xl`} />
   ) : (
-    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-zinc-700 font-bold text-white shadow-xl`}>
+    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-slate-200 font-bold text-slate-700 shadow-xl`}>
       {nameInitial(tile.name)}
     </div>
   );
@@ -99,22 +99,22 @@ const VideoTile = ({
   onTogglePin?: () => void;
   compact?: boolean;
 }) => (
-  <div className={`group relative h-full overflow-hidden rounded-2xl border bg-zinc-950 ${
-    tile.isSpeaking ? 'border-emerald-400 shadow-lg shadow-emerald-500/20' : 'border-zinc-800'
+  <div className={`group relative h-full overflow-hidden rounded-2xl border bg-white ${
+    tile.isSpeaking ? 'border-emerald-400 shadow-lg shadow-emerald-500/20' : 'border-slate-200'
   }`}>
     {tile.videoTrack ? (
       <VideoTrackPlayer track={tile.videoTrack} className="h-full w-full" />
     ) : (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-zinc-900">
-        <div className={tile.isSpeaking ? 'rounded-full ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-zinc-900 animate-pulse' : ''}>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-50">
+        <div className={tile.isSpeaking ? 'rounded-full ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-slate-50 animate-pulse' : ''}>
           <Avatar tile={tile} size={compact ? 'small' : 'large'} />
         </div>
-        {!compact && <span className="max-w-[80%] truncate text-sm font-semibold text-white">{tile.name}</span>}
+        {!compact && <span className="max-w-[80%] truncate text-sm font-semibold text-slate-900">{tile.name}</span>}
       </div>
     )}
 
-    <div className="absolute bottom-2 left-2 flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
-      {tile.isMuted && <MicOff className="h-3.5 w-3.5 text-red-400" />}
+    <div className="absolute bottom-2 left-2 flex max-w-[70%] items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-900 backdrop-blur shadow-sm">
+      {tile.isMuted && <MicOff className="h-3.5 w-3.5 text-red-500" />}
       <span className="truncate">{tile.isLocal ? 'Ban' : tile.name}</span>
     </div>
 
@@ -132,16 +132,16 @@ const VideoTile = ({
 );
 
 const VoiceTile = ({ tile }: { tile: Tile }) => (
-  <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-zinc-900/80 p-4 ring-1 ring-zinc-800">
-    <div className={`relative rounded-full ${tile.isSpeaking ? 'ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-zinc-900 animate-pulse' : ''}`}>
+  <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <div className={`relative rounded-full ${tile.isSpeaking ? 'ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-white animate-pulse' : ''}`}>
       <Avatar tile={tile} />
       {tile.isMuted && (
-        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white ring-4 ring-zinc-900">
+        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white ring-4 ring-white">
           <MicOff className="h-4 w-4" />
         </div>
       )}
     </div>
-    <span className="max-w-full truncate text-sm font-semibold text-white">{tile.isLocal ? 'Ban' : tile.name}</span>
+    <span className="max-w-full truncate text-sm font-semibold text-slate-900">{tile.isLocal ? 'Ban' : tile.name}</span>
   </div>
 );
 
@@ -177,7 +177,8 @@ export const CallOverlay = () => {
     switchCamera,
     startVideo,
     toggleScreenShare,
-    resumeRemoteAudio
+    resumeRemoteAudio,
+    activeVoiceChannelId
   } = useCallStore();
   const callConversation = useChatStore((state) =>
     state.activeConversation?.id === conversationId
@@ -262,14 +263,17 @@ export const CallOverlay = () => {
 
   if (!partner && !isGroupCall) return null;
 
-  const displayName = isGroupCall ? callTitle ?? 'Group call' : partner?.username ?? 'Unknown';
-  const subtitle = isGroupCall && callMemberCount
-    ? `${callMemberCount} thanh vien`
+  const isVoiceChannel = !!activeVoiceChannelId;
+  const displayName = isVoiceChannel ? `Kênh Thoại: ${callTitle}` : isGroupCall ? callTitle ?? 'Group call' : partner?.username ?? 'Unknown';
+  const subtitle = isVoiceChannel
+    ? 'Đã kết nối'
+    : isGroupCall && callMemberCount
+    ? `${callMemberCount} thành viên`
     : callState === 'connected'
-      ? 'Da ket noi'
+      ? 'Đã kết nối'
       : callType === 'video'
-        ? 'Cuoc goi video'
-        : 'Cuoc goi thoai';
+        ? 'Cuộc gọi video'
+        : 'Cuộc gọi thoại';
 
   const localTile: Tile = {
     id: 'local',
@@ -327,7 +331,7 @@ export const CallOverlay = () => {
   return (
     <div className="fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
       {callState !== 'connected' && (
-        <div className="pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-zinc-800 bg-zinc-950/95 p-6 text-center text-white shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in">
+        <div className="pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-slate-200 bg-white/95 p-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in">
           <div className="relative mb-7">
             <div className="absolute inset-0 rounded-full bg-indigo-600/30 animate-ping" style={{ animationDuration: '3s' }} />
             <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
@@ -337,8 +341,8 @@ export const CallOverlay = () => {
           </div>
 
           <h2 className="mb-2 max-w-full truncate text-xl font-bold tracking-tight">{displayName}</h2>
-          <p className="mb-8 flex items-center justify-center gap-2 text-sm text-zinc-400">
-            {callType === 'video' ? <Video className="h-4 w-4 text-indigo-400" /> : <Volume2 className="h-4 w-4 text-indigo-400" />}
+          <p className="mb-8 flex items-center justify-center gap-2 text-sm text-slate-500">
+            {callType === 'video' ? <Video className="h-4 w-4 text-indigo-500" /> : <Volume2 className="h-4 w-4 text-indigo-500" />}
             <span>
               {callState === 'ringing_incoming'
                 ? isGroupCall ? `${subtitle} dang goi...` : callType === 'video' ? 'Cuoc goi video den...' : 'Cuoc goi thoai den...'
@@ -363,7 +367,7 @@ export const CallOverlay = () => {
       )}
 
       {callState === 'connected' && (
-        <div className={`pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/95 text-white shadow-2xl shadow-black/50 backdrop-blur-xl ${
+        <div className={`pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/95 text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl ${
           callType === 'video'
             ? 'h-[min(720px,calc(100vh-3rem))] w-[min(980px,calc(100vw-2rem))]'
             : 'w-[min(620px,calc(100vw-2rem))]'
@@ -373,7 +377,7 @@ export const CallOverlay = () => {
               {callNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className="max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-zinc-900/85 px-3 py-1.5 text-center text-xs font-medium text-zinc-400 shadow-lg ring-1 ring-zinc-800 backdrop-blur"
+                  className="max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-white/85 px-3 py-1.5 text-center text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200 backdrop-blur"
                 >
                   {notice.message}
                 </div>
@@ -381,17 +385,17 @@ export const CallOverlay = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div className="min-w-0">
               <p className="m-0 truncate text-sm font-bold">{displayName}</p>
-              <p className="m-0 text-xs text-zinc-400">{subtitle}</p>
+              <p className="m-0 text-xs text-slate-500">{subtitle}</p>
             </div>
-            <div className="rounded-full bg-zinc-900 px-3 py-1 font-mono text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800">
+            <div className="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
               {formatDuration(callDuration)}
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden bg-zinc-950 p-3">
+          <div className="min-h-0 flex-1 overflow-hidden bg-slate-50 p-3">
             {callType === 'video' ? (
               !isGroupCall && oneOnOneTile ? (
                 <VideoTile tile={oneOnOneTile} />
@@ -468,12 +472,12 @@ export const CallOverlay = () => {
             </div>
           )}
 
-          <div className="z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-zinc-800/80 px-4 py-4">
+          <div className="z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-slate-200 px-4 py-4">
             <button
               type="button"
               onClick={toggleMic}
-              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
-                isMicMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
+                isMicMuted ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
               }`}
               title={isMicMuted ? 'Bat micro' : 'Tat micro'}
             >
@@ -483,8 +487,8 @@ export const CallOverlay = () => {
             <button
               type="button"
               onClick={toggleSpeaker}
-              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
-                isSpeakerOn ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'
+              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
+                isSpeakerOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900' : 'bg-red-50 text-red-500 hover:bg-red-100'
               }`}
               title={isSpeakerOn ? 'Tat loa' : 'Bat loa'}
             >
@@ -495,7 +499,7 @@ export const CallOverlay = () => {
               <button
                 type="button"
                 onClick={startVideo}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 shadow transition-colors hover:bg-zinc-700 hover:text-white cursor-pointer"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-100 text-slate-700 shadow-sm transition-colors hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
                 title="Chuyen sang video"
               >
                 <Video className="h-5 w-5" />
@@ -505,8 +509,8 @@ export const CallOverlay = () => {
                 <button
                   type="button"
                   onClick={toggleCamera}
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
-                    isCameraMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
+                    isCameraMuted ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
                   }`}
                   title={isCameraMuted ? 'Bat camera' : 'Tat camera'}
                 >
@@ -516,7 +520,7 @@ export const CallOverlay = () => {
                 <button
                   type="button"
                   onClick={switchCamera}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 text-zinc-300 shadow transition-colors hover:bg-zinc-700 hover:text-white cursor-pointer"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-100 text-slate-700 shadow-sm transition-colors hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
                   title="Doi camera truoc/sau"
                 >
                   <RotateCcw className="h-5 w-5" />
@@ -525,8 +529,8 @@ export const CallOverlay = () => {
                 <button
                   type="button"
                   onClick={toggleScreenShare}
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow transition-colors cursor-pointer ${
-                    isScreenSharing ? 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
+                    isScreenSharing ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
                   }`}
                   title={isScreenSharing ? 'Dung chia se man hinh' : 'Chia se man hinh'}
                 >
@@ -535,7 +539,7 @@ export const CallOverlay = () => {
 
                 <button
                   type="button"
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800/70 text-zinc-500 shadow cursor-not-allowed"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-50 text-slate-400 shadow-sm cursor-not-allowed"
                   title="Filter khuon mat dang duoc phat trien"
                 >
                   <Sparkles className="h-5 w-5" />
@@ -543,7 +547,7 @@ export const CallOverlay = () => {
 
                 <button
                   type="button"
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800/70 text-zinc-500 shadow cursor-not-allowed"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-50 text-slate-400 shadow-sm cursor-not-allowed"
                   title="Doi hinh nen dang duoc phat trien"
                 >
                   <Palette className="h-5 w-5" />

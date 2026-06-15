@@ -13,7 +13,6 @@ interface UseConversationActionsProps {
   setIsConversationInfoOpen: (isOpen: boolean) => void;
   setIsPinnedPanelOpen: (isOpen: boolean) => void;
   setIsSearchPanelOpen: (isOpen: boolean) => void;
-  setExpandedGroups: (updater: (prev: Set<string>) => Set<string>) => void;
   fetchIncomingChatRequests: () => Promise<void>;
   setSelectedChatRequest: (req: ChatRequestResponse | null) => void;
   setConversationTab: (tab: 'chats' | 'requests') => void;
@@ -25,7 +24,6 @@ export const useConversationActions = ({
   setIsConversationInfoOpen,
   setIsPinnedPanelOpen,
   setIsSearchPanelOpen,
-  setExpandedGroups,
   fetchIncomingChatRequests,
   setSelectedChatRequest,
   setConversationTab,
@@ -38,15 +36,9 @@ export const useConversationActions = ({
     deleteConversation,
     selectConversation,
   } = useChatStore();
-  const { createChannel } = useGroupStore();
 
   const [conversationActionId, setConversationActionId] = useState<string | null>(null);
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
-
-  const [createChannelGroupId, setCreateChannelGroupId] = useState<string | null>(null);
-  const [createChannelName, setCreateChannelName] = useState('');
-  const [createChannelType, setCreateChannelType] = useState<'TEXT' | 'VOICE'>('TEXT');
-  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
   const [chatRequestActionId, setChatRequestActionId] = useState<string | null>(null);
 
@@ -124,30 +116,6 @@ export const useConversationActions = ({
     }
   };
 
-  const handleCreateChannel = async () => {
-    if (!createChannelGroupId || !createChannelName.trim() || isCreatingChannel) return;
-    setIsCreatingChannel(true);
-    try {
-      const ok = await createChannel(createChannelGroupId, {
-        name: createChannelName.trim(),
-        type: createChannelType,
-        isPrivate: false,
-      });
-      if (ok) {
-        setExpandedGroups((prev) => new Set([...prev, createChannelGroupId]));
-        setCreateChannelGroupId(null);
-        setCreateChannelName('');
-        setCreateChannelType('TEXT');
-      } else {
-        window.alert('Không thể tạo kênh. Vui lòng thử lại.');
-      }
-    } catch (err: any) {
-      window.alert(err?.response?.data?.message || err?.message || 'Không thể tạo kênh.');
-    } finally {
-      setIsCreatingChannel(false);
-    }
-  };
-
   const handleAcceptChatRequest = async (requestId: string) => {
     setChatRequestActionId(requestId);
     try {
@@ -215,16 +183,11 @@ export const useConversationActions = ({
   return {
     conversationActionId, setConversationActionId,
     openConversationMenuId, setOpenConversationMenuId,
-    createChannelGroupId, setCreateChannelGroupId,
-    createChannelName, setCreateChannelName,
-    createChannelType, setCreateChannelType,
-    isCreatingChannel,
     chatRequestActionId,
     handleHideClick,
     handleToggleConversationPin,
     handleDeleteConversation,
     handleUpdateSelfDestruct,
-    handleCreateChannel,
     handleAcceptChatRequest,
     handleRejectChatRequest,
     handleBlockChatRequest,

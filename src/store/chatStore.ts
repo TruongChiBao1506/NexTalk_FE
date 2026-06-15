@@ -47,6 +47,7 @@ interface ChatState {
   stompClient: Client | null;
   replyTo: MessageResponse | null;
   pinnedMessages: MessageResponse[];
+  subscribedGroupVoiceIds: string[];
   conversationSummaries: Record<string, ConversationSummaryResponse>;
 
   fetchConversations: () => Promise<void>;
@@ -56,6 +57,7 @@ interface ChatState {
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
+  subscribeToGroupVoice: (groupId: string) => void;
   addIncomingMessage: (message: MessageResponse) => void;
   handleStatusUpdate: (update: MessageStatusUpdateResponse) => void;
   updateMemberPresence: (userId: string, status: string, lastSeen?: string) => void;
@@ -90,6 +92,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   stompClient: null,
   replyTo: null,
   pinnedMessages: [],
+  subscribedGroupVoiceIds: [],
   conversationSummaries: {},
 
   fetchConversations: async () => {
@@ -493,9 +496,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { stompClient } = get();
     if (stompClient) {
       stompClient.deactivate();
-      set({ stompClient: null, isConnected: false, isConnecting: false });
+      set({ stompClient: null, isConnected: false, isConnecting: false, subscribedGroupVoiceIds: [] });
       console.info('[STOMP] Deactivated.');
     }
+  },
+
+  subscribeToGroupVoice: (groupId: string) => {
+    const { stompClient, subscribedGroupVoiceIds } = get();
+    if (!stompClient || !stompClient.connected) return;
+    if (subscribedGroupVoiceIds.includes(groupId)) return;
+
+    stompClient.subscribe(`/topic/group.${groupId}.voice`, (message) => {
+      try {
+        const body = JSON.parse(message.body);
+        import('./callStore').then(({ useCallStore }) => {
+          useCallStore.getState().handleVoiceChannelEvent(body);
+        });
+      } catch (e) {
+        console.error('[STOMP] Failed to process voice channel event:', e);
+      }
+    });
+
+    set({ subscribedGroupVoiceIds: [...subscribedGroupVoiceIds, groupId] });
   },
 
   addIncomingMessage: (message: MessageResponse) => {

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ArrowLeft,
   Phone,
+  Headphones,
   Video,
   Sparkles,
   Loader2,
@@ -12,6 +13,7 @@ import {
   Users
 } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/time';
+import { useCallStore } from '../../store/callStore';
 
 interface ChatHeaderProps {
   selectConversation: (conversation: any) => void;
@@ -34,6 +36,7 @@ interface ChatHeaderProps {
   canInviteToActiveGroup: boolean;
   setIsInviteMembersOpen: (open: boolean) => void;
   activeChannel?: any;
+  isGroupModerator?: boolean;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -57,7 +60,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   canInviteToActiveGroup,
   setIsInviteMembersOpen,
   activeChannel,
+  isGroupModerator,
 }) => {
+  const isChungChannel = !activeChannel || activeChannel.name?.toLowerCase() === 'chung' || activeChannel.name?.toLowerCase() === 'general';
+  const shouldShowCallButtons = activeConversation && activeCallTarget && (
+    !isGroupConversation || (isGroupModerator && isChungChannel)
+  );
+
   return (
     <header className="min-h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
       <div className="flex w-full min-w-0 items-center gap-2 text-left md:w-auto md:gap-3">
@@ -123,11 +132,22 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-        {/* Voice Call Button */}
-        {activeConversation && activeCallTarget && (
+        {/* Voice Channel Button (Kênh thoại mở) */}
+        {isGroupConversation && (
+          <button
+            onClick={() => useCallStore.getState().joinVoiceChannel(activeConversation.id, activeConversation.name, activeConversation.id)}
+            title="Tham gia Kênh Thoại"
+            className="shrink-0 p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+          >
+            <Headphones className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Voice Call Button (Gọi khẩn cấp, chỉ cho Trưởng/Phó nhóm) */}
+        {shouldShowCallButtons && (
           <button
             onClick={() => initiateCall(activeConversation.id, 'voice', activeCallTarget)}
-            title={isGroupConversation ? 'Cuộc gọi thoại nhóm' : 'Cuộc gọi thoại'}
+            title={isGroupConversation ? 'Cuộc gọi thoại khẩn cấp (Toàn nhóm)' : 'Cuộc gọi thoại'}
             className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
           >
             <Phone className="w-4 h-4" />
@@ -135,10 +155,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         )}
 
         {/* Video Call Button */}
-        {activeConversation && activeCallTarget && (
+        {shouldShowCallButtons && (
           <button
             onClick={() => initiateCall(activeConversation.id, 'video', activeCallTarget)}
-            title={isGroupConversation ? 'Cuộc gọi video nhóm' : 'Cuộc gọi video'}
+            title={isGroupConversation ? 'Cuộc gọi video nhóm (Khẩn cấp)' : 'Cuộc gọi video'}
             className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
           >
             <Video className="w-4 h-4" />

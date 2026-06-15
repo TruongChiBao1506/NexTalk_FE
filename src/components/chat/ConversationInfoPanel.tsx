@@ -379,7 +379,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               )}
               <button
                 type="button"
-                onClick={() => handleToggleConversationPin(activeConversation.id, activeConversation.pinned)}
+                onClick={() => handleToggleConversationPin(activeConversation.id, activeConversation.pinned ?? false)}
                 disabled={conversationActionId === `pin-${activeConversation.id}`}
                 className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >

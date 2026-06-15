@@ -50,12 +50,12 @@ export const groupService = {
     return response.data;
   },
 
-  async createChannel(groupId: string, data: { name: string; type?: string; isPrivate?: boolean }): Promise<ApiResponse<ChannelResponse>> {
+  async createChannel(groupId: string, data: { name: string; type?: string; isPrivate?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
     const response = await apiClient.post<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels`, data);
     return response.data;
   },
 
-  async updateChannel(groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean }): Promise<ApiResponse<ChannelResponse>> {
+  async updateChannel(groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
     const response = await apiClient.put<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels/${channelId}`, data);
     return response.data;
   },

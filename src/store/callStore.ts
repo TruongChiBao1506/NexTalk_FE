@@ -38,12 +38,12 @@ interface CallStore {
   conversationId: string | null;
   caller: { id: string; username: string; avatarUrl?: string } | null;
   receiver: { id: string; username: string; avatarUrl?: string } | null;
-  
+
   isMicMuted: boolean;
   isCameraMuted: boolean;
   isScreenSharing: boolean;
   isSpeakerOn: boolean;
-  
+
   remoteUsers: IAgoraRTCRemoteUser[];
   remoteAudioPlaybackBlocked: boolean;
   activeSpeakerUids: string[];
@@ -51,7 +51,10 @@ interface CallStore {
   callNotices: CallNotice[];
   outgoingRingTimeoutId: number | null;
   groupAloneTimeoutId: number | null;
-  
+
+  activeVoiceChannelId: string | null;
+  voiceChannelMembers: Record<string, string[]>; // channelId -> array of userIds
+
   agoraClient: IAgoraRTCClient | null;
   localAudioTrack: IMicrophoneAudioTrack | null;
   localVideoTrack: ICameraVideoTrack | null;
@@ -63,7 +66,7 @@ interface CallStore {
   rejectCall: () => void;
   cancelCall: (reason?: 'timeout' | 'canceled') => void;
   hangupCall: () => void;
-  
+
   toggleMic: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleSpeaker: () => void;
@@ -80,6 +83,10 @@ interface CallStore {
   scheduleGroupAloneTimeout: () => void;
   joinAgoraChannel: () => Promise<void>;
   resumeRemoteAudio: () => Promise<void>;
+  
+  joinVoiceChannel: (channelId: string, channelName: string, groupId: string) => Promise<void>;
+  updateVoiceChannelMembers: (channelId: string, members: string[]) => void;
+  handleVoiceChannelEvent: (event: any) => void;
 }
 
 export const useCallStore = create<CallStore>((set, get) => ({
@@ -92,12 +99,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
   conversationId: null,
   caller: null,
   receiver: null,
-  
+
   isMicMuted: false,
   isCameraMuted: false,
   isScreenSharing: false,
   isSpeakerOn: true,
-  
+
+  activeVoiceChannelId: null,
+  voiceChannelMembers: {},
+
   remoteUsers: [],
   remoteAudioPlaybackBlocked: false,
   activeSpeakerUids: [],
@@ -105,7 +115,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   callNotices: [],
   outgoingRingTimeoutId: null,
   groupAloneTimeoutId: null,
-  
+
   agoraClient: null,
   localAudioTrack: null,
   localVideoTrack: null,
@@ -384,13 +394,27 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   hangupCall: () => {
-    const { conversationId, caller, receiver } = get();
+    const { conversationId, caller, receiver, activeVoiceChannelId } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
-    
+
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
     get().clearTracks();
+
+    if (activeVoiceChannelId && stompClient && stompClient.connected && currentUser) {
+      // Handle Voice Channel leave
+      stompClient.publish({
+        destination: '/app/voice.leave',
+        body: JSON.stringify({
+          type: 'LEAVE',
+          channelId: activeVoiceChannelId,
+          userId: currentUser.id
+        })
+      });
+      set({ callState: 'idle', activeVoiceChannelId: null });
+      return;
+    }
 
     if (conversationId && stompClient && stompClient.connected && currentUser) {
       try {
@@ -414,6 +438,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
           destination: '/app/call.hangup',
           body: JSON.stringify(signalPayload)
         });
+
       } catch (err) {
         console.error('Failed to send hangup call signal:', err);
       }
@@ -511,7 +536,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       try {
         const screenTrackResult = await AgoraRTC.createScreenVideoTrack({}, 'auto');
         const screenTrack = Array.isArray(screenTrackResult) ? screenTrackResult[0] : screenTrackResult;
-        
+
         // unpublish local camera track if any
         const { localVideoTrack } = get();
         if (localVideoTrack) {
@@ -519,7 +544,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
         }
 
         await agoraClient.publish(screenTrackResult);
-        
+
         // Listen to native "Stop sharing" browser banner button click
         screenTrack.on('track-ended', () => {
           get().stopScreenShare();
@@ -681,7 +706,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   clearTracks: () => {
     const { localAudioTrack, localVideoTrack, screenVideoTrack, agoraClient } = get();
     get().clearGroupAloneTimeout();
-    
+
     if (localAudioTrack) {
       localAudioTrack.stop();
       localAudioTrack.close();
@@ -758,7 +783,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }, 45000);
 
     set({ groupAloneTimeoutId: timeoutId });
-    get().addCallNotice('Chi con ban trong cuoc goi. Cuoc goi se tu ket thuc neu khong co ai quay lai.');
+    get().addCallNotice('Chỉ còn bạn trong cuộc gọi. Cuộc gọi sẽ tự kết thúc sau 45s nếu không có ai quay lại.');
   },
 
   joinAgoraChannel: async () => {
@@ -915,6 +940,119 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
     });
     set({ remoteAudioPlaybackBlocked: false });
+  },
+
+  joinVoiceChannel: async (channelId: string, channelName: string, groupId: string) => {
+    if (get().callState !== 'idle') return;
+
+    set({
+      callState: 'connected',
+      callType: 'voice',
+      isGroupCall: true,
+      callTitle: channelName,
+      activeVoiceChannelId: channelId,
+      conversationId: null, // Clear conversation ID
+      caller: null,
+      receiver: null,
+      callId: null
+    });
+
+    const stompClient = useChatStore.getState().stompClient;
+    const currentUser = useAuthStore.getState().user;
+
+    AgoraRTC.onAutoplayFailed = () => {
+      set({ remoteAudioPlaybackBlocked: true });
+    };
+
+    const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+    set({ agoraClient: client });
+
+    const playRemoteAudio = (user: IAgoraRTCRemoteUser) => {
+      try {
+        user.audioTrack?.play();
+        set({ remoteAudioPlaybackBlocked: false });
+      } catch (error) {
+        set({ remoteAudioPlaybackBlocked: true });
+      }
+    };
+
+    client.on('user-published', async (user, mediaType) => {
+      await client.subscribe(user, mediaType);
+      const remoteUsers = Array.from(client.remoteUsers);
+      set({ remoteUsers });
+      if (mediaType === 'audio') playRemoteAudio(user);
+    });
+
+    client.on('user-unpublished', (user, mediaType) => {
+      if (mediaType === 'audio') user.audioTrack?.stop();
+      const remoteUsers = Array.from(client.remoteUsers);
+      set({ remoteUsers });
+    });
+
+    client.on('user-joined', () => {
+      const remoteUsers = Array.from(client.remoteUsers);
+      set({ remoteUsers });
+    });
+
+    client.on('user-left', () => {
+      const remoteUsers = Array.from(client.remoteUsers);
+      set({ remoteUsers });
+    });
+
+    client.on('volume-indicator', (volumes) => {
+      if (get().agoraClient !== client) return;
+      const activeSpeakerUids = volumes
+        .filter((volume) => volume.level > 35)
+        .map((volume) => String(volume.uid));
+      set({ activeSpeakerUids });
+    });
+
+    let token: string;
+    let uid: number;
+
+    try {
+      const response = await apiClient.get('/calls/channel-token', {
+        params: { channelId, groupId }
+      });
+      ({ token, uid } = response.data.data);
+
+      await client.join(import.meta.env.VITE_AGORA_APP_ID, channelId, token, uid);
+      client.enableAudioVolumeIndicator();
+      set({ localAgoraUid: uid });
+      
+      await get().toggleMic(); // Auto toggle mic on
+
+      if (stompClient && stompClient.connected && currentUser) {
+        stompClient.publish({
+          destination: '/app/voice.join',
+          body: JSON.stringify({
+            type: 'JOIN',
+            channelId,
+            groupId,
+            userId: currentUser.id
+          })
+        });
+      }
+    } catch (error) {
+      set({ agoraClient: null, callState: 'idle', activeVoiceChannelId: null });
+      await client.leave().catch(() => undefined);
+      throw error;
+    }
+  },
+
+  updateVoiceChannelMembers: (channelId: string, members: string[]) => {
+    set((state) => ({
+      voiceChannelMembers: {
+        ...state.voiceChannelMembers,
+        [channelId]: members
+      }
+    }));
+  },
+
+  handleVoiceChannelEvent: (event: any) => {
+    if (event.type === 'JOIN' || event.type === 'LEAVE') {
+      get().updateVoiceChannelMembers(event.channelId, event.currentMembers || []);
+    }
   }
 }));
 

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Check, FileText, Forward, Image, Loader2, Search, Users, Video, X } from 'lucide-react';
+import { Check, FileText, Forward, Image, Loader2, Search, Users, Video, X, ChevronRight, ChevronDown, Hash, Volume2 } from 'lucide-react';
 import type { ConversationResponse, MessageResponse } from '../../types/chat';
 import type { GroupResponse } from '../../types/group';
+import { stripHtml } from '../../utils/text';
 
 interface ShareMessageModalProps {
   message: MessageResponse;
@@ -13,12 +14,19 @@ interface ShareMessageModalProps {
   onShare: (targetConversationIds: string[]) => Promise<boolean>;
 }
 
+type ShareChannel = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 type ShareTarget = {
   id: string;
   title: string;
   subtitle: string;
   avatarUrl: string | null;
   kind: 'dm' | 'group';
+  channels?: ShareChannel[];
 };
 
 const getMessagePreview = (message: MessageResponse) => {
@@ -31,7 +39,7 @@ const getMessagePreview = (message: MessageResponse) => {
       return 'Tệp đính kèm';
     case 'TEXT':
     default:
-      return message.content;
+      return stripHtml(message.content);
   }
 };
 
@@ -53,6 +61,7 @@ export const ShareMessageModal = ({
 }: ShareMessageModalProps) => {
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const targets = useMemo<ShareTarget[]>(() => {
@@ -68,27 +77,23 @@ export const ShareMessageModal = ({
           avatarUrl: friend?.avatarUrl || null,
           kind: 'dm',
         });
-      } else {
-        targetMap.set(conversation.id, {
-          id: conversation.id,
-          title: conversation.name || 'Nhóm chat',
-          subtitle: `${conversation.members.length} thành viên`,
-          avatarUrl: null,
-          kind: 'group',
-        });
       }
     }
 
     for (const group of groups) {
       if (!group.channels || group.channels.length === 0) continue;
-      const conversationId = group.channels[0].conversationId;
-      if (targetMap.has(conversationId)) continue;
-      targetMap.set(conversationId, {
-        id: conversationId,
+      
+      targetMap.set(group.id, {
+        id: group.id,
         title: group.name,
         subtitle: `${group.memberCount} thành viên`,
-        avatarUrl: null,
+        avatarUrl: group.avatarUrl || null,
         kind: 'group',
+        channels: group.channels.map(c => ({
+          id: c.conversationId,
+          name: c.name,
+          type: c.type,
+        }))
       });
     }
 
@@ -98,11 +103,26 @@ export const ShareMessageModal = ({
   const filteredTargets = targets.filter((target) => {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return true;
-    return (
+    if (
       target.title.toLowerCase().includes(keyword) ||
       target.subtitle.toLowerCase().includes(keyword)
-    );
+    ) return true;
+    
+    if (target.channels) {
+      return target.channels.some((c) => c.name.toLowerCase().includes(keyword));
+    }
+    return false;
   });
+
+  const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   const toggleTarget = (conversationId: string) => {
     setError(null);
@@ -188,41 +208,106 @@ export const ShareMessageModal = ({
           ) : (
             <div className="space-y-1">
               {filteredTargets.map((target) => {
-                const selected = selectedIds.has(target.id);
-                return (
-                  <button
-                    key={target.id}
-                    type="button"
-                    onClick={() => toggleTarget(target.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
-                      selected
-                        ? 'bg-indigo-600/10 dark:bg-discord-blurple/10 border-indigo-500/30 dark:border-discord-blurple/30'
-                        : 'hover:bg-gray-100 dark:hover:bg-zinc-800 border-transparent'
-                    }`}
-                  >
-                    {target.avatarUrl ? (
-                      <img src={target.avatarUrl} alt={target.title} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className={`w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 ${
-                        target.kind === 'group' ? 'bg-emerald-600' : 'bg-indigo-600 dark:bg-discord-blurple'
+                if (target.kind === 'dm') {
+                  const selected = selectedIds.has(target.id);
+                  return (
+                    <button
+                      key={target.id}
+                      type="button"
+                      onClick={() => toggleTarget(target.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
+                        selected
+                          ? 'bg-indigo-600/10 dark:bg-discord-blurple/10 border-indigo-500/30 dark:border-discord-blurple/30'
+                          : 'hover:bg-gray-100 dark:hover:bg-zinc-800 border-transparent'
+                      }`}
+                    >
+                      {target.avatarUrl ? (
+                        <img src={target.avatarUrl} alt={target.title} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 bg-indigo-600 dark:bg-discord-blurple">
+                          {target.title.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate m-0">{target.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 truncate m-0">{target.subtitle}</p>
+                      </div>
+
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                        selected
+                          ? 'bg-indigo-600 dark:bg-discord-blurple border-indigo-600 dark:border-discord-blurple'
+                          : 'border-gray-300 dark:border-zinc-600'
                       }`}>
-                        {target.kind === 'group' ? <Users className="w-5 h-5" /> : target.title.charAt(0).toUpperCase()}
+                        {selected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Group layout
+                const isGroupExpanded = expandedGroups.has(target.id) || query.trim() !== '';
+                const channels = target.channels || [];
+                
+                return (
+                  <div key={target.id} className="border border-transparent mb-2">
+                    <button 
+                      type="button" 
+                      onClick={(e) => toggleGroupExpand(target.id, e)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      {target.avatarUrl ? (
+                         <img src={target.avatarUrl} alt={target.title} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                      ) : (
+                         <div className="w-10 h-10 rounded-full text-white font-bold flex items-center justify-center shrink-0 bg-emerald-600">
+                           <Users className="w-5 h-5" />
+                         </div>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate m-0">{target.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 truncate m-0">{target.subtitle}</p>
+                      </div>
+
+                      <div className="text-gray-400 shrink-0">
+                        {isGroupExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                      </div>
+                    </button>
+
+                    {isGroupExpanded && (
+                      <div className="mt-1 pl-14 pr-1 space-y-1">
+                        {channels.map(channel => {
+                          const selected = selectedIds.has(channel.id);
+                          return (
+                            <button
+                              key={channel.id}
+                              type="button"
+                              onClick={() => toggleTarget(channel.id)}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all border ${
+                                selected
+                                  ? 'bg-indigo-600/10 dark:bg-discord-blurple/10 border-indigo-500/30 dark:border-discord-blurple/30'
+                                  : 'hover:bg-gray-100 dark:hover:bg-zinc-800 border-transparent'
+                              }`}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-gray-500">
+                                {channel.type === 'VOICE' ? <Volume2 className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate m-0">{channel.name}</p>
+                              </div>
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                selected
+                                  ? 'bg-indigo-600 dark:bg-discord-blurple border-indigo-600 dark:border-discord-blurple'
+                                  : 'border-gray-300 dark:border-zinc-600'
+                              }`}>
+                                {selected && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate m-0">{target.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 truncate m-0">{target.subtitle}</p>
-                    </div>
-
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                      selected
-                        ? 'bg-indigo-600 dark:bg-discord-blurple border-indigo-600 dark:border-discord-blurple'
-                        : 'border-gray-300 dark:border-zinc-600'
-                    }`}>
-                      {selected && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

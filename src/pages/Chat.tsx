@@ -235,16 +235,11 @@ export const Chat = () => {
   const {
     conversationActionId, setConversationActionId,
     openConversationMenuId, setOpenConversationMenuId,
-    createChannelGroupId, setCreateChannelGroupId,
-    createChannelName, setCreateChannelName,
-    createChannelType, setCreateChannelType,
-    isCreatingChannel,
     chatRequestActionId,
     handleHideClick,
     handleToggleConversationPin,
     handleDeleteConversation,
     handleUpdateSelfDestruct,
-    handleCreateChannel,
     handleAcceptChatRequest,
     handleRejectChatRequest,
     handleBlockChatRequest,
@@ -255,7 +250,6 @@ export const Chat = () => {
     setIsConversationInfoOpen,
     setIsPinnedPanelOpen,
     setIsSearchPanelOpen,
-    setExpandedGroups,
     fetchIncomingChatRequests,
     setSelectedChatRequest,
     setConversationTab,
@@ -1977,14 +1971,19 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
     return member?.avatarUrl ?? null;
   };
 
-  const getSenderUsername = (senderId: string) => {
+  const getSenderUsername = (msg: any) => {
     if (!activeConversation) return 'Unknown';
-    const member = activeConversation.members.find(m => m.id === senderId);
-    return (member as any)?.nickname || member?.username || 'Unknown';
+    const member = activeConversation.members.find(m => m.id === msg.senderId);
+    return (member as any)?.nickname || member?.username || msg.senderUsername || 'Unknown';
   };
   const isGroupConversation = activeConversation?.type === 'GROUP';
   const activeFriend = activeConversation && !isGroupConversation ? getFriendInfo(activeConversation) : null;
-  const activeCallTarget = isGroupConversation ? activeGroup : activeFriend;
+  const activeCallTarget = isGroupConversation ? {
+    ...activeGroup,
+    isGroupCall: true,
+    username: activeGroup?.name,
+    memberCount: activeGroup?.members?.length || 0,
+  } : activeFriend;
   const activeConversationSummary = activeConversation ? conversationSummaries[activeConversation.id] : null;
 
   return (
@@ -2064,9 +2063,6 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
           handleOpenGroup={handleOpenGroup}
           toggleGroupExpand={toggleGroupExpand}
           formatLastMessage={formatLastMessage}
-          setCreateChannelGroupId={setCreateChannelGroupId}
-          setCreateChannelName={setCreateChannelName}
-          setCreateChannelType={setCreateChannelType}
           conversations={conversations}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -2102,6 +2098,7 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
               canInviteToActiveGroup={canInviteToActiveGroup}
               setIsInviteMembersOpen={setIsInviteMembersOpen}
               activeChannel={activeChannel}
+              isGroupModerator={canModerateActiveGroup}
             />
 
             {activeChannel?.type === 'VOICE' ? (

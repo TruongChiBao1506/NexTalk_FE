@@ -38,7 +38,11 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     try {
       const response = await groupService.getMyGroups();
       if (response.success && response.data) {
-        set({ groups: dedupeGroups(response.data), isLoading: false });
+        const fetchedGroups = dedupeGroups(response.data);
+        set({ groups: fetchedGroups, isLoading: false });
+        import('./chatStore').then(({ useChatStore }) => {
+          fetchedGroups.forEach(g => useChatStore.getState().subscribeToGroupVoice(g.id));
+        });
       }
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch groups', isLoading: false });

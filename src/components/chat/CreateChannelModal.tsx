@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Hash, Volume2, Lock, X } from 'lucide-react';
+import { Loader2, Hash, Volume2, Lock, X, Check, Search } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { useGroupStore } from '../../store/groupStore';
+import { useAuthStore } from '../../store/authStore';
 
 const schema = z.object({
   name: z.string().min(1, 'Tên kênh không được để trống').max(50, 'Tên kênh quá dài'),
   type: z.enum(['TEXT', 'VOICE']),
   isPrivate: z.boolean(),
+  memberIds: z.array(z.string()).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -21,7 +23,16 @@ interface CreateChannelModalProps {
 
 export default function CreateChannelModal({ groupId, onClose }: CreateChannelModalProps) {
   const [error, setError] = useState('');
-  const { upsertGroup } = useGroupStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const { upsertGroup, groups } = useGroupStore();
+  const { user } = useAuthStore();
+  
+  const group = groups.find(g => g.id === groupId);
+  const allMembers = group?.members.filter(m => m.userId !== user?.id) || [];
+  const members = allMembers.filter(m => 
+    m.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const {
     register,
     handleSubmit,
@@ -33,6 +44,7 @@ export default function CreateChannelModal({ groupId, onClose }: CreateChannelMo
     defaultValues: {
       type: 'TEXT',
       isPrivate: false,
+      memberIds: [],
     },
   });
 
@@ -152,6 +164,60 @@ export default function CreateChannelModal({ groupId, onClose }: CreateChannelMo
               </div>
             </label>
           </div>
+
+          {isPrivate && allMembers.length > 0 && (
+            <div className="animate-[fadeIn_0.2s_ease-out] flex flex-col gap-3">
+              <label className="block text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase tracking-wider">
+                Chọn thành viên
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm thành viên..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-zinc-900/50 dark:border-zinc-700/50 dark:text-white dark:focus:ring-discord-blurple transition text-sm"
+                />
+              </div>
+              <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-zinc-700/50 rounded-xl divide-y divide-gray-100 dark:divide-zinc-800/50 bg-white dark:bg-zinc-900/20">
+                {members.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-500 dark:text-zinc-400">
+                    Không tìm thấy thành viên nào.
+                  </div>
+                ) : (
+                  members.map(member => {
+                    const isSelected = watch('memberIds')?.includes(member.userId);
+                    return (
+                      <label key={member.userId} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            value={member.userId}
+                            {...register('memberIds')}
+                            className="peer sr-only"
+                          />
+                          <div className={`w-5 h-5 rounded border ${isSelected ? 'bg-indigo-600 border-indigo-600 dark:bg-discord-blurple dark:border-discord-blurple' : 'border-gray-300 dark:border-zinc-600'} flex items-center justify-center transition-colors`}>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {member.avatarUrl ? (
+                            <img src={member.avatarUrl} alt={member.username} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-discord-blurple/20 text-indigo-600 dark:text-discord-blurple flex items-center justify-center text-xs font-bold shrink-0">
+                              {member.username.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{member.username}</span>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 flex gap-3">
             <button
