@@ -100,6 +100,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const sorted = sortConversations(response.data);
         set({ conversations: sorted });
         
+        // Fetch last message for each conversation
+        Promise.all(
+          sorted.map(async (conv) => {
+            try {
+              const msgsResponse = await messageService.getConversationMessages(conv.id, 0, 1);
+              if (msgsResponse.success && msgsResponse.data && msgsResponse.data.length > 0) {
+                return { convId: conv.id, msg: msgsResponse.data[0] };
+              }
+            } catch (e) {
+              // ignore
+            }
+            return null;
+          })
+        ).then(results => {
+          set(state => {
+            const newLastMessages = { ...state.lastMessages };
+            let hasChanges = false;
+            for (const r of results) {
+              if (r && !newLastMessages[r.convId]) {
+                newLastMessages[r.convId] = r.msg;
+                hasChanges = true;
+              }
+            }
+            return hasChanges ? { lastMessages: newLastMessages } : state;
+          });
+        });
+
         // Mark all conversations as delivered
         for (const conv of sorted) {
           messageService.markAsDelivered(conv.id).catch(() => {});

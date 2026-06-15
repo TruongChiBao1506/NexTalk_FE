@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X, MessageSquare, Send, Loader2 } from 'lucide-react';
 import type { User as AuthUser } from '../../types/auth';
 
@@ -5,11 +6,9 @@ interface SearchProfileModalProps {
   searchProfileUser: AuthUser | null;
   setSearchProfileUser: (user: AuthUser | null) => void;
   isExistingFriend: (userId: string) => boolean;
-  handleSendChatRequestFromProfile: () => void;
+  handleSendChatRequestFromProfile: (message?: string) => void;
   profileChatActionId: string | null;
   sentChatRequestIds: string[];
-  profileChatMessage: string;
-  setProfileChatMessage: (msg: string) => void;
 }
 
 export const SearchProfileModal = ({
@@ -19,9 +18,9 @@ export const SearchProfileModal = ({
   handleSendChatRequestFromProfile,
   profileChatActionId,
   sentChatRequestIds,
-  profileChatMessage,
-  setProfileChatMessage,
 }: SearchProfileModalProps) => {
+  const [profileChatMessage, setProfileChatMessage] = useState('');
+
   if (!searchProfileUser) return null;
 
   return (
@@ -72,7 +71,7 @@ export const SearchProfileModal = ({
             {isExistingFriend(searchProfileUser.id) ? (
               <button
                 type="button"
-                onClick={handleSendChatRequestFromProfile}
+                onClick={() => handleSendChatRequestFromProfile()}
                 disabled={profileChatActionId === searchProfileUser.id}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
               >
@@ -99,7 +98,7 @@ export const SearchProfileModal = ({
                 />
                 <button
                   type="button"
-                  onClick={handleSendChatRequestFromProfile}
+                  onClick={() => handleSendChatRequestFromProfile(profileChatMessage)}
                   disabled={!profileChatMessage.trim() || profileChatActionId === searchProfileUser.id}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
                 >

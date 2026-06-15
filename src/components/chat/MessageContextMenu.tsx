@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
+import { stripHtml } from '../../utils/text';
 
 interface MessageActionsBarProps {
   message: MessageResponse;
@@ -155,7 +156,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
       .map((part) => part?.trim())
       .filter(Boolean)
       .join('\n');
-    navigator.clipboard.writeText(copiedText || message.content);
+    navigator.clipboard.writeText(stripHtml(copiedText || message.content));
     setShowDropdown(false);
   };
 

@@ -1,30 +1,64 @@
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { userService } from '../../services/userService';
+import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 
 interface PinSetupModalProps {
-  pinStep: 'enter' | 'confirm';
-  pinValue: string;
-  confirmPinValue: string;
-  pinError: string;
-  conversationActionId: string | null;
-  setPinValue: (val: string) => void;
-  setConfirmPinValue: (val: string) => void;
-  setPinError: (val: string) => void;
-  handlePinSubmit: () => void;
+  pendingHideId: string | null;
+  onSuccess: () => void;
   onClose: () => void;
 }
 
 export const PinSetupModal = ({
-  pinStep,
-  pinValue,
-  confirmPinValue,
-  pinError,
-  conversationActionId,
-  setPinValue,
-  setConfirmPinValue,
-  setPinError,
-  handlePinSubmit,
+  pendingHideId,
+  onSuccess,
   onClose,
 }: PinSetupModalProps) => {
+  const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
+  const [pinValue, setPinValue] = useState('');
+  const [confirmPinValue, setConfirmPinValue] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { toggleHideConversation, fetchConversations } = useChatStore(state => ({
+    toggleHideConversation: state.toggleHideConversation,
+    fetchConversations: state.fetchConversations,
+  }));
+
+  const handlePinSubmit = async () => {
+    if (pinStep === 'enter') {
+      if (!pinValue.match(/^\d{4}$/)) {
+        setPinError('Mã PIN phải gồm đúng 4 chữ số.');
+        return;
+      }
+      setPinStep('confirm');
+      setPinError('');
+    } else {
+      if (pinValue !== confirmPinValue) {
+        setPinError('Mã PIN xác nhận không trùng khớp.');
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        const response = await userService.setupChatPin(pinValue);
+        if (response.success && response.data) {
+          useAuthStore.getState().updateUser(response.data);
+          if (pendingHideId) {
+            await toggleHideConversation(pendingHideId, true);
+            await fetchConversations();
+          }
+          onSuccess();
+        } else {
+          setPinError(response.message || 'Lỗi khi thiết lập PIN.');
+        }
+      } catch (err: any) {
+        setPinError(err.response?.data?.message || 'Không thể thiết lập PIN.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -93,10 +127,10 @@ export const PinSetupModal = ({
           <button
             type="button"
             onClick={handlePinSubmit}
-            disabled={conversationActionId === 'pin-setup' || (pinStep === 'enter' ? pinValue.length !== 4 : confirmPinValue.length !== 4)}
+            disabled={isSubmitting || (pinStep === 'enter' ? pinValue.length !== 4 : confirmPinValue.length !== 4)}
             className="w-full py-3 px-4 rounded-xl text-white font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
           >
-            {conversationActionId === 'pin-setup' && <Loader2 className="w-4.5 h-4.5 animate-spin" />}
+            {isSubmitting && <Loader2 className="w-4.5 h-4.5 animate-spin" />}
             {pinStep === 'enter' ? 'Tiếp tục' : 'Xác nhận'}
           </button>
 

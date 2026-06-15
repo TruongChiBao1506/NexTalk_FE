@@ -1,40 +1,48 @@
+import { useState } from 'react';
 import { X, Plus, ListChecks } from 'lucide-react';
 
+export interface CreatePollData {
+  question: string;
+  options: string[];
+  allowMultiple: boolean;
+  allowAddOptions: boolean;
+  anonymous: boolean;
+  expiresAt: string | null;
+}
+
 interface CreatePollModalProps {
-  pollQuestion: string;
-  setPollQuestion: (val: string) => void;
-  pollOptions: string[];
-  setPollOptions: (val: string[] | ((prev: string[]) => string[])) => void;
-  pollAllowMultiple: boolean;
-  setPollAllowMultiple: (val: boolean) => void;
-  pollAllowAddOptions: boolean;
-  setPollAllowAddOptions: (val: boolean) => void;
-  pollAnonymous: boolean;
-  setPollAnonymous: (val: boolean) => void;
-  pollExpiresAt: string;
-  setPollExpiresAt: (val: string) => void;
-  submitCreatePoll: () => void;
-  pollActionMessageId: string | null;
+  onSubmit: (data: CreatePollData) => Promise<void>;
   onClose: () => void;
 }
 
 export const CreatePollModal = ({
-  pollQuestion,
-  setPollQuestion,
-  pollOptions,
-  setPollOptions,
-  pollAllowMultiple,
-  setPollAllowMultiple,
-  pollAllowAddOptions,
-  setPollAllowAddOptions,
-  pollAnonymous,
-  setPollAnonymous,
-  pollExpiresAt,
-  setPollExpiresAt,
-  submitCreatePoll,
-  pollActionMessageId,
+  onSubmit,
   onClose,
 }: CreatePollModalProps) => {
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
+  const [pollAllowAddOptions, setPollAllowAddOptions] = useState(false);
+  const [pollAnonymous, setPollAnonymous] = useState(false);
+  const [pollExpiresAt, setPollExpiresAt] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        question: pollQuestion,
+        options: pollOptions,
+        allowMultiple: pollAllowMultiple,
+        allowAddOptions: pollAllowAddOptions,
+        anonymous: pollAnonymous,
+        expiresAt: pollExpiresAt ? pollExpiresAt : null
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={onClose}>
       <div
@@ -124,11 +132,11 @@ export const CreatePollModal = ({
           </button>
           <button
             type="button"
-            onClick={submitCreatePoll}
-            disabled={pollActionMessageId === 'creating'}
+            onClick={handleSubmit}
+            disabled={isSubmitting}
             className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            {pollActionMessageId === 'creating' ? 'Đang tạo...' : 'Tạo bình chọn'}
+            {isSubmitting ? 'Đang tạo...' : 'Tạo bình chọn'}
           </button>
         </div>
       </div>

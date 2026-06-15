@@ -62,79 +62,19 @@ import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
-
+import type { CreatePollData } from '../components/chat/CreatePollModal';
+import { useChatModals } from '../hooks/useChatModals';
+import { useConversationActions } from '../hooks/useConversationActions';
+import { stripHtml } from '../utils/text';
+import { useChatSearch } from '../hooks/useChatSearch';
+import { useMessageActions } from '../hooks/useMessageActions';
 
 export const Chat = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-
-  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [pinValue, setPinValue] = useState('');
-  const [confirmPinValue, setConfirmPinValue] = useState('');
-  const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
   const [pendingHideId, setPendingHideId] = useState<string | null>(null);
-  const [pinError, setPinError] = useState('');
-  const [globalConversationResults, setGlobalConversationResults] = useState<ConversationResponse[]>([]);
-
   const { toggleHideConversation } = useChatStore();
 
-  const handleHideClick = async (convId: string) => {
-    setOpenConversationMenuId(null);
-    const hasPin = user?.hasChatPin;
-    if (!hasPin) {
-      setPendingHideId(convId);
-      setPinValue('');
-      setConfirmPinValue('');
-      setPinStep('enter');
-      setPinError('');
-      setIsPinModalOpen(true);
-    } else {
-      setConversationActionId(`hide-${convId}`);
-      try {
-        const ok = await toggleHideConversation(convId, true);
-        if (ok) {
-          await fetchConversations();
-        }
-      } finally {
-        setConversationActionId(null);
-      }
-    }
-  };
-
-  const handlePinSubmit = async () => {
-    if (pinStep === 'enter') {
-      if (!pinValue.match(/^\d{4}$/)) {
-        setPinError('Mã PIN phải gồm đúng 4 chữ số.');
-        return;
-      }
-      setPinStep('confirm');
-      setPinError('');
-    } else {
-      if (pinValue !== confirmPinValue) {
-        setPinError('Mã PIN xác nhận không trùng khớp.');
-        return;
-      }
-      setConversationActionId('pin-setup');
-      try {
-        const response = await userService.setupChatPin(pinValue);
-        if (response.success) {
-          useAuthStore.getState().updateUser(response.data);
-          setIsPinModalOpen(false);
-          if (pendingHideId) {
-            await toggleHideConversation(pendingHideId, true);
-            await fetchConversations();
-          }
-        } else {
-          setPinError(response.message || 'Lỗi khi thiết lập PIN.');
-        }
-      } catch (err: any) {
-        setPinError(err.response?.data?.message || 'Không thể thiết lập PIN.');
-      } finally {
-        setConversationActionId(null);
-        setPendingHideId(null);
-      }
-    }
-  };
   const {
     conversations,
     activeConversation,
@@ -168,87 +108,15 @@ export const Chat = () => {
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
-  const [sharingMessage, setSharingMessage] = useState<MessageResponse | null>(null);
-  const [isSharingMessage, setIsSharingMessage] = useState(false);
-  const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
   const [conversationArchiveMessages, setConversationArchiveMessages] = useState<MessageResponse[]>([]);
   const [isLoadingConversationArchive, setIsLoadingConversationArchive] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editInputText, setEditInputText] = useState('');
+
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
-  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'IMAGE' | 'VIDEO'; name?: string } | null>(null);
 
-  useEffect(() => {
-    if (!activeMedia) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setActiveMedia(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeMedia]);
 
-  const handleSaveEdit = async (messageId: string) => {
-    if (!editInputText.trim()) return;
-    await editMessage(messageId, editInputText.trim());
-    setEditingMessageId(null);
-  };
-
-  const handleJumpToMessage = (messageId: string) => {
-    const element = document.getElementById(`message-${messageId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('bg-discord-blurple/25');
-      setTimeout(() => {
-        element.classList.remove('bg-discord-blurple/25');
-      }, 2000);
-    }
-  };
-
-  const handleJumpToMessageFromSearch = async (messageId: string, conversationId: string) => {
-    if (activeConversation?.id !== conversationId) {
-      await selectConversation(conversationId);
-    }
-    setTimeout(() => {
-      handleJumpToMessage(messageId);
-    }, 450);
-  };
-
-  const handleShareMessage = async (targetConversationIds: string[]) => {
-    if (!sharingMessage) return false;
-    setIsSharingMessage(true);
-    try {
-      const ok = await shareMessage(sharingMessage.id, targetConversationIds);
-      if (ok) {
-        setSharingMessage(null);
-      }
-      return ok;
-    } finally {
-      setIsSharingMessage(false);
-    }
-  };
-
-  const handleSummarizeConversation = async () => {
-    if (!activeConversation || isSummarizingConversation) return;
-
-    setIsSummarizingConversation(true);
-    try {
-      const response = await conversationService.summarizeConversation(activeConversation.id);
-      if (response.success && response.data) {
-        setConversationSummary(response.data);
-      } else {
-        window.alert(response.message || 'Không thể tóm tắt cuộc trò chuyện.');
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể tóm tắt cuộc trò chuyện.');
-    } finally {
-      setIsSummarizingConversation(false);
-    }
-  };
 
   const fetchIncomingChatRequests = async () => {
     setIsLoadingChatRequests(true);
@@ -264,23 +132,7 @@ export const Chat = () => {
     }
   };
 
-  const handleAcceptChatRequest = async (requestId: string) => {
-    setChatRequestActionId(requestId);
-    try {
-      const response = await chatRequestService.accept(requestId);
-      if (response.success && response.data?.conversationId) {
-        setSelectedChatRequest(null);
-        await fetchIncomingChatRequests();
-        await fetchConversations();
-        setConversationTab('chats');
-        await selectConversation(response.data.conversationId);
-      }
-    } catch (err) {
-      console.error('Failed to accept chat request:', err);
-    } finally {
-      setChatRequestActionId(null);
-    }
-  };
+
 
   const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, createChannel } = useGroupStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
@@ -294,37 +146,8 @@ export const Chat = () => {
 
 
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
-  const [createChannelGroupId, setCreateChannelGroupId] = useState<string | null>(null);
-  const [createChannelName, setCreateChannelName] = useState('');
-  const [createChannelType, setCreateChannelType] = useState<'TEXT' | 'VOICE'>('TEXT');
-  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
-
-  const handleCreateChannel = async () => {
-    if (!createChannelGroupId || !createChannelName.trim() || isCreatingChannel) return;
-    setIsCreatingChannel(true);
-    try {
-      const ok = await createChannel(createChannelGroupId, {
-        name: createChannelName.trim(),
-        type: createChannelType,
-        isPrivate: false,
-      });
-      if (ok) {
-        setExpandedGroups((prev) => new Set([...prev, createChannelGroupId]));
-        setCreateChannelGroupId(null);
-        setCreateChannelName('');
-        setCreateChannelType('TEXT');
-      } else {
-        window.alert('Không thể tạo kênh. Vui lòng thử lại.');
-      }
-    } catch (err: any) {
-      window.alert(err?.response?.data?.message || err?.message || 'Không thể tạo kênh.');
-    } finally {
-      setIsCreatingChannel(false);
-    }
-  };
 
   const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -347,31 +170,21 @@ export const Chat = () => {
   const [incomingChatRequests, setIncomingChatRequests] = useState<ChatRequestResponse[]>([]);
   const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
   const [isLoadingChatRequests, setIsLoadingChatRequests] = useState(false);
-  const [chatRequestActionId, setChatRequestActionId] = useState<string | null>(null);
   const [isSendingBlockedChatRequest, setIsSendingBlockedChatRequest] = useState(false);
-  const [globalUserResults, setGlobalUserResults] = useState<AuthUser[]>([]);
-  const [globalMessageResults, setGlobalMessageResults] = useState<MessageResponse[]>([]);
-  const [isGlobalSearching, setIsGlobalSearching] = useState(false);
-  const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
   const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [sentFriendRequestIds, setSentFriendRequestIds] = useState<string[]>([]);
   const [sentChatRequestIds, setSentChatRequestIds] = useState<string[]>([]);
-  const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
-  const [profileChatMessage, setProfileChatMessage] = useState('');
   const [profileChatActionId, setProfileChatActionId] = useState<string | null>(null);
-  const [groupMemberSearchQuery, setGroupMemberSearchQuery] = useState('');
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
   const [isUpdatingSelfDestruct, setIsUpdatingSelfDestruct] = useState(false);
-  const [conversationActionId, setConversationActionId] = useState<string | null>(null);
-  const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isUpdatingGroupAvatar, setIsUpdatingGroupAvatar] = useState(false);
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState('');
   const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
-  const [isSummarizingConversation, setIsSummarizingConversation] = useState(false);
+
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
   const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
@@ -379,37 +192,7 @@ export const Chat = () => {
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
-  const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
-  const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
-  const [pollAllowAddOptions, setPollAllowAddOptions] = useState(false);
-  const [pollAnonymous, setPollAnonymous] = useState(false);
-  const [pollExpiresAt, setPollExpiresAt] = useState('');
-  const [pollActionMessageId, setPollActionMessageId] = useState<string | null>(null);
-  const [pollVoterDialog, setPollVoterDialog] = useState<{ option: PollOption; anonymous: boolean } | null>(null);
-  const [pollNewOptionText, setPollNewOptionText] = useState<Record<string, string>>({});
-  const [confirmDialog, setConfirmDialog] = useState<{
-    title: string;
-    description: string;
-    confirmLabel: string;
-    variant?: 'danger' | 'primary';
-    onConfirm: () => void | Promise<void>;
-  } | null>(null);
 
-  useEffect(() => {
-    if (!openConversationMenuId) return;
-
-    const closeConversationMenu = () => setOpenConversationMenuId(null);
-    document.addEventListener('click', closeConversationMenu);
-    return () => document.removeEventListener('click', closeConversationMenu);
-  }, [openConversationMenuId]);
-
-  useEffect(() => {
-    if (!isProfileModalOpen) {
-      setGroupMemberSearchQuery('');
-    }
-  }, [isProfileModalOpen]);
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -437,7 +220,85 @@ export const Chat = () => {
   const quillEditorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
 
-  const normalizeSearchTerm = (value: string) => value.trim().toLowerCase().replace(/^@/, '');
+  const {
+    isInviteMembersOpen, setIsInviteMembersOpen,
+    isProfileModalOpen, setIsProfileModalOpen,
+    isCreatePollOpen, setIsCreatePollOpen,
+    pollVoterDialog, setPollVoterDialog,
+    activeMedia, setActiveMedia,
+    sharingMessage, setSharingMessage,
+    isPinModalOpen, setIsPinModalOpen,
+    searchProfileUser, setSearchProfileUser,
+    confirmDialog, setConfirmDialog,
+  } = useChatModals();
+
+  const {
+    conversationActionId, setConversationActionId,
+    openConversationMenuId, setOpenConversationMenuId,
+    createChannelGroupId, setCreateChannelGroupId,
+    createChannelName, setCreateChannelName,
+    createChannelType, setCreateChannelType,
+    isCreatingChannel,
+    chatRequestActionId,
+    handleHideClick,
+    handleToggleConversationPin,
+    handleDeleteConversation,
+    handleUpdateSelfDestruct,
+    handleCreateChannel,
+    handleAcceptChatRequest,
+    handleRejectChatRequest,
+    handleBlockChatRequest,
+    handleReportChatRequest,
+  } = useConversationActions({
+    setPendingHideId,
+    setIsPinModalOpen,
+    setIsConversationInfoOpen,
+    setIsPinnedPanelOpen,
+    setIsSearchPanelOpen,
+    setExpandedGroups,
+    fetchIncomingChatRequests,
+    setSelectedChatRequest,
+    setConversationTab,
+  });
+
+  const {
+    editingMessageId, setEditingMessageId,
+    editInputText, setEditInputText,
+    isSharingMessage, setIsSharingMessage,
+    isSummarizingConversation, setIsSummarizingConversation,
+    pollActionMessageId, setPollActionMessageId,
+    pollNewOptionText, setPollNewOptionText,
+    updateMessageInChat,
+    handleSaveEdit,
+    handleJumpToMessage,
+    handleJumpToMessageFromSearch,
+    handleShareMessage,
+    handleSummarizeConversation,
+    handlePollVote,
+    handleAddPollOption,
+    handleLockPoll,
+    handleDeletePoll,
+  } = useMessageActions({
+    sharingMessage,
+    setSharingMessage,
+    selectConversation,
+    editMessage,
+    shareMessage,
+  });
+
+  const {
+    searchQuery, setSearchQuery,
+    globalUserResults, setGlobalUserResults,
+    globalMessageResults, setGlobalMessageResults,
+    globalConversationResults, setGlobalConversationResults,
+    isGlobalSearching,
+    globalSearchError, setGlobalSearchError,
+    groupMemberSearchQuery, setGroupMemberSearchQuery,
+    normalizeSearchTerm,
+    handleOpenSearchMessage
+  } = useChatSearch({
+    handleJumpToMessage
+  });
 
   const resetUploadState = () => {
     setPendingAttachments((attachments) => {
@@ -452,6 +313,20 @@ export const Chat = () => {
       fileInputRef.current.value = '';
     }
   };
+
+  useEffect(() => {
+    if (!openConversationMenuId) return;
+
+    const closeConversationMenu = () => setOpenConversationMenuId(null);
+    document.addEventListener('click', closeConversationMenu);
+    return () => document.removeEventListener('click', closeConversationMenu);
+  }, [openConversationMenuId]);
+
+  useEffect(() => {
+    if (!isProfileModalOpen) {
+      setGroupMemberSearchQuery('');
+    }
+  }, [isProfileModalOpen]);
 
   useEffect(() => {
     return () => {
@@ -695,65 +570,6 @@ export const Chat = () => {
     };
   }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications, fetchPending]);
 
-  useEffect(() => {
-    const query = searchQuery.trim();
-    if (query.length < 2) {
-      setGlobalUserResults([]);
-      setGlobalMessageResults([]);
-      setGlobalConversationResults([]);
-      setGlobalSearchError(null);
-      setIsGlobalSearching(false);
-      return;
-    }
-
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      setIsGlobalSearching(true);
-      setGlobalSearchError(null);
-      const userLookupQuery = normalizeSearchTerm(query);
-
-      try {
-        const [userResponse, messageResponse, conversationResponse] = await Promise.allSettled([
-          userService.searchUser(userLookupQuery),
-          messageService.searchMessages(query),
-          conversationService.searchConversations(query),
-        ]);
-
-        if (cancelled) return;
-
-        if (userResponse.status === 'fulfilled' && userResponse.value.success && userResponse.value.data) {
-          setGlobalUserResults(userResponse.value.data.filter((result) => result.id !== user?.id));
-        } else {
-          setGlobalUserResults([]);
-        }
-
-        if (messageResponse.status === 'fulfilled' && messageResponse.value.success && messageResponse.value.data) {
-          setGlobalMessageResults(messageResponse.value.data);
-        } else {
-          setGlobalMessageResults([]);
-        }
-
-        if (conversationResponse.status === 'fulfilled' && conversationResponse.value.success && conversationResponse.value.data) {
-          setGlobalConversationResults(conversationResponse.value.data);
-        } else {
-          setGlobalConversationResults([]);
-        }
-
-        if (userResponse.status === 'rejected' && messageResponse.status === 'rejected' && conversationResponse.status === 'rejected') {
-          setGlobalSearchError('Không thể tìm kiếm lúc này.');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsGlobalSearching(false);
-        }
-      }
-    }, 300);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [searchQuery, user?.id]);
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     setShowScrollToLatest(false);
@@ -1529,10 +1345,9 @@ export const Chat = () => {
 
   const openSearchProfile = (targetUser: AuthUser) => {
     setSearchProfileUser(targetUser);
-    setProfileChatMessage('');
   };
 
-  const handleSendChatRequestFromProfile = async () => {
+  const handleSendChatRequestFromProfile = async (message?: string) => {
     if (!searchProfileUser || profileChatActionId) return;
 
     if (isExistingFriend(searchProfileUser.id)) {
@@ -1541,18 +1356,17 @@ export const Chat = () => {
       return;
     }
 
-    const message = profileChatMessage.trim();
-    if (!message) return;
+    const trimmedMessage = message?.trim();
+    if (!trimmedMessage) return;
 
     setProfileChatActionId(searchProfileUser.id);
     try {
       const response = await chatRequestService.create({
         receiverId: searchProfileUser.id,
-        message,
+        message: trimmedMessage,
       });
       if (response.success) {
         setSentChatRequestIds((prev) => prev.includes(searchProfileUser.id) ? prev : [...prev, searchProfileUser.id]);
-        setProfileChatMessage('');
       } else {
         window.alert(response.message || 'Không thể gửi tin nhắn chờ.');
       }
@@ -1560,36 +1374,6 @@ export const Chat = () => {
       window.alert(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn chờ.');
     } finally {
       setProfileChatActionId(null);
-    }
-  };
-
-  const handleBlockChatRequest = async (request: ChatRequestResponse) => {
-    setChatRequestActionId(request.id);
-    try {
-      await blockService.blockUser(request.sender.id);
-      await chatRequestService.reject(request.id);
-      setSelectedChatRequest((current) => current?.id === request.id ? null : current);
-      await fetchIncomingChatRequests();
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể chặn người gửi.');
-    } finally {
-      setChatRequestActionId(null);
-    }
-  };
-
-  const handleReportChatRequest = async (request: ChatRequestResponse) => {
-    setChatRequestActionId(request.id);
-    try {
-      const response = await chatRequestService.reject(request.id);
-      if (response.success) {
-        setSelectedChatRequest((current) => current?.id === request.id ? null : current);
-        await fetchIncomingChatRequests();
-        window.alert('Đã ghi nhận báo xấu và ẩn tin nhắn chờ này.');
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể báo xấu tin nhắn này.');
-    } finally {
-      setChatRequestActionId(null);
     }
   };
 
@@ -1829,12 +1613,6 @@ export const Chat = () => {
     return stripMessageMarkup(message.content);
   };
 
-  const handleOpenSearchMessage = async (message: MessageResponse) => {
-    await selectConversation(message.conversationId);
-    setSearchQuery('');
-    window.setTimeout(() => handleJumpToMessage(message.id), 450);
-  };
-
   // Active conversation: find matching group for header enrichment
   const activeGroup = activeConversation?.type === 'GROUP'
     ? groups.find(g => getGroupConversationId(g) === activeConversation.id || g.channels?.some(ch => ch.conversationId === activeConversation.id)) || null
@@ -1906,62 +1684,7 @@ export const Chat = () => {
   const isMessageExpired = (message: MessageResponse) =>
     Boolean(message.expiresAt && new Date(message.expiresAt).getTime() <= messageExpiryNow);
 
-  const handleUpdateSelfDestruct = async (seconds: number) => {
-    if (!activeConversation || isUpdatingSelfDestruct) return;
-    setIsUpdatingSelfDestruct(true);
-    try {
-      const response = await conversationService.updateSelfDestruct(activeConversation.id, seconds);
-      if (response.success && response.data) {
-        const updated = response.data;
-        useChatStore.setState((state) => ({
-          activeConversation: state.activeConversation?.id === updated.id ? updated : state.activeConversation,
-          conversations: state.conversations.map((conversation) =>
-            conversation.id === updated.id ? updated : conversation
-          ),
-        }));
-      } else {
-        window.alert(response.message || 'Không thể cập nhật chế độ tin nhắn tự xóa.');
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật chế độ tin nhắn tự xóa.');
-    } finally {
-      setIsUpdatingSelfDestruct(false);
-    }
-  };
 
-  const handleToggleConversationPin = async (conversationId: string, pinned?: boolean) => {
-    if (conversationActionId) return;
-    setOpenConversationMenuId(null);
-    setConversationActionId(`pin-${conversationId}`);
-    try {
-      const ok = await togglePinConversation(conversationId, Boolean(pinned));
-      if (!ok) {
-        window.alert('Không thể cập nhật trạng thái ghim hội thoại.');
-      }
-    } finally {
-      setConversationActionId(null);
-    }
-  };
-
-  const handleDeleteConversation = async (conversationId: string) => {
-    if (conversationActionId) return;
-    const confirmed = window.confirm('Xóa cuộc hội thoại này khỏi danh sách của bạn? Tin nhắn mới sau này sẽ làm hội thoại xuất hiện lại.');
-    if (!confirmed) return;
-
-    setConversationActionId(`delete-${conversationId}`);
-    try {
-      const ok = await deleteConversation(conversationId);
-      if (ok) {
-        setIsConversationInfoOpen(false);
-        setIsPinnedPanelOpen(false);
-        setIsSearchPanelOpen(false);
-      } else {
-        window.alert('Không thể xóa hội thoại.');
-      }
-    } finally {
-      setConversationActionId(null);
-    }
-  };
 
   const formatDividerDate = (dateString: string) => {
     if (!dateString) return 'Today';
@@ -2085,20 +1808,11 @@ export const Chat = () => {
 
   const getPollMetadata = (msg: MessageResponse): PollMetadata => (msg.metadata ?? {}) as PollMetadata;
 
-  const updateMessageInChat = (updated: MessageResponse) => {
-    useChatStore.setState((state) => ({
-      messages: state.messages.map((message) => message.id === updated.id ? updated : message),
-      pinnedMessages: state.pinnedMessages.map((message) => message.id === updated.id ? updated : message),
-      lastMessages: state.lastMessages[updated.conversationId]?.id === updated.id
-        ? { ...state.lastMessages, [updated.conversationId]: updated }
-        : state.lastMessages
-    }));
-  };
 
-  const submitCreatePoll = async () => {
+  const submitCreatePoll = async (data: CreatePollData) => {
     if (!activeConversation || activeConversation.type !== 'GROUP') return;
-    const options = pollOptions.map((option) => option.trim()).filter(Boolean);
-    if (!pollQuestion.trim() || options.length < 2) {
+    const options = data.options.map((option) => option.trim()).filter(Boolean);
+    if (!data.question.trim() || options.length < 2) {
       window.alert('Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn.');
       return;
     }
@@ -2107,85 +1821,19 @@ export const Chat = () => {
     try {
       const response = await messageService.createPoll({
         conversationId: activeConversation.id,
-        question: pollQuestion.trim(),
+        question: data.question.trim(),
         options,
-        allowMultiple: pollAllowMultiple,
-        allowAddOptions: pollAllowAddOptions,
-        anonymous: pollAnonymous,
-        expiresAt: pollExpiresAt ? new Date(pollExpiresAt).toISOString() : null
+        allowMultiple: data.allowMultiple,
+        allowAddOptions: data.allowAddOptions,
+        anonymous: data.anonymous,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : null
       });
       if (response.success && response.data) {
         updateMessageInChat(response.data);
-        setPollQuestion('');
-        setPollOptions(['', '']);
-        setPollAllowMultiple(false);
-        setPollAllowAddOptions(false);
-        setPollAnonymous(false);
-        setPollExpiresAt('');
         setIsCreatePollOpen(false);
       }
     } catch (err: any) {
       window.alert(err.response?.data?.message || err.message || 'Không thể tạo bình chọn.');
-    } finally {
-      setPollActionMessageId(null);
-    }
-  };
-
-  const handlePollVote = async (messageId: string, optionId: string) => {
-    setPollActionMessageId(messageId);
-    try {
-      const response = await messageService.votePoll(messageId, optionId);
-      if (response.success && response.data) {
-        updateMessageInChat(response.data);
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật bình chọn.');
-    } finally {
-      setPollActionMessageId(null);
-    }
-  };
-
-  const handleAddPollOption = async (messageId: string) => {
-    const text = pollNewOptionText[messageId]?.trim();
-    if (!text) return;
-    setPollActionMessageId(messageId);
-    try {
-      const response = await messageService.addPollOption(messageId, text);
-      if (response.success && response.data) {
-        updateMessageInChat(response.data);
-        setPollNewOptionText((values) => ({ ...values, [messageId]: '' }));
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể thêm lựa chọn.');
-    } finally {
-      setPollActionMessageId(null);
-    }
-  };
-
-  const handleLockPoll = async (messageId: string) => {
-    setPollActionMessageId(messageId);
-    try {
-      const response = await messageService.lockPoll(messageId);
-      if (response.success && response.data) {
-        updateMessageInChat(response.data);
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể khóa bình chọn.');
-    } finally {
-      setPollActionMessageId(null);
-    }
-  };
-
-  const handleDeletePoll = async (messageId: string) => {
-    if (!window.confirm('Xóa bình chọn này?')) return;
-    setPollActionMessageId(messageId);
-    try {
-      const response = await messageService.deletePoll(messageId);
-      if (response.success && response.data) {
-        updateMessageInChat(response.data);
-      }
-    } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể xóa bình chọn.');
     } finally {
       setPollActionMessageId(null);
     }
@@ -2232,7 +1880,7 @@ export const Chat = () => {
         return `${prefix}[Tệp tin]`;
       case 'TEXT':
       default:
-        return `${prefix}${msg.content}`;
+        return `${prefix}${stripHtml(msg.content)}`;
     }
   };
 
@@ -2949,26 +2597,11 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
         handleSendChatRequestFromProfile={handleSendChatRequestFromProfile}
         profileChatActionId={profileChatActionId}
         sentChatRequestIds={sentChatRequestIds}
-        profileChatMessage={profileChatMessage}
-        setProfileChatMessage={setProfileChatMessage}
       />
 
       {isCreatePollOpen && activeConversation?.type === 'GROUP' && isGroupModeratorRole(currentGroupMembership?.role) && (
         <CreatePollModal
-          pollQuestion={pollQuestion}
-          setPollQuestion={setPollQuestion}
-          pollOptions={pollOptions}
-          setPollOptions={setPollOptions}
-          pollAllowMultiple={pollAllowMultiple}
-          setPollAllowMultiple={setPollAllowMultiple}
-          pollAllowAddOptions={pollAllowAddOptions}
-          setPollAllowAddOptions={setPollAllowAddOptions}
-          pollAnonymous={pollAnonymous}
-          setPollAnonymous={setPollAnonymous}
-          pollExpiresAt={pollExpiresAt}
-          setPollExpiresAt={setPollExpiresAt}
-          submitCreatePoll={submitCreatePoll}
-          pollActionMessageId={pollActionMessageId}
+          onSubmit={submitCreatePoll}
           onClose={() => setIsCreatePollOpen(false)}
         />
       )}
@@ -2987,15 +2620,11 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
 
       {isPinModalOpen && (
         <PinSetupModal
-          pinStep={pinStep}
-          pinValue={pinValue}
-          confirmPinValue={confirmPinValue}
-          pinError={pinError}
-          conversationActionId={conversationActionId}
-          setPinValue={setPinValue}
-          setConfirmPinValue={setConfirmPinValue}
-          setPinError={setPinError}
-          handlePinSubmit={handlePinSubmit}
+          pendingHideId={pendingHideId}
+          onSuccess={() => {
+            setIsPinModalOpen(false);
+            setPendingHideId(null);
+          }}
           onClose={() => setIsPinModalOpen(false)}
         />
       )}
