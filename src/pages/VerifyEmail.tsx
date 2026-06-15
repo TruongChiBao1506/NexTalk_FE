@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, CheckCircle2, XCircle, MessageSquareCode } from 'lucide-react';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
+import logo from '../assets/logo_notext.png';
 
 export const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
@@ -54,8 +55,8 @@ export const VerifyEmail = () => {
       <div className="w-full max-w-md z-10">
         {/* Brand logo / header */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 dark:bg-discord-blurple text-white shadow-lg shadow-indigo-500/30 dark:shadow-discord-blurple/30 mb-3">
-            <MessageSquareCode className="w-8 h-8" />
+          <div className="flex items-center justify-center w-20 h-20 mb-3">
+            <img src={logo} alt="NexTalk Logo" className="w-full h-full object-cover rounded-2xl drop-shadow-xl border border-gray-200/50 dark:border-zinc-700/50" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white m-0">
             Xác thực Email

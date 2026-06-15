@@ -12,7 +12,8 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
-import { ensureFreshAccessToken } from './api/apiClient';
+import { ensureFreshAccessToken, apiClient } from './api/apiClient';
+import { requestFirebaseToken, onMessageListener } from './firebase';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,25 @@ function App() {
       window.removeEventListener('focus', handleResume);
       document.removeEventListener('visibilitychange', handleResume);
     };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const setupFCM = async () => {
+        try {
+          const token = await requestFirebaseToken();
+          if (token) {
+            await apiClient.post('/fcm/token', { token });
+          }
+        } catch (err: any) {
+          console.error('Failed to setup FCM', err);
+        }
+      };
+
+      setupFCM();
+
+      onMessageListener().catch(err => console.log('failed to receive foreground message: ', err));
+    }
   }, [isAuthenticated]);
 
   return (

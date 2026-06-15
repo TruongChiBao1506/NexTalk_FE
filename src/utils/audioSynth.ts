@@ -98,6 +98,52 @@ class AudioSynth {
     osc.stop(this.audioCtx.currentTime + 0.35);
   }
 
+  playUserJoin() {
+    this.initCtx();
+    if (!this.audioCtx) return;
+
+    const osc = this.audioCtx.createOscillator();
+    const gain = this.audioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(this.audioCtx.destination);
+
+    // A pleasant "ding" sound
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, this.audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, this.audioCtx.currentTime + 0.1);
+
+    gain.gain.setValueAtTime(0, this.audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, this.audioCtx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.3);
+
+    osc.start();
+    osc.stop(this.audioCtx.currentTime + 0.3);
+  }
+
+  playUserLeave() {
+    this.initCtx();
+    if (!this.audioCtx) return;
+
+    const osc = this.audioCtx.createOscillator();
+    const gain = this.audioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(this.audioCtx.destination);
+
+    // A subtle "pop" down sound
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, this.audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, this.audioCtx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0, this.audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, this.audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.2);
+
+    osc.start();
+    osc.stop(this.audioCtx.currentTime + 0.2);
+  }
+
   stop() {
     if (this.intervalId) {
       clearInterval(this.intervalId);

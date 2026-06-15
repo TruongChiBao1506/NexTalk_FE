@@ -54,11 +54,16 @@ interface CallStore {
 
   activeVoiceChannelId: string | null;
   voiceChannelMembers: Record<string, string[]>; // channelId -> array of userIds
+  isViewingVoiceGrid: boolean;
 
   agoraClient: IAgoraRTCClient | null;
   localAudioTrack: IMicrophoneAudioTrack | null;
-  localVideoTrack: ICameraVideoTrack | null;
   screenVideoTrack: ILocalVideoTrack | null;
+  screenAudioTrack: ILocalAudioTrack | null;
+  isMicMuted: boolean;
+  isCameraMuted: boolean;
+  isSpeakerOn: boolean;
+  isChannelSoundEnabled: boolean;
 
   initiateCall: (conversationId: string, callType: CallType, partner: any) => void;
   receiveCall: (signal: any) => void;
@@ -70,6 +75,7 @@ interface CallStore {
   toggleMic: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleSpeaker: () => void;
+  toggleChannelSound: () => void;
   switchCamera: () => Promise<void>;
   startVideo: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
@@ -87,6 +93,7 @@ interface CallStore {
   joinVoiceChannel: (channelId: string, channelName: string, groupId: string) => Promise<void>;
   updateVoiceChannelMembers: (channelId: string, members: string[]) => void;
   handleVoiceChannelEvent: (event: any) => void;
+  setIsViewingVoiceGrid: (isViewing: boolean) => void;
 }
 
 export const useCallStore = create<CallStore>((set, get) => ({
@@ -104,9 +111,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
   isCameraMuted: false,
   isScreenSharing: false,
   isSpeakerOn: true,
+  isChannelSoundEnabled: true,
 
   activeVoiceChannelId: null,
   voiceChannelMembers: {},
+  isViewingVoiceGrid: false,
 
   remoteUsers: [],
   remoteAudioPlaybackBlocked: false,
@@ -120,6 +129,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   localAudioTrack: null,
   localVideoTrack: null,
   screenVideoTrack: null,
+  screenAudioTrack: null,
 
   initiateCall: (conversationId, callType, partner) => {
     const currentUser = useAuthStore.getState().user;
@@ -412,7 +422,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
           userId: currentUser.id
         })
       });
-      set({ callState: 'idle', activeVoiceChannelId: null });
+      set({ callState: 'idle', activeVoiceChannelId: null, isViewingVoiceGrid: false });
       return;
     }
 
@@ -471,12 +481,24 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   toggleCamera: async () => {
-    const { localVideoTrack, isCameraMuted, callType } = get();
-    if (callType !== 'video') return;
+    const { localVideoTrack, isCameraMuted, agoraClient, isScreenSharing } = get();
 
     if (localVideoTrack) {
       await localVideoTrack.setEnabled(isCameraMuted);
       set({ isCameraMuted: !isCameraMuted });
+      return;
+    }
+
+    if (!agoraClient) return;
+
+    try {
+      const videoTrack = await AgoraRTC.createCameraVideoTrack();
+      set({ localVideoTrack: videoTrack, isCameraMuted: false });
+      if (!isScreenSharing) {
+        await agoraClient.publish(videoTrack);
+      }
+    } catch (error) {
+      console.warn('Failed to start camera:', error);
     }
   },
 
@@ -493,6 +515,10 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
     });
     set({ isSpeakerOn: nextSpeakerState });
+  },
+
+  toggleChannelSound: () => {
+    set({ isChannelSoundEnabled: !get().isChannelSoundEnabled });
   },
 
   switchCamera: async () => {
@@ -536,6 +562,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       try {
         const screenTrackResult = await AgoraRTC.createScreenVideoTrack({}, 'auto');
         const screenTrack = Array.isArray(screenTrackResult) ? screenTrackResult[0] : screenTrackResult;
+        const screenAudio = Array.isArray(screenTrackResult) ? screenTrackResult[1] : null;
 
         // unpublish local camera track if any
         const { localVideoTrack } = get();
@@ -552,6 +579,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
         set({
           screenVideoTrack: screenTrack,
+          screenAudioTrack: screenAudio,
           isScreenSharing: true
         });
       } catch (err) {
@@ -563,12 +591,19 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   stopScreenShare: async () => {
-    const { screenVideoTrack, agoraClient, localVideoTrack, isCameraMuted } = get();
+    const { screenVideoTrack, screenAudioTrack, agoraClient, localVideoTrack, isCameraMuted } = get();
     if (!agoraClient || !screenVideoTrack) return;
 
     try {
-      await agoraClient.unpublish(screenVideoTrack);
+      const tracksToUnpublish: any[] = [screenVideoTrack];
+      if (screenAudioTrack) {
+        tracksToUnpublish.push(screenAudioTrack);
+      }
+      await agoraClient.unpublish(tracksToUnpublish);
       screenVideoTrack.close();
+      if (screenAudioTrack) {
+        screenAudioTrack.close();
+      }
 
       // Republish camera track
       if (localVideoTrack) {
@@ -580,6 +615,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
       set({
         screenVideoTrack: null,
+        screenAudioTrack: null,
         isScreenSharing: false
       });
     } catch (err) {
@@ -831,7 +867,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
       set({ remoteUsers: [...client.remoteUsers] });
     });
 
+    client.on('user-joined', () => {
+      if (get().isChannelSoundEnabled) {
+        audioSynth.playUserJoin();
+      }
+    });
+
     client.on('user-left', (user) => {
+      if (get().isChannelSoundEnabled) {
+        audioSynth.playUserLeave();
+      }
       if (get().agoraClient !== client) return;
       set({ remoteUsers: [...client.remoteUsers] });
 
@@ -951,10 +996,12 @@ export const useCallStore = create<CallStore>((set, get) => ({
       isGroupCall: true,
       callTitle: channelName,
       activeVoiceChannelId: channelId,
-      conversationId: null, // Clear conversation ID
+      conversationId: groupId, // Set conversation ID to groupId
       caller: null,
       receiver: null,
-      callId: null
+      callId: null,
+      isViewingVoiceGrid: true,
+      isCameraMuted: true // Initialize camera as muted (off) in Voice Channel
     });
 
     const stompClient = useChatStore.getState().stompClient;
@@ -990,11 +1037,17 @@ export const useCallStore = create<CallStore>((set, get) => ({
     });
 
     client.on('user-joined', () => {
+      if (get().isChannelSoundEnabled) {
+        audioSynth.playUserJoin();
+      }
       const remoteUsers = Array.from(client.remoteUsers);
       set({ remoteUsers });
     });
 
     client.on('user-left', () => {
+      if (get().isChannelSoundEnabled) {
+        audioSynth.playUserLeave();
+      }
       const remoteUsers = Array.from(client.remoteUsers);
       set({ remoteUsers });
     });
@@ -1020,7 +1073,19 @@ export const useCallStore = create<CallStore>((set, get) => ({
       client.enableAudioVolumeIndicator();
       set({ localAgoraUid: uid });
       
-      await get().toggleMic(); // Auto toggle mic on
+      // Create local audio track
+      try {
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          AEC: true,
+          ANS: true,
+          AGC: true
+        });
+        await audioTrack.setEnabled(true);
+        set({ localAudioTrack: audioTrack, isMicMuted: false });
+        await client.publish(audioTrack);
+      } catch (e) {
+        console.warn('Microphone permission denied or not available:', e);
+      }
 
       if (stompClient && stompClient.connected && currentUser) {
         stompClient.publish({
@@ -1053,6 +1118,10 @@ export const useCallStore = create<CallStore>((set, get) => ({
     if (event.type === 'JOIN' || event.type === 'LEAVE') {
       get().updateVoiceChannelMembers(event.channelId, event.currentMembers || []);
     }
+  },
+
+  setIsViewingVoiceGrid: (isViewing: boolean) => {
+    set({ isViewingVoiceGrid: isViewing });
   }
 }));
 

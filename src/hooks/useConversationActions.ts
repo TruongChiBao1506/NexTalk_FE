@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import { useGroupStore } from '../store/groupStore';
 import { blockService } from '../services/blockService';
 import { chatRequestService } from '../services/chatRequestService';
 import { conversationService } from '../services/conversationService';

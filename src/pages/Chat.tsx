@@ -3,6 +3,8 @@ import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
+import 'quill-mention/autoregister';
+import 'quill-mention/dist/quill.mention.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
@@ -11,20 +13,13 @@ import { useFriendStore } from '../store/friendStore';
 import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
 import { chatRequestService } from '../services/chatRequestService';
-import { userService } from '../services/userService';
 import { messageService } from '../services/messageService';
 import { blockService } from '../services/blockService';
-import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
-  LogOut, User, Settings, MessageSquare, CircleUserRound,
-  Send, Paperclip, Smile, Search, Loader2, Users, Plus, Check, CheckCheck,
-  X, FileText, Video, Download, ThumbsUp, MoreHorizontal, CreditCard, Crop, Type, Zap, Image, Phone, ArrowLeft, UserPlus, UserMinus, Sparkles, Camera,
-  Pin, PinOff, CornerUpLeft, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Quote, Code, Link,
-  AlignLeft, AlignCenter, AlignRight, Highlighter, Eraser, Info, BellOff, Shield, Lock, Unlock, ExternalLink, ListChecks, Trash2, UserCog, ArrowDown,
-  ChevronDown, ChevronRight, Hash, Volume2, Mic, Headphones
+  MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
+  Shield, Lock, Headphones, Mic
 } from 'lucide-react';
-import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
 import { useCallStore } from '../store/callStore';
@@ -32,15 +27,12 @@ import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
-import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata, PollOption } from '../types/chat';
+import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata } from '../types/chat';
 import type { ChannelResponse, GroupResponse, GroupRole } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
 
 // Phase 10 Components
-import { MessageActionsBar, MessageReactionButton } from '../components/chat/MessageContextMenu';
-import { MessageReactions } from '../components/chat/MessageReactions';
-import { ReplyPreview } from '../components/chat/ReplyPreview';
 import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
 import { SearchPanel } from '../components/chat/SearchPanel';
 import { ShareMessageModal } from '../components/chat/ShareMessageModal';
@@ -51,6 +43,8 @@ import { SidebarHeader } from '../components/chat/SidebarHeader';
 import { SidebarSearch } from '../components/chat/SidebarSearch';
 import { SidebarTabs } from '../components/chat/SidebarTabs';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
+import { VoiceConnectedPanel } from '../components/chat/VoiceConnectedPanel';
+import { VoiceChannelGrid } from '../components/chat/VoiceChannelGrid';
 import { ProfileModal } from '../components/chat/ProfileModal';
 import { CreatePollModal } from '../components/chat/CreatePollModal';
 import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
@@ -100,10 +94,7 @@ export const Chat = () => {
     deleteMessage,
     togglePinMessage,
     reactToMessage,
-    shareMessage,
-    setConversationSummary,
-    togglePinConversation,
-    deleteConversation
+    shareMessage
   } = useChatStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -134,9 +125,9 @@ export const Chat = () => {
 
 
 
-  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, createChannel } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole } = useGroupStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
-  const initiateCall = useCallStore((state) => state.initiateCall);
+  const { initiateCall, joinVoiceChannel, activeVoiceChannelId } = useCallStore();
 
   const {
     notifications,
@@ -177,7 +168,7 @@ export const Chat = () => {
   const [profileChatActionId, setProfileChatActionId] = useState<string | null>(null);
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
-  const [isUpdatingSelfDestruct, setIsUpdatingSelfDestruct] = useState(false);
+  const [isUpdatingSelfDestruct] = useState(false);
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isUpdatingGroupAvatar, setIsUpdatingGroupAvatar] = useState(false);
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
@@ -241,7 +232,6 @@ export const Chat = () => {
     handleDeleteConversation,
     handleUpdateSelfDestruct,
     handleAcceptChatRequest,
-    handleRejectChatRequest,
     handleBlockChatRequest,
     handleReportChatRequest,
   } = useConversationActions({
@@ -258,8 +248,8 @@ export const Chat = () => {
   const {
     editingMessageId, setEditingMessageId,
     editInputText, setEditInputText,
-    isSharingMessage, setIsSharingMessage,
-    isSummarizingConversation, setIsSummarizingConversation,
+    isSharingMessage,
+    isSummarizingConversation,
     pollActionMessageId, setPollActionMessageId,
     pollNewOptionText, setPollNewOptionText,
     updateMessageInChat,
@@ -282,11 +272,11 @@ export const Chat = () => {
 
   const {
     searchQuery, setSearchQuery,
-    globalUserResults, setGlobalUserResults,
-    globalMessageResults, setGlobalMessageResults,
-    globalConversationResults, setGlobalConversationResults,
+    globalUserResults,
+    globalMessageResults,
+    globalConversationResults,
     isGlobalSearching,
-    globalSearchError, setGlobalSearchError,
+    globalSearchError,
     groupMemberSearchQuery, setGroupMemberSearchQuery,
     normalizeSearchTerm,
     handleOpenSearchMessage
@@ -766,28 +756,6 @@ export const Chat = () => {
     return html;
   };
 
-  const emojiOptions = [
-    '😀', '😄', '😂', '😊', '😍', '😘', '😎', '🥳',
-    '😢', '😭', '😡', '😤', '😴', '🤔', '😅', '🙄',
-    '👍', '👎', '👏', '🙏', '💪', '👌', '✌️', '🤝',
-    '❤️', '💙', '🔥', '✨', '🎉', '✅', '⭐', '💯',
-  ];
-
-  const stickerOptions = [
-    { label: 'Cười lớn', value: '😂😂😂' },
-    { label: 'Yêu quá', value: '😍💖' },
-    { label: 'Đã rõ', value: '👍 OK!' },
-    { label: 'Cố lên', value: '💪 Cố lên!' },
-    { label: 'Chúc mừng', value: '🎉 Chúc mừng!' },
-    { label: 'Ôm một cái', value: '🤗' },
-    { label: 'Bất ngờ', value: '😮✨' },
-    { label: 'Buồn ngủ', value: '😴 Zzz' },
-    { label: 'Xin lỗi', value: '🙏 Xin lỗi nha' },
-    { label: 'Cảm ơn', value: '❤️ Cảm ơn!' },
-    { label: 'Tuyệt vời', value: '🌟 Tuyệt vời!' },
-    { label: 'Đang tới', value: '🏃 Đang tới!' },
-  ];
-
   const insertTextToInput = (value: string) => {
     const quill = quillRef.current;
     if (quill) {
@@ -931,8 +899,39 @@ export const Chat = () => {
       placeholder: messagePlaceholder,
       modules: {
         toolbar: false,
+        mention: {
+          allowedChars: /^[A-Za-z0-9_]*$/,
+          mentionDenotationChars: ['@'],
+          positioningStrategy: 'fixed',
+          source: function (searchTerm: string, renderList: (list: any[], term: string) => void) {
+            const currentConversation = useChatStore.getState().activeConversation;
+            const currentUser = useAuthStore.getState().user;
+            const values: { id: string, value: string }[] = [];
+            
+            if (currentConversation) {
+              if (currentConversation.type === 'GROUP') {
+                values.push({ id: 'all', value: 'Mọi người' });
+              }
+              
+              currentConversation.members.forEach((member) => {
+                if (member.id !== currentUser?.id) {
+                  values.push({ id: member.id, value: member.username });
+                }
+              });
+            }
+
+            if (searchTerm.length === 0) {
+              renderList(values, searchTerm);
+            } else {
+              const termLower = searchTerm.toLowerCase();
+              const matches = values.filter((item) => item.value.toLowerCase().includes(termLower));
+              renderList(matches, searchTerm);
+            }
+          },
+        },
       },
       formats: [
+        'mention',
         'bold',
         'italic',
         'underline',
@@ -2068,6 +2067,9 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
           setSearchQuery={setSearchQuery}
         />
 
+        {/* Voice Connected Panel */}
+        <VoiceConnectedPanel />
+
         {/* User Card */}
         <SidebarFooter user={user} />
       </section>
@@ -2102,30 +2104,36 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
             />
 
             {activeChannel?.type === 'VOICE' ? (
-              <div className="flex flex-col items-center justify-center flex-1 h-full text-gray-500 space-y-6">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                    <Mic className="w-12 h-12 text-indigo-400 dark:text-indigo-500" />
+              <div className="flex flex-col items-center justify-center flex-1 h-full bg-gray-100 dark:bg-discord-dark">
+                {activeVoiceChannelId === activeChannel.id ? (
+                  <VoiceChannelGrid />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-500 space-y-6 max-w-md px-4 text-center">
+                    <div className="relative">
+                      <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                        <Mic className="w-12 h-12 text-indigo-400 dark:text-indigo-500" />
+                      </div>
+                      <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 ring-4 ring-gray-100 dark:ring-discord-dark text-[10px] font-black text-white">
+                        <Sparkles className="w-3 h-3" />
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                        {activeChannel.name}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-gray-500 dark:text-zinc-400 mb-6">
+                        Kết nối âm thanh để trò chuyện với mọi người trong kênh này.
+                      </p>
+                      <button 
+                        onClick={() => joinVoiceChannel(activeChannel.id, activeChannel.name, activeConversation.id)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow transition"
+                      >
+                        <Headphones className="w-4 h-4" />
+                        <span>Tham gia Kênh Thoại</span>
+                      </button>
+                    </div>
                   </div>
-                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 ring-4 ring-gray-100 dark:ring-discord-dark text-[10px] font-black text-white">
-                    <Sparkles className="w-3 h-3" />
-                  </span>
-                </div>
-                <div className="text-center px-4 max-w-md">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                    Kênh thoại WebRTC
-                  </h3>
-                  <p className="text-sm leading-relaxed text-gray-500 dark:text-zinc-400 mb-6">
-                    Kênh thoại hiện đang trong quá trình phát triển. Sắp tới bạn sẽ có thể kết nối âm thanh thời gian thực và chia sẻ màn hình với mọi người trong nhóm!
-                  </p>
-                  <button 
-                    disabled 
-                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white opacity-50 cursor-not-allowed shadow"
-                  >
-                    <Headphones className="w-4 h-4" />
-                    <span>Tham gia kênh (Sắp ra mắt)</span>
-                  </button>
-                </div>
+                )}
               </div>
             ) : (
               <>

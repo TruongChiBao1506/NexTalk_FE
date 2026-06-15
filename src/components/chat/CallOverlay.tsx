@@ -264,6 +264,9 @@ export const CallOverlay = () => {
   if (!partner && !isGroupCall) return null;
 
   const isVoiceChannel = !!activeVoiceChannelId;
+
+  // Kênh Thoại: dùng VoiceConnectedPanel + VoiceChannelGrid thay thế floating modal
+  if (isVoiceChannel) return null;
   const displayName = isVoiceChannel ? `Kênh Thoại: ${callTitle}` : isGroupCall ? callTitle ?? 'Group call' : partner?.username ?? 'Unknown';
   const subtitle = isVoiceChannel
     ? 'Đã kết nối'

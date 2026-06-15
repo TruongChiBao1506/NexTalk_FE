@@ -132,16 +132,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-        {/* Voice Channel Button (Kênh thoại mở) */}
-        {isGroupConversation && (
-          <button
-            onClick={() => useCallStore.getState().joinVoiceChannel(activeConversation.id, activeConversation.name, activeConversation.id)}
-            title="Tham gia Kênh Thoại"
-            className="shrink-0 p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-          >
-            <Headphones className="w-4 h-4" />
-          </button>
-        )}
+
 
         {/* Voice Call Button (Gọi khẩn cấp, chỉ cho Trưởng/Phó nhóm) */}
         {shouldShowCallButtons && (

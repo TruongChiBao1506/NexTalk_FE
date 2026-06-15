@@ -19,7 +19,7 @@ import {
   Loader2,
   LogOut
 } from 'lucide-react';
-import type { ConversationResponse, MessageResponse } from '../../types/chat';
+import type { ConversationResponse } from '../../types/chat';
 
 interface ConversationInfoPanelProps {
   isConversationInfoOpen: boolean;
