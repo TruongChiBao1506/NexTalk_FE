@@ -45,7 +45,23 @@ import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
 import { SearchPanel } from '../components/chat/SearchPanel';
 import { ShareMessageModal } from '../components/chat/ShareMessageModal';
 import { InviteGroupMembersModal } from '../components/chat/InviteGroupMembersModal';
+import { ConversationList } from '../components/chat/ConversationList';
+import { SidebarNavigation } from '../components/chat/SidebarNavigation';
+import { SidebarHeader } from '../components/chat/SidebarHeader';
+import { SidebarSearch } from '../components/chat/SidebarSearch';
+import { SidebarTabs } from '../components/chat/SidebarTabs';
+import { SidebarFooter } from '../components/chat/SidebarFooter';
+import { ProfileModal } from '../components/chat/ProfileModal';
+import { CreatePollModal } from '../components/chat/CreatePollModal';
+import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
+import { PinSetupModal } from '../components/chat/PinSetupModal';
+import { MediaViewerModal } from '../components/chat/MediaViewerModal';
+import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
+import { ChatHeader } from '../components/chat/ChatHeader';
+import { MessageInput } from '../components/chat/MessageInput';
+import { MessageList } from '../components/chat/MessageList';
+import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
 
 
 export const Chat = () => {
@@ -2305,1062 +2321,140 @@ export const Chat = () => {
     .slice(0, 8);
   const sharedDataResults = globalMessageResults
     .filter((message) => messageHasSearchableAttachment(message) || messageHasSharedLink(message))
-    .slice(0, 8);
+const visibleMessages = messages.filter((message) => !isMessageExpired(message));
 
-  const visibleMessages = messages.filter((message) => !isMessageExpired(message));
-
-
-  const activeFriend = activeConversation ? getFriendInfo(activeConversation) : null;
-  const activeConversationSummary = activeConversation
-    ? conversationSummaries[activeConversation.id]
-    : null;
-
-  // For group chat: determine if we're in a group conversation
-  const isGroupConversation = activeConversation?.type === 'GROUP';
-  const activeCallTarget = activeConversation
-    ? isGroupConversation
-      ? {
-          id: activeConversation.id,
-          username: activeGroup?.name || activeConversation.name || activeFriend?.username || 'Nhóm chat',
-          avatarUrl: activeGroup?.avatarUrl ?? null,
-          isGroupCall: true,
-          memberCount: activeGroup?.memberCount ?? activeConversation.members.length,
-        }
-      : activeFriend
-    : null;
-
-  // Get sender info in group chat
-  const getSenderUsername = (msg: MessageResponse) => msg.senderUsername || 'Unknown';
-
-  // Get sender avatar in group chat — look up from conversation members
   const getSenderAvatar = (msg: MessageResponse): string | null => {
     if (!activeConversation) return null;
     const member = activeConversation.members.find(m => m.id === msg.senderId);
     return member?.avatarUrl ?? null;
   };
 
+  const getSenderUsername = (senderId: string) => {
+    if (!activeConversation) return 'Unknown';
+    const member = activeConversation.members.find(m => m.id === senderId);
+    return (member as any)?.nickname || member?.username || 'Unknown';
+  };
+  const isGroupConversation = activeConversation?.type === 'GROUP';
+  const activeFriend = activeConversation && !isGroupConversation ? getFriendInfo(activeConversation) : null;
+  const activeCallTarget = isGroupConversation ? activeGroup : activeFriend;
+  const activeConversationSummary = activeConversation ? conversationSummaries[activeConversation.id] : null;
+
   return (
     <div className="h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Column 1: Sidebar Navigation */}
-      <aside className="hidden md:flex w-16 md:w-18 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
-        <div className="w-11 h-11 rounded-2xl bg-indigo-650 dark:bg-discord-blurple flex items-center justify-center text-white mb-6 shadow-md transition-all duration-300">
-          <MessageSquare className="w-5 h-5" />
-        </div>
-
-        <div
-          onClick={() => navigate('/friends')}
-          className="relative w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
-          title="Friends List"
-        >
-          <User className="w-5 h-5" />
-          {pending.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black leading-none text-white ring-2 ring-gray-250 dark:ring-zinc-950">
-              {pending.length > 99 ? '99+' : pending.length}
-            </span>
-          )}
-        </div>
-
-        <div
-          onClick={() => navigate('/profile')}
-          className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
-          title="Hồ sơ"
-        >
-          <CircleUserRound className="w-5 h-5" />
-        </div>
-
-        <div className="mt-auto flex flex-col gap-3">
-          <ThemeToggle />
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="w-11 h-11 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-450 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white hover:rounded-xl transition-all duration-300 disabled:opacity-50"
-            title="Log Out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </aside>
+      <SidebarNavigation
+        pendingCount={pending.length}
+        handleLogout={handleLogout}
+        isLoggingOut={isLoggingOut}
+      />
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
       <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-[#1e1e2e] flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
-        <div className="h-[60px] flex items-center justify-between px-4 shrink-0 border-b border-gray-100 dark:border-zinc-800/60">
-          <div className="flex items-center gap-2">
-            <h1 className="text-[17px] font-bold text-gray-900 dark:text-white tracking-tight">Tin nhắn</h1>
-            {isConnecting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-            ) : isConnected ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Đã kết nối" />
-            ) : (
-              <span
-                className="w-2 h-2 rounded-full bg-rose-500 cursor-pointer"
-                title="Mất kết nối — Nhấn để kết nối lại"
-                onClick={connectWebSocket}
-              />
-            )}
-          </div>
-          <button
-            onClick={() => setShowCreateGroupModal(true)}
-            className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200"
-            title="Tạo nhóm mới"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+        <SidebarHeader
+          isConnecting={isConnecting}
+          isConnected={isConnected}
+          connectWebSocket={connectWebSocket}
+          setShowCreateGroupModal={setShowCreateGroupModal}
+        />
 
         {/* Search bar */}
-        <div className="px-3 py-2.5 shrink-0">
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Tìm người, nhóm, tin nhắn, file..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 dark:bg-zinc-800/80 text-sm px-9 py-2 rounded-full border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 transition-colors"
-            />
-          </div>
-        </div>
+        <SidebarSearch
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
 
-        <div className="px-3 pb-2 shrink-0">
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 dark:bg-zinc-800/70 p-1">
-            <button
-              type="button"
-              onClick={() => setConversationTab('chats')}
-              className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                conversationTab === 'chats'
-                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-white'
-                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-              }`}
-            >
-              Trò chuyện
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setConversationTab('requests');
-                fetchIncomingChatRequests();
-              }}
-              className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                conversationTab === 'requests'
-                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-white'
-                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-              }`}
-            >
-              Tin nhắn chờ
-              {incomingChatRequests.length > 0 && (
-                <span className="absolute -right-1 -top-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-[18px] text-white shadow">
-                  {incomingChatRequests.length > 99 ? '99+' : incomingChatRequests.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Unified conversation list (Zalo style) */}
-        <div className="flex-1 overflow-y-auto">
-          {conversationTab === 'requests' ? (
-            isLoadingChatRequests ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-7 h-7 animate-spin text-indigo-600 dark:text-discord-blurple" />
-              </div>
-            ) : incomingChatRequests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
-                  <MessageSquare className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
-                </div>
-                <p className="text-sm text-gray-400 dark:text-zinc-500">Không có tin nhắn chờ.</p>
-              </div>
-            ) : (
-              <div>
-                <div className="mx-3 mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                  <div className="flex items-start gap-2">
-                    <Shield className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>Tin nhắn từ người chưa kết bạn được ẩn tại đây. Chỉ trả lời khi bạn nhận ra người gửi; bạn có thể kết bạn, trả lời hoặc chặn/báo xấu.</span>
-                  </div>
-                </div>
-                {incomingChatRequests.map((request) => (
-                <button
-                  type="button"
-                  key={request.id}
-                  onClick={() => setSelectedChatRequest(request)}
-                  className={`block w-full px-3 py-3 text-left border-b border-gray-100 dark:border-zinc-800/60 transition-colors ${
-                    selectedChatRequest?.id === request.id
-                      ? 'bg-indigo-50 dark:bg-indigo-500/10'
-                      : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {request.sender.avatarUrl ? (
-                      <img src={request.sender.avatarUrl} alt={request.sender.username} className="w-12 h-12 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg shrink-0">
-                        {request.sender.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[14px] font-bold text-gray-900 dark:text-white truncate">
-                          {request.sender.username}
-                        </span>
-                        <span className="text-[11px] shrink-0 text-gray-400 dark:text-zinc-500">
-                          {formatConversationTime(request.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-gray-500 dark:text-zinc-400 truncate mt-0.5">
-                        {request.message}
-                      </p>
-                      <p className="mt-2 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300">
-                        Mở trong khung chat
-                      </p>
-                    </div>
-                  </div>
-                </button>
-                ))}
-              </div>
-            )
-          ) : isSearchActive ? (
-            <div className="px-3 pb-4 space-y-4">
-              {isGlobalSearching && (
-                <div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-zinc-800/50 px-3 py-2 text-xs text-gray-500 dark:text-zinc-400">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Đang tìm kiếm...</span>
-                </div>
-              )}
-
-              {globalSearchError && (
-                <div className="rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">
-                  {globalSearchError}
-                </div>
-              )}
-
-              {globalUserResults.length > 0 && (
-                <div>
-                  <div className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
-                    Người dùng & kết nối
-                  </div>
-                  <div className="space-y-1">
-                    {globalUserResults.slice(0, 6).map((result) => {
-                      const alreadyFriend = isExistingFriend(result.id);
-                      const requestSent = sentFriendRequestIds.includes(result.id);
-                      return (
-                        <div key={result.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-                          <button
-                            type="button"
-                            onClick={() => openSearchProfile(result)}
-                            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            title="Mở hồ sơ"
-                          >
-                            {result.avatarUrl ? (
-                              <img src={result.avatarUrl} alt={result.username} className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center">
-                                {result.username.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                          </button>
-                          <div className="min-w-0 flex-1 text-left">
-                            <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{result.username}</div>
-                            <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">{result.email}</div>
-                          </div>
-                          {!alreadyFriend && (
-                            <button
-                              type="button"
-                              onClick={() => openSearchProfile(result)}
-                              disabled={sentChatRequestIds.includes(result.id)}
-                              className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-500/10 disabled:text-indigo-500 disabled:opacity-80 transition"
-                            >
-                              {sentChatRequestIds.includes(result.id) ? 'Đã nhắn' : 'Nhắn'}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => alreadyFriend ? handleStartChatFromSearch(result.id) : handleSendFriendRequestFromSearch(result.id)}
-                            disabled={friendRequestActionId === result.id || requestSent}
-                            className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition ${
-                              alreadyFriend
-                                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                : requestSent
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-gray-100 text-gray-700 hover:bg-indigo-600 hover:text-white dark:bg-zinc-800 dark:text-zinc-200'
-                            } disabled:opacity-60`}
-                          >
-                            {friendRequestActionId === result.id ? '...' : alreadyFriend ? 'Nhắn' : requestSent ? 'Đã gửi' : 'Kết bạn'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {globalConversationResults.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between px-1 pb-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
-                      Cuộc trò chuyện & nhóm
-                    </span>
-                    {searchQuery.match(/^\d{4}$/) && user?.hasChatPin && (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 animate-pulse">
-                        <Unlock className="h-3 w-3" />
-                        Đã mở khóa ẩn
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    {globalConversationResults.slice(0, 8).map((c) => {
-                      if (c.type === 'PRIVATE') {
-                        const friend = getFriendInfo(c);
-                        const friendId = c.members.find((member) => member.id !== user?.id)?.id;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => {
-                              selectConversation(c.id);
-                              setSearchQuery('');
-                            }}
-                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
-                          >
-                            <div className="relative shrink-0">
-                              {friend.avatarUrl ? (
-                                <img src={friend.avatarUrl} alt={friend.username} className="w-10 h-10 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm">
-                                  {friend.username.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              {c.hidden && (
-                                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
-                                  <Lock className="h-2.5 w-2.5" />
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">{friend.username}</span>
-                                {c.hidden && (
-                                  <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                                    Bị ẩn
-                                  </span>
-                                )}
-                              </div>
-                              <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">
-                                {friendId && isExistingFriend(friendId) ? 'Bạn bè' : 'Chưa là bạn bè'}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => {
-                            selectConversation(c.id);
-                            setSearchQuery('');
-                          }}
-                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
-                        >
-                          <div className="relative shrink-0">
-                            {(c as any).avatarUrl ? (
-                              <img src={(c as any).avatarUrl as string} alt={c.name || ''} className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-sm">
-                                {c.name ? c.name.charAt(0).toUpperCase() : 'G'}
-                              </div>
-                            )}
-                            {c.hidden && (
-                              <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
-                                <Lock className="h-2.5 w-2.5" />
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">{c.name || 'Nhóm không tên'}</span>
-                              {c.hidden && (
-                                <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                                  Bị ẩn
-                                </span>
-                              )}
-                            </div>
-                            <div className="truncate text-[11px] text-gray-400 dark:text-zinc-500">{c.members?.length || 0} thành viên</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {textMessageResults.length > 0 && (
-                <div>
-                  <div className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
-                    Tin nhắn
-                  </div>
-                  <div className="space-y-1">
-                    {textMessageResults.map((message) => (
-                      <button
-                        key={message.id}
-                        type="button"
-                        onClick={() => handleOpenSearchMessage(message)}
-                        className="flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-                      >
-                        <MessageSquare className="mt-1 w-4 h-4 shrink-0 text-indigo-500" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[12px] font-semibold text-gray-700 dark:text-zinc-200">
-                            {getConversationTitle(message.conversationId)}
-                          </div>
-                          <div className="line-clamp-2 text-[12px] text-gray-500 dark:text-zinc-400">
-                            {getSearchMessagePreview(message)}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {sharedDataResults.length > 0 && (
-                <div>
-                  <div className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">
-                    File, hình ảnh & liên kết
-                  </div>
-                  <div className="space-y-1">
-                    {sharedDataResults.map((message) => (
-                      <button
-                        key={message.id}
-                        type="button"
-                        onClick={() => handleOpenSearchMessage(message)}
-                        className="flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-                      >
-                        {messageHasSharedLink(message) ? (
-                          <Link className="mt-1 w-4 h-4 shrink-0 text-sky-500" />
-                        ) : message.attachments?.some((attachment) => attachment.type === 'IMAGE') || message.messageType === 'IMAGE' ? (
-                          <Image className="mt-1 w-4 h-4 shrink-0 text-emerald-500" />
-                        ) : (
-                          <FileText className="mt-1 w-4 h-4 shrink-0 text-amber-500" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[12px] font-semibold text-gray-700 dark:text-zinc-200">
-                            {getConversationTitle(message.conversationId)}
-                          </div>
-                          <div className="line-clamp-2 text-[12px] text-gray-500 dark:text-zinc-400">
-                            {getSearchMessagePreview(message)}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!isGlobalSearching && !globalSearchError && globalUserResults.length === 0 && globalConversationResults.length === 0 && textMessageResults.length === 0 && sharedDataResults.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
-                    <Search className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
-                  </div>
-                  <p className="text-sm text-gray-400 dark:text-zinc-500">
-                    Không tìm thấy người dùng, nhóm, tin nhắn hoặc dữ liệu đã chia sẻ.
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : filteredUnified.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
-              </div>
-              <p className="text-sm text-gray-400 dark:text-zinc-500">
-                {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào.' : 'Chưa có cuộc trò chuyện nào.'}
-              </p>
-            </div>
-          ) : (
-            filteredUnified.map((item) => {
-              if (item.kind === 'dm') {
-                const c = item.conv;
-                const friend = getFriendInfo(c);
-                const lastMsg = lastMessages[c.id];
-                const isSelected = activeConversation?.id === c.id;
-                const unreadNotifs = notifications.filter(
-                  (n) => n.referenceId === c.id && !n.read && n.type === 'NEW_MESSAGE'
-                );
-                const unreadCount = unreadNotifs.length;
-                const hasUnread = unreadCount > 0;
-
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => {
-                      setOpenConversationMenuId(null);
-                      selectConversation(c.id);
-                    }}
-                    className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
-                      isSelected
-                        ? 'bg-blue-50 dark:bg-indigo-900/20'
-                        : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
-                    }`}
-                  >
-                    {/* Avatar with status dot */}
-                    <div className="relative shrink-0">
-                      {friend.avatarUrl ? (
-                        <img
-                          src={friend.avatarUrl}
-                          alt={friend.username}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-lg">
-                          {friend.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span
-                        className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e1e2e] ${
-                          friend.status === 'ONLINE' ? 'bg-emerald-500'
-                          : friend.status === 'AWAY' ? 'bg-amber-400'
-                          : 'bg-gray-400 dark:bg-zinc-600'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[14px] truncate ${
-                          hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
-                        }`}>
-                          {friend.username}
-                          {c.pinned && <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />}
-                        </span>
-                        {lastMsg && (
-                          <span className={`text-[11px] shrink-0 ${
-                            hasUnread ? 'text-blue-600 dark:text-indigo-400 font-semibold' : 'text-gray-400 dark:text-zinc-500'
-                          }`}>
-                            {formatConversationTime(lastMsg.createdAt)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <p className={`text-[12px] truncate flex-1 ${
-                          hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
-                        }`}>
-                          {lastMsg ? formatLastMessage(lastMsg, false) : 'Bắt đầu cuộc trò chuyện'}
-                        </p>
-                        <div className="relative shrink-0">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenConversationMenuId((current) => current === c.id ? null : c.id);
-                            }}
-                            className={`rounded-md p-1.5 transition ${
-                              openConversationMenuId === c.id
-                                ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
-                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
-                            }`}
-                            title="Tùy chọn hội thoại"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                          {openConversationMenuId === c.id && (
-                            <div
-                              className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleToggleConversationPin(c.id, c.pinned)}
-                                disabled={conversationActionId === `pin-${c.id}`}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                              >
-                                {conversationActionId === `pin-${c.id}` ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                ) : c.pinned ? (
-                                  <PinOff className="h-4 w-4 text-indigo-500" />
-                                ) : (
-                                  <Pin className="h-4 w-4 text-gray-500" />
-                                )}
-                                <span>{c.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
-                              </button>
-                              <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                              <button
-                                type="button"
-                                onClick={() => handleHideClick(c.id)}
-                                disabled={conversationActionId === `hide-${c.id}`}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                              >
-                                {conversationActionId === `hide-${c.id}` ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                ) : (
-                                  <Lock className="h-4 w-4 text-gray-500" />
-                                )}
-                                <span>Ẩn trò chuyện</span>
-                              </button>
-                              <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteConversation(c.id)}
-                                disabled={conversationActionId === `delete-${c.id}`}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                              >
-                                {conversationActionId === `delete-${c.id}` ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                                <span>Xóa hội thoại</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        {hasUnread && (
-                          <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Group item
-              const g = item.group;
-              const groupConversationId = getGroupConversationId(g);
-              const isGroupExpanded = expandedGroups.has(g.id);
-              const isSelected = activeConversation?.id === groupConversationId;
-              const groupConversation = groupConversationId ? conversations.find((conversation) => conversation.id === groupConversationId) : null;
-              const lastMsg = groupConversationId ? lastMessages[groupConversationId] : undefined;
-              const unreadNotifs = notifications.filter(
-                (n) => n.referenceId === groupConversationId && !n.read && n.type === 'NEW_MESSAGE'
-              );
-              const unreadCount = unreadNotifs.length;
-              const hasUnread = unreadCount > 0;
-
-              return (
-                <div key={g.id} className="flex flex-col">
-                  <div
-                    onClick={(e) => {
-                      setOpenConversationMenuId(null);
-                      handleOpenGroup(g);
-                      toggleGroupExpand(g.id, e);
-                    }}
-                    className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
-                      isSelected
-                        ? 'bg-blue-50 dark:bg-indigo-900/20'
-                        : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'
-                    }`}
-                  >
-                    {/* Group Avatar */}
-                  <div className="relative shrink-0">
-                    {g.avatarUrl ? (
-                      <img
-                        src={g.avatarUrl}
-                        alt={g.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg">
-                        {g.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {/* Group badge */}
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center">
-                      <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-[14px] truncate ${
-                        hasUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-zinc-200'
-                      }`}>
-                        {g.name}
-                        {groupConversation?.pinned && <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />}
-                      </span>
-                      {lastMsg && (
-                        <span className={`text-[11px] shrink-0 ${
-                          hasUnread ? 'text-blue-600 dark:text-indigo-400 font-semibold' : 'text-gray-400 dark:text-zinc-500'
-                        }`}>
-                          {formatConversationTime(lastMsg.createdAt)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <p className={`text-[12px] truncate flex-1 ${
-                          hasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'
-                        }`}>
-                          {lastMsg ? formatLastMessage(lastMsg, true) : `${g.memberCount} thành viên`}
-                        </p>
-                        {groupConversationId && groupConversation && (
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            {g.channels && g.channels.length > 0 && (
-                              <button
-                                type="button"
-                                className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
-                                onClick={(e) => { e.stopPropagation(); toggleGroupExpand(g.id, e); }}
-                                title={isGroupExpanded ? 'Thu gọn' : 'Mở rộng'}
-                              >
-                                {isGroupExpanded ? (
-                                  <ChevronDown className="w-4 h-4" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4" />
-                                )}
-                              </button>
-                            )}
-                            {(g.ownerId === user?.id || ['OWNER', 'LEADER', 'ADMIN'].includes(g.members?.find(m => m.userId === user?.id)?.role || '')) && (
-                              <button
-                                type="button"
-                                className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                                onClick={(e) => { e.stopPropagation(); setCreateChannelGroupId(g.id); setCreateChannelName(''); setCreateChannelType('TEXT'); }}
-                                title="Tạo kênh mới"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            )}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenConversationMenuId((current) => current === groupConversationId ? null : groupConversationId);
-                                }}
-                                className={`rounded-md p-1.5 transition ${
-                                  openConversationMenuId === groupConversationId
-                                    ? 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'
-                                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
-                                }`}
-                                title="Tùy chọn hội thoại"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                              {openConversationMenuId === groupConversationId && (
-                                <div
-                                  className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleConversationPin(groupConversationId, groupConversation.pinned)}
-                                    disabled={conversationActionId === `pin-${groupConversationId}`}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                                  >
-                                    {conversationActionId === `pin-${groupConversationId}` ? (
-                                      <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                    ) : groupConversation.pinned ? (
-                                      <PinOff className="h-4 w-4 text-indigo-500" />
-                                    ) : (
-                                      <Pin className="h-4 w-4 text-gray-500" />
-                                    )}
-                                    <span>{groupConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
-                                  </button>
-                                  <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleHideClick(groupConversationId)}
-                                    disabled={conversationActionId === `hide-${groupConversationId}`}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                                  >
-                                    {conversationActionId === `hide-${groupConversationId}` ? (
-                                      <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                    ) : (
-                                      <Lock className="h-4 w-4 text-gray-500" />
-                                    )}
-                                    <span>Ẩn trò chuyện</span>
-                                  </button>
-                                  <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteConversation(groupConversationId)}
-                                    disabled={conversationActionId === `delete-${groupConversationId}`}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                                  >
-                                    {conversationActionId === `delete-${groupConversationId}` ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                    <span>Xóa hội thoại</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      {hasUnread && (
-                        <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </div>
-
-
-                  </div>
-                </div>
-
-                  {/* Render channels if expanded */}
-                  {isGroupExpanded && g.channels && g.channels.length > 0 && (
-                    <div className="flex flex-col ml-14 mr-3 my-1 gap-0.5 border-l-2 border-gray-100 dark:border-zinc-800/50 pl-2">
-                      {g.channels.map(ch => {
-                        const isChannelSelected = activeConversation?.id === ch.conversationId;
-                        const channelNotifs = notifications.filter(
-                          (n) => n.referenceId === ch.conversationId && !n.read && n.type === 'NEW_MESSAGE'
-                        );
-                        const channelUnreadCount = channelNotifs.length;
-                        const channelHasUnread = channelUnreadCount > 0;
-
-                        let Icon = Hash;
-                        if (ch.type === 'VOICE') Icon = Volume2;
-                        else if (ch.isPrivate) Icon = Lock;
-
-                        return (
-                          <div
-                            key={ch.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              selectConversation(ch.conversationId);
-                            }}
-                            className={`group flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer rounded-lg transition-colors ${
-                              isChannelSelected
-                                ? 'bg-indigo-50/80 dark:bg-indigo-500/15'
-                                : 'hover:bg-gray-100/80 dark:hover:bg-zinc-800/60'
-                            }`}
-                          >
-                            <Icon className={`w-4 h-4 shrink-0 ${channelHasUnread ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-zinc-500'}`} />
-                            <span className={`text-[13px] truncate flex-1 ${
-                              channelHasUnread
-                                ? 'font-bold text-gray-900 dark:text-white'
-                                : isChannelSelected
-                                ? 'font-bold text-indigo-700 dark:text-indigo-300'
-                                : 'font-medium text-gray-600 dark:text-zinc-400'
-                            }`}>
-                              {ch.name}
-                            </span>
-                            {channelHasUnread && (
-                              <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
-                                {channelUnreadCount > 99 ? '99+' : channelUnreadCount}
-                              </span>
-                            )}
-                            {(g.ownerId === user?.id || ['ADMIN', 'LEADER', 'DEPUTY'].includes(g.members?.find(m => m.userId === user?.id)?.role || '')) && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setChannelSettingsData({ groupId: g.id, channel: ch });
-                                }}
-                                className={`shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-all ${isChannelSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                title="Cài đặt kênh"
-                              >
-                                <Settings className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+        <SidebarTabs
+          conversationTab={conversationTab}
+          setConversationTab={setConversationTab}
+          fetchIncomingChatRequests={fetchIncomingChatRequests}
+          incomingRequestsCount={incomingChatRequests.length}
+        />
+        <ConversationList
+          conversationTab={conversationTab}
+          isLoadingChatRequests={isLoadingChatRequests}
+          incomingChatRequests={incomingChatRequests}
+          selectedChatRequest={selectedChatRequest}
+          setSelectedChatRequest={setSelectedChatRequest}
+          formatConversationTime={formatConversationTime}
+          isSearchActive={isSearchActive}
+          isGlobalSearching={isGlobalSearching}
+          globalSearchError={globalSearchError}
+          globalUserResults={globalUserResults}
+          isExistingFriend={isExistingFriend}
+          sentFriendRequestIds={sentFriendRequestIds}
+          openSearchProfile={openSearchProfile}
+          sentChatRequestIds={sentChatRequestIds}
+          textMessageResults={textMessageResults}
+          sharedDataResults={sharedDataResults}
+          activeConversation={activeConversation}
+          selectConversation={selectConversation}
+          user={user}
+          notifications={notifications}
+          setChannelSettingsData={setChannelSettingsData}
+          handleDeleteConversation={handleDeleteConversation}
+          conversationActionId={conversationActionId}
+          handleStartChatFromSearch={handleStartChatFromSearch}
+          handleSendFriendRequestFromSearch={handleSendFriendRequestFromSearch}
+          friendRequestActionId={friendRequestActionId}
+          globalConversationResults={globalConversationResults}
+          handleOpenSearchMessage={handleOpenSearchMessage}
+          getConversationTitle={getConversationTitle}
+          getSearchMessagePreview={getSearchMessagePreview}
+          messageHasSharedLink={messageHasSharedLink}
+          filteredUnified={filteredUnified}
+          getFriendInfo={getFriendInfo}
+          lastMessages={lastMessages}
+          setOpenConversationMenuId={setOpenConversationMenuId}
+          openConversationMenuId={openConversationMenuId}
+          handleToggleConversationPin={handleToggleConversationPin}
+          handleHideClick={handleHideClick}
+          getGroupConversationId={getGroupConversationId}
+          expandedGroups={expandedGroups}
+          handleOpenGroup={handleOpenGroup}
+          toggleGroupExpand={toggleGroupExpand}
+          formatLastMessage={formatLastMessage}
+          setCreateChannelGroupId={setCreateChannelGroupId}
+          setCreateChannelName={setCreateChannelName}
+          setCreateChannelType={setCreateChannelType}
+          conversations={conversations}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
 
         {/* User Card */}
-        {user && (
-          <div className="bg-gray-50 dark:bg-zinc-900/60 px-4 py-3 flex items-center gap-3 border-t border-gray-100 dark:border-zinc-800/60 shrink-0 text-left">
-            <div className="relative shrink-0">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.username} className="w-9 h-9 rounded-full object-cover" />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm">
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h5 className="text-[13px] font-bold truncate text-gray-900 dark:text-white m-0">{user.username}</h5>
-              <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">{user.email}</p>
-            </div>
-          </div>
-        )}
+        <SidebarFooter user={user} />
       </section>
 
       {/* Column 3: Chat Window */}
       <main className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}>
-        {activeConversation && activeFriend ? (
+        {activeConversation && (activeFriend || isGroupConversation) ? (
           <>
             {/* Chat Header */}
-            <header className="min-h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
-              <div className="flex w-full min-w-0 items-center gap-2 text-left md:w-auto md:gap-3">
-                {/* Mobile Back Button */}
-                <button
-                  onClick={() => selectConversation(null)}
-                  className="md:hidden p-2 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 shrink-0"
-                  title="Back to conversations list"
-                >
-                  <ArrowLeft className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsProfileModalOpen(true)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 md:flex-none"
-                  title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
-                >
-                  {isGroupConversation ? (
-                    activeGroup?.avatarUrl ? (
-                      <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="w-9 h-9 rounded-xl object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
-                        {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
-                      </div>
-                    )
-                  ) : activeFriend.avatarUrl ? (
-                    <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-semibold flex items-center justify-center text-xs shrink-0">
-                      {activeFriend.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-gray-950 dark:text-white m-0 leading-tight truncate">
-                      {isGroupConversation ? (activeGroup?.name || activeFriend.username) : activeFriend.username}
-                    </h3>
-                    <p className="text-[10px] text-gray-500 dark:text-discord-muted mt-0.5 flex items-center gap-1">
-                      {isGroupConversation ? (
-                        <>
-                          <Users className="w-3 h-3" />
-                          <span>{activeGroup?.memberCount ?? '?'} members</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className={`w-1.5 h-1.5 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-550'}`} />
-                          <span className="capitalize truncate">
-                            {activeFriend.status.toLowerCase()}
-                            {activeFriend.status === 'OFFLINE' && activeFriend.lastSeen && (
-                              <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1 normal-case font-normal">
-                                — Last seen {formatRelativeTime(activeFriend.lastSeen)}
-                              </span>
-                            )}
-                          </span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-                {/* Voice Call Button */}
-                {activeConversation && activeCallTarget && (
-                  <button
-                    onClick={() => initiateCall(activeConversation.id, 'voice', activeCallTarget)}
-                    title={isGroupConversation ? 'Cuộc gọi thoại nhóm' : 'Cuộc gọi thoại'}
-                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </button>
-                )}
-
-                {/* Video Call Button */}
-                {activeConversation && activeCallTarget && (
-                  <button
-                    onClick={() => initiateCall(activeConversation.id, 'video', activeCallTarget)}
-                    title={isGroupConversation ? 'Cuộc gọi video nhóm' : 'Cuộc gọi video'}
-                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                  >
-                    <Video className="w-4 h-4" />
-                  </button>
-                )}
-
-                {activeConversation && (
-                  <button
-                    onClick={handleSummarizeConversation}
-                    disabled={isSummarizingConversation}
-                    title="Tóm tắt cuộc trò chuyện"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
-                  >
-                    {isSummarizingConversation ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    <span className="hidden lg:inline">Tóm tắt</span>
-                  </button>
-                )}
-
-                {/* Search Message Button */}
-                {activeConversation && (
-                  <button
-                    onClick={() => {
-                      setIsSearchPanelOpen(!isSearchPanelOpen);
-                      setIsPinnedPanelOpen(false);
-                      setIsConversationInfoOpen(false);
-                    }}
-                    title="Tìm kiếm tin nhắn"
-                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-                      isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-                    }`}
-                  >
-                    <Search className="w-4 h-4" />
-                  </button>
-                )}
-
-                {isGroupConversation && activeGroup && canInviteToActiveGroup && (
-                  <button
-                    onClick={() => setIsInviteMembersOpen(true)}
-                    title="Mời bạn vào nhóm"
-                    className="shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                  </button>
-                )}
-
-                {/* Pinned Messages Button */}
-                {activeConversation && (
-                  <button
-                    onClick={() => {
-                      if (!isPinnedPanelOpen && activeConversation) {
-                        fetchPinnedMessages(activeConversation.id).catch((err) => {
-                          console.error('Failed to fetch pinned messages when opening panel:', err);
-                        });
-                      }
-                      setIsPinnedPanelOpen(!isPinnedPanelOpen);
-                      setIsSearchPanelOpen(false);
-                      setIsConversationInfoOpen(false);
-                    }}
-                    title="Tin nhắn đã ghim"
-                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-                      isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-                    }`}
-                  >
-                    <Pin className="w-4 h-4" />
-                  </button>
-                )}
-
-                {activeConversation && (
-                  <button
-                    onClick={() => {
-                      setIsConversationInfoOpen((open) => !open);
-                      setIsSearchPanelOpen(false);
-                      setIsPinnedPanelOpen(false);
-                    }}
-                    title="Thông tin hội thoại"
-                    className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-                      isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-                    }`}
-                  >
-                    <Info className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </header>
+            <ChatHeader
+              selectConversation={selectConversation}
+              setIsProfileModalOpen={setIsProfileModalOpen}
+              isGroupConversation={isGroupConversation}
+              activeGroup={activeGroup}
+              activeFriend={activeFriend}
+              activeConversation={activeConversation}
+              activeCallTarget={activeCallTarget}
+              initiateCall={initiateCall}
+              handleSummarizeConversation={handleSummarizeConversation}
+              isSummarizingConversation={isSummarizingConversation}
+              isSearchPanelOpen={isSearchPanelOpen}
+              setIsSearchPanelOpen={setIsSearchPanelOpen}
+              isPinnedPanelOpen={isPinnedPanelOpen}
+              setIsPinnedPanelOpen={setIsPinnedPanelOpen}
+              isConversationInfoOpen={isConversationInfoOpen}
+              setIsConversationInfoOpen={setIsConversationInfoOpen}
+              fetchPinnedMessages={fetchPinnedMessages}
+              canInviteToActiveGroup={canInviteToActiveGroup}
+              setIsInviteMembersOpen={setIsInviteMembersOpen}
+              activeChannel={activeChannel}
+            />
 
             {activeChannel?.type === 'VOICE' ? (
               <div className="flex flex-col items-center justify-center flex-1 h-full text-gray-500 space-y-6">
@@ -3390,787 +2484,69 @@ export const Chat = () => {
               </div>
             ) : (
               <>
-            {/* Pinned Messages Banner */}
-            {pinnedMessages && pinnedMessages.length > 0 && (() => {
-              const latestPinned = [...pinnedMessages].sort(
-                (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
-              )[0];
-              return (
-                <div className={`bg-white dark:bg-discord-dark border-b border-gray-200 dark:border-zinc-800/60 px-3 py-2 flex items-center gap-3 shrink-0 select-none group transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
-                  {/* Left accent bar */}
-                  <div className="w-0.5 h-8 rounded-full bg-indigo-500 dark:bg-discord-blurple shrink-0" />
-
-                  {/* Pin icon */}
-                  <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
-                    <Pin className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 fill-current" />
-                  </div>
-
-                  {/* Text content */}
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => handleJumpToMessage(latestPinned.id)}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide shrink-0">
-                        Tin nhắn
-                      </span>
-                      {pinnedMessages.length > 1 && (
-                        <span className="text-[10px] text-gray-400 dark:text-zinc-500 shrink-0">
-                          ({pinnedMessages.length})
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[12px] text-gray-800 dark:text-zinc-200 truncate leading-tight mt-0.5">
-                      <span className="font-semibold text-gray-700 dark:text-zinc-300">
-                        {latestPinned.senderUsername}:
-                      </span>{' '}
-                      <span className="text-gray-500 dark:text-zinc-400">
-                        {latestPinned.isRecalled ? 'Tin nhắn đã bị thu hồi' : latestPinned.content}
-                      </span>
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    {pinnedMessages.length > 1 && (
-                      <button
-                        onClick={() => setIsPinnedPanelOpen(true)}
-                        className="px-2 py-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
-                        title="Xem tất cả tin nhắn đã ghim"
-                      >
-                        Xem tất cả
-                      </button>
-                    )}
-                    {canPinMessage(latestPinned) && (
-                    <button
-                      onClick={() => togglePinMessage(latestPinned.id, true)}
-                      className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors"
-                      title="Bỏ ghim"
-                    >
-                      <PinOff className="w-3.5 h-3.5" />
-                    </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {activeConversationSummary && (
-              <div className={`border-b border-indigo-100 bg-indigo-50/80 px-4 py-3 text-left dark:border-indigo-500/20 dark:bg-indigo-500/10 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-lg bg-white p-1.5 text-indigo-600 shadow-sm dark:bg-zinc-900/80 dark:text-indigo-300">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="m-0 text-sm font-bold text-indigo-700 dark:text-indigo-200">Tóm tắt cuộc trò chuyện</p>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-500 dark:bg-zinc-900/70 dark:text-indigo-300">
-                        {activeConversationSummary.sourceMessageCount} tin nhắn
-                      </span>
-                    </div>
-                    <p className="m-0 mt-1 whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-zinc-200">
-                      {activeConversationSummary.summary}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Messages */}
-            <div
-              ref={messagesContainerRef}
-              onScroll={handleMessagesScroll}
-              className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse transition-[margin] duration-300 ${conversationInfoOffsetClass}`}
-            >
-              <div ref={messagesEndRef} />
-
-              {visibleMessages.map((msg: MessageResponse, index: number) => {
-                const isMe = msg.senderId === user?.id;
-                const nextMsg = visibleMessages[index + 1];
-                const showDivider = !nextMsg ||
-                  new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
-
-                // In group chat, show sender names above non-self messages
-                const prevMsg = visibleMessages[index - 1];
-                const showSenderName = isGroupConversation && !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
-
-                // Find parent message if replied to
-                const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
-                const isCallLog = isCallHistoryMessage(msg);
-                const callMetadata = msg.metadata as any;
-
-                return (
-                  <div
-                    key={msg.id}
-                    id={`message-${msg.id}`}
-                    onMouseEnter={() => setHoveredMessageId(msg.id)}
-                    onMouseLeave={() => setHoveredMessageId(null)}
-                    className="relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors hover:bg-gray-150/20 dark:hover:bg-zinc-800/10"
-                  >
-                    {showDivider && (
-                      <div className="flex items-center justify-center my-4 shrink-0 select-none">
-                        <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
-                        <span className="px-3 text-[10px] font-bold text-gray-500 dark:text-discord-muted bg-gray-100 dark:bg-discord-dark uppercase tracking-wider">
-                          {formatDividerDate(msg.createdAt)}
-                        </span>
-                        <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
-                      </div>
-                    )}
-
-                    {msg.messageType === 'SYSTEM' ? (
-                      <div className="flex justify-center py-1.5 select-none">
-                        {isCallLog ? (
-                          <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
-                              className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
-                              title="Xem chi tiết cuộc gọi"
-                            >
-                              {callMetadata?.callType === 'VIDEO' ? (
-                                <Video className="h-4 w-4 text-indigo-500" />
-                              ) : (
-                                <Phone className="h-4 w-4 text-indigo-500" />
-                              )}
-                              <span className="truncate">{getCallHistorySummary(msg)}</span>
-                            </button>
-
-                            {expandedCallLogId === msg.id && (
-                              <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  <div>
-                                    <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
-                                    <p className="m-0 mt-0.5">{formatCallLogTime(callMetadata?.startedAt)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời lượng</p>
-                                    <p className="m-0 mt-0.5">{getCallHistoryDetailStatus(callMetadata)}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3">
-                                  <p className="m-0 mb-2 font-bold text-gray-700 dark:text-zinc-200">
-                                    Thành viên đã tham gia ({callMetadata?.participantCount ?? callMetadata?.participants?.length ?? 0})
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {(callMetadata?.participants ?? []).map((participant: any) => (
-                                      <span
-                                        key={participant.id}
-                                        className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-300"
-                                      >
-                                        {participant.avatarUrl ? (
-                                          <img src={participant.avatarUrl} alt={participant.username} className="h-5 w-5 rounded-full object-cover" />
-                                        ) : (
-                                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
-                                            {(participant.username || '?').charAt(0).toUpperCase()}
-                                          </span>
-                                        )}
-                                        <span className="truncate">{participant.username}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {activeConversation && activeCallTarget && (
-                                  <div className="mt-3 flex justify-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => initiateCall(
-                                        activeConversation.id,
-                                        callMetadata?.callType === 'VIDEO' ? 'video' : 'voice',
-                                        activeCallTarget
-                                      )}
-                                      className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700"
-                                    >
-                                      {callMetadata?.callType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
-                                      <span>Gọi lại</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
-                            <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
-                            <span className="min-w-0 truncate">
-                              <span className="font-semibold">
-                                {isMe ? 'Bạn' : msg.senderUsername}
-                              </span>{' '}
-                              {msg.content}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ) : msg.messageType === 'POLL' ? (
-                      <div className="flex justify-center py-2">
-                        {(() => {
-                          const metadata = getPollMetadata(msg);
-                          const options = metadata.options ?? [];
-                          const totalVotes = options.reduce((sum, option) => sum + (option.voterIds?.length ?? 0), 0);
-                          const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
-                          const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
-                          const canManagePoll = msg.senderId === user?.id ||
-                            isGroupModeratorRole(currentGroupMembership?.role);
-
-                          if (msg.isRecalled) {
-                            return (
-                              <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-400">
-                                Bình chọn đã bị xóa
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                              <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                                      <ListChecks className="h-3.5 w-3.5" />
-                                      <span>Bình chọn</span>
-                                      {msg.isPinned && <span>• Đã ghim</span>}
-                                    </div>
-                                    <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">{metadata.question || msg.content}</h4>
-                                    <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                                      {metadata.allowMultiple ? 'Có thể chọn nhiều phương án' : 'Chọn một phương án'}
-                                      {metadata.anonymous ? ' • Ẩn danh' : ''}
-                                      {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
-                                    </p>
-                                  </div>
-                                  <div className="flex shrink-0 items-center gap-2">
-                                    {canPinMessage(msg) && (
-                                      <button
-                                        type="button"
-                                        onClick={() => togglePinMessage(msg.id, !!msg.isPinned)}
-                                        className={`rounded-full p-1.5 transition ${
-                                          msg.isPinned
-                                            ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
-                                        }`}
-                                        title={msg.isPinned ? 'Bo ghim binh chon' : 'Ghim binh chon'}
-                                      >
-                                        {msg.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                                      </button>
-                                    )}
-                                  {isLocked && (
-                                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:bg-zinc-800 dark:text-zinc-400">
-                                      Đã khóa
-                                    </span>
-                                  )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 px-4 py-3">
-                                {options.map((option) => {
-                                  const voteCount = option.voterIds?.length ?? 0;
-                                  const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-                                  const selected = Boolean(user?.id && option.voterIds?.includes(user.id));
-                                  return (
-                                    <div key={option.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                                      <div className="flex w-full items-center gap-3 text-left">
-                                        <button
-                                          type="button"
-                                          onClick={() => !isLocked && handlePollVote(msg.id, option.id)}
-                                          disabled={isLocked || pollActionMessageId === msg.id}
-                                          className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
-                                        >
-                                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                                            selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
-                                          }`}>
-                                            {selected && <Check className="h-3.5 w-3.5" />}
-                                          </span>
-                                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">{option.text}</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            if (!metadata.anonymous) {
-                                              setPollVoterDialog({ option, anonymous: Boolean(metadata.anonymous) });
-                                            }
-                                          }}
-                                          className={`shrink-0 text-xs font-bold ${metadata.anonymous ? 'cursor-default text-gray-400' : 'text-indigo-600 hover:underline dark:text-indigo-300'}`}
-                                          disabled={metadata.anonymous}
-                                          title={metadata.anonymous ? 'Bình chọn ẩn danh' : 'Xem người đã chọn'}
-                                        >
-                                          {voteCount} vote
-                                        </button>
-                                      </div>
-                                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
-                                        <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${percent}%` }} />
-                                      </div>
-                                      {!metadata.anonymous && (option.voters?.length ?? 0) > 0 && (
-                                        <div className="mt-2 flex items-center gap-1.5">
-                                          <div className="flex -space-x-2">
-                                            {(option.voters ?? []).slice(-6).map((voter) => (
-                                              voter.avatarUrl ? (
-                                                <img
-                                                  key={voter.id}
-                                                  src={voter.avatarUrl}
-                                                  alt={voter.username}
-                                                  className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-950"
-                                                  title={voter.username}
-                                                />
-                                              ) : (
-                                                <div
-                                                  key={voter.id}
-                                                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-[10px] font-bold text-white shadow-sm dark:border-zinc-950"
-                                                  title={voter.username}
-                                                >
-                                                  {voter.username.charAt(0).toUpperCase()}
-                                                </div>
-                                              )
-                                            ))}
-                                          </div>
-                                          {(option.voters?.length ?? 0) > 6 && (
-                                            <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
-                                              +{(option.voters?.length ?? 0) - 6}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {metadata.allowAddOptions && !isLocked && (
-                                <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
-                                  <input
-                                    value={pollNewOptionText[msg.id] ?? ''}
-                                    onChange={(event) => setPollNewOptionText((values) => ({ ...values, [msg.id]: event.target.value }))}
-                                    placeholder="Thêm lựa chọn..."
-                                    className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddPollOption(msg.id)}
-                                    disabled={pollActionMessageId === msg.id || !pollNewOptionText[msg.id]?.trim()}
-                                    className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-                                  >
-                                    Thêm
-                                  </button>
-                                </div>
-                              )}
-
-                              {canManagePoll && !isLocked && (
-                                <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleLockPoll(msg.id)}
-                                    disabled={pollActionMessageId === msg.id}
-                                    className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                                  >
-                                    Khóa bình chọn
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeletePoll(msg.id)}
-                                    disabled={pollActionMessageId === msg.id}
-                                    className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                                  >
-                                    Xóa
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    ) : (
-                      <>
-                    {/* Quoted Message / Reply Preview above bubble */}
-                    {msg.parentId && (
-                      <div className={`flex mb-1 max-w-[min(85vw,26rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
-                        <div 
-                          className="flex w-full bg-gray-100 dark:bg-zinc-800/80 rounded-lg border-l-[3px] border-indigo-400 dark:border-indigo-500 overflow-hidden hover:brightness-95 transition cursor-pointer"
-                          onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
-                        >
-                          <div className="px-3 py-1.5 flex items-center gap-1.5 overflow-hidden w-full">
-                            <CornerUpLeft className="w-3.5 h-3.5 text-gray-500 dark:text-zinc-400 shrink-0" />
-                            <span className="text-[12.5px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
-                              @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
-                            </span>
-                            <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-1.5 min-w-0">
-                              {parentMessage ? (
-                                parentMessage.isRecalled ? (
-                                  <span className="truncate">Tin nhắn đã bị thu hồi</span>
-                                ) : (
-                                  <>
-                                    {parentMessage.content && <span className="truncate">{stripMessageMarkup(parentMessage.content)}</span>}
-                                    {parentMessage.attachments && parentMessage.attachments.length > 0 && (
-                                      <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
-                                        {parentMessage.attachments[0].type === 'IMAGE' && (
-                                          <img src={parentMessage.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
-                                        )}
-                                        <span>
-                                          {parentMessage.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : parentMessage.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
-                                        </span>
-                                      </span>
-                                    )}
-                                  </>
-                                )
-                              ) : (
-                                <span className="truncate">tin nhắn đã bị xoá hoặc không tìm thấy</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className={`flex gap-3 max-w-lg sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
-                      {/* Avatar for non-self messages */}
-                      {!isMe && (
-                        <div className="shrink-0 mt-0.5">
-                          {(() => {
-                            const avatarUrl = isGroupConversation
-                              ? getSenderAvatar(msg)
-                              : activeFriend.avatarUrl;
-                            const senderName = isGroupConversation
-                              ? getSenderUsername(msg)
-                              : activeFriend.username;
-                            return avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={senderName}
-                                className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                                {senderName.charAt(0).toUpperCase()}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      <div className={`flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
-                        {/* Show sender name in group chat */}
-                        {showSenderName && (
-                          <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
-                            {getSenderUsername(msg)}
-                          </span>
-                        )}
-
-                        {/* Message Content Bubble Wrapper */}
-                        <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                          {/* Context menu actions bar */}
-                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
-                            <div
-                              className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${
-                                isMe 
-                                  ? 'right-0 md:right-[calc(100%+8px)] md:left-auto' 
-                                  : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
-                              }`}
-                            >
-                              <MessageActionsBar
-                                message={msg}
-                                isMe={isMe}
-                                onReply={() => setReplyTo(msg)}
-                                onEdit={() => {
-                                  setEditingMessageId(msg.id);
-                                  setEditInputText(stripMessageMarkup(msg.content));
-                                }}
-                                onRecall={() => {
-                                  if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
-                                    recallMessage(msg.id);
-                                  }
-                                }}
-                                onDelete={() => {
-                                  if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
-                                    deleteMessage(msg.id);
-                                  }
-                                }}
-                                onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
-                                onShare={() => setSharingMessage(msg)}
-                                canPin={canPinMessage(msg)}
-                                canRecall={canRecallMessageInActiveConversation(msg)}
-                                onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
-                              />
-                            </div>
-                          )}
-
-                          {msg.forwardedFromMessageId && (
-                            <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
-                              <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-550 shrink-0" />
-                              <span className="truncate">
-                                Tin chuyển tiếp{msg.forwardedFromSenderUsername ? ` từ ${msg.forwardedFromSenderUsername}` : ''}
-                              </span>
-                            </div>
-                          )}
-
-                          {msg.isRecalled ? (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
-                              isMe
-                                ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
-                                : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-550 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
-                            }`}>
-                              <span>Tin nhắn đã bị thu hồi</span>
-                            </div>
-                          ) : msg.attachments && msg.attachments.length > 0 ? (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
-                              isMe
-                                ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
-                            }`}>
-                              <div className={`grid gap-1.5 ${
-                                msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                              }`}>
-                                {msg.attachments.map((attachment, index) => {
-                                  if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
-                                    const mediaType = attachment.type;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={`${attachment.url}-${index}`}
-                                        onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                        className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
-                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                        }`}
-                                        title={attachment.name || getFileName(attachment.url)}
-                                      >
-                                        {attachment.type === 'IMAGE' ? (
-                                          <img
-                                            src={attachment.url}
-                                            alt={attachment.name || 'Shared image'}
-                                            className="w-full max-h-72 object-cover"
-                                          />
-                                        ) : (
-                                          <div className="relative group w-full max-h-72 bg-black flex items-center justify-center aspect-video">
-                                            <video
-                                              src={attachment.url}
-                                              className="w-full max-h-72 bg-black"
-                                            />
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
-                                              <Video className="w-10 h-10 text-white drop-shadow-md" />
-                                            </div>
-                                          </div>
-                                        )}
-                                      </button>
-                                    );
-                                  } else {
-                                    return (
-                                      <a
-                                        key={`${attachment.url}-${index}`}
-                                        href={attachment.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`block overflow-hidden bg-black/10 ${
-                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                        }`}
-                                        title={attachment.name || getFileName(attachment.url)}
-                                      >
-                                        <div className={`flex items-center gap-3 p-3 min-w-[220px] ${
-                                          isMe ? 'text-white' : 'text-gray-900 dark:text-white'
-                                        }`}>
-                                          <FileText className="w-5 h-5 shrink-0" />
-                                          <span className="text-xs font-semibold truncate">
-                                            {attachment.name || getFileName(attachment.url)}
-                                          </span>
-                                        </div>
-                                      </a>
-                                    );
-                                  }
-                                })}
-                              </div>
-                              {msg.content && (
-                                <div className="mt-2 px-1">
-                                  {renderFormattedMessage(msg.content)}
-                                </div>
-                              )}
-                            </div>
-                          ) : msg.messageType === 'IMAGE' ? (
-                            <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
-                              <button
-                                type="button"
-                                onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
-                                className="w-full h-full p-0 border-0 outline-none"
-                              >
-                                <img
-                                  src={msg.content}
-                                  alt="Shared Image"
-                                  className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
-                                />
-                              </button>
-                            </div>
-                          ) : msg.messageType === 'VIDEO' ? (
-                            <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
-                              <button
-                                type="button"
-                                onClick={() => setActiveMedia({ url: msg.content, type: 'VIDEO' })}
-                                className="relative group w-full p-0 border-0 outline-none flex items-center justify-center aspect-video cursor-zoom-in"
-                              >
-                                <video
-                                  src={msg.content}
-                                  className="max-h-72 w-full object-contain"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
-                                  <Video className="w-10 h-10 text-white drop-shadow-md" />
-                                </div>
-                              </button>
-                            </div>
-                          ) : msg.messageType === 'FILE' ? (
-                            <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
-                              isMe
-                                ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-500/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid border-gray-300/65 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
-                            }`}>
-                              <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
-                                <FileText className="w-5 h-5" />
-                              </div>
-                              <div className="flex-1 min-w-0 text-left">
-                                <p className="font-semibold text-xs truncate m-0" title={getFileName(msg.content)}>
-                                  {getFileName(msg.content)}
-                                </p>
-                                <span className="text-[10px] opacity-75">
-                                  Document File
-                                </span>
-                              </div>
-                              <a
-                                href={msg.content}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
-                                className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
-                                title="Download File"
-                              >
-                                <Download className="w-4 h-4" />
-                              </a>
-                            </div>
-                          ) : editingMessageId === msg.id ? (
-                            /* Edit Mode: Clean standalone edit panel outside the bubble */
-                            <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
-                              <textarea
-                                value={editInputText}
-                                onChange={(e) => {
-                                  setEditInputText(e.target.value);
-                                  // Auto-resize
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = `${e.target.scrollHeight}px`;
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSaveEdit(msg.id);
-                                  } else if (e.key === 'Escape') {
-                                    setEditingMessageId(null);
-                                  }
-                                }}
-                                rows={2}
-                                className="w-full bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 resize-none shadow-sm transition-colors leading-relaxed"
-                                autoFocus
-                              />
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingMessageId(null)}
-                                  className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 rounded-lg transition-colors"
-                                >
-                                  Huỷ
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveEdit(msg.id)}
-                                  className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 rounded-lg transition-colors shadow-sm"
-                                >
-                                  Lưu
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
-                              isMe
-                                ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
-                            }`}>
-                              <div className="m-0">
-                                {renderFormattedMessage(msg.content)}
-                                {msg.isEdited && (
-                                  <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
-                                    (đã chỉnh sửa)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
-                            <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                              <MessageReactionButton
-                                onReact={(emoji) => reactToMessage(msg.id, emoji)}
-                                align={isMe ? 'right' : 'left'}
-                                onOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
-                              />
-                            </div>
-                          )}
-
-                          {/* Reactions list component (Zalo-style corner placement) */}
-                          {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
-                            <div className="absolute -bottom-2 right-9 z-10">
-                              <MessageReactions
-                                reactions={msg.reactions}
-                                currentUserId={user?.id ?? ''}
-                                onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
-                                isMe={isMe}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Status block */}
-                        <span className={`text-[10px] text-gray-550 dark:text-discord-muted mt-1 ${
-                          msg.reactions && msg.reactions.length > 0 ? 'pt-2.5' : ''
-                        } ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          {msg.isPinned && (
-                            <Pin className="w-3 h-3 text-amber-500 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
-                          )}
-                          <span>{formatMessageTime(msg.createdAt)}</span>
-                          {isMe && (
-                            <span className="inline-flex shrink-0" title={getMessageStatus(msg).toLowerCase()}>
-                              {getMessageStatus(msg) === 'SEEN' && (
-                                <CheckCheck className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-                              )}
-                              {getMessageStatus(msg) === 'DELIVERED' && (
-                                <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
-                              )}
-                              {getMessageStatus(msg) === 'SENT' && (
-                                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-555" />
-                              )}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-
-              {hasMoreMessages && (
-                <div ref={sentinelRef} className="flex justify-center py-3 shrink-0 w-full select-none">
-                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold py-1.5 px-3 bg-indigo-50/50 dark:bg-zinc-800/50 border border-indigo-100/30 dark:border-zinc-800/40 rounded-full">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Đang tải tin nhắn cũ hơn...</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {showScrollToLatest && (
-              <button
-                type="button"
-                onClick={() => scrollToBottom('smooth')}
-                className={`absolute bottom-28 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-100 bg-white/95 px-4 py-2 text-sm font-bold text-indigo-600 shadow-lg shadow-indigo-950/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-indigo-50 active:translate-y-0 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-indigo-300 dark:hover:bg-zinc-800 ${conversationInfoOffsetClass}`}
-                title="Cuộn về tin nhắn mới nhất"
-              >
-                <ArrowDown className="h-4 w-4" />
-                <span>Cuộn về tin nhắn mới nhất</span>
-              </button>
-            )}
+            <MessageList
+              pinnedMessages={pinnedMessages}
+              handleJumpToMessage={handleJumpToMessage}
+              canPinMessage={canPinMessage}
+              togglePinMessage={togglePinMessage}
+              activeConversationSummary={activeConversationSummary}
+              conversationInfoOffsetClass={conversationInfoOffsetClass}
+              messagesContainerRef={messagesContainerRef}
+              handleMessagesScroll={handleMessagesScroll}
+              messagesEndRef={messagesEndRef}
+              visibleMessages={visibleMessages}
+              user={user}
+              isGroupConversation={isGroupConversation}
+              activeFriend={activeFriend}
+              getSenderAvatar={getSenderAvatar}
+              getSenderUsername={getSenderUsername}
+              hoveredMessageId={hoveredMessageId}
+              setHoveredMessageId={setHoveredMessageId}
+              activeMenuMessageId={activeMenuMessageId}
+              setActiveMenuMessageId={setActiveMenuMessageId}
+              reactToMessage={reactToMessage}
+              setReplyTo={setReplyTo}
+              setEditingMessageId={setEditingMessageId}
+              setEditInputText={setEditInputText}
+              recallMessage={recallMessage}
+              deleteMessage={deleteMessage}
+              setSharingMessage={setSharingMessage}
+              canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
+              getFileName={getFileName}
+              setActiveMedia={setActiveMedia}
+              renderFormattedMessage={renderFormattedMessage}
+              stripMessageMarkup={stripMessageMarkup}
+              formatMessageTime={formatMessageTime}
+              getMessageStatus={getMessageStatus}
+              formatDividerDate={formatDividerDate}
+              isCallHistoryMessage={isCallHistoryMessage}
+              getCallHistorySummary={getCallHistorySummary}
+              getCallHistoryDetailStatus={getCallHistoryDetailStatus}
+              formatCallLogTime={formatCallLogTime}
+              expandedCallLogId={expandedCallLogId}
+              setExpandedCallLogId={setExpandedCallLogId}
+              activeCallTarget={activeCallTarget}
+              initiateCall={initiateCall}
+              activeConversation={activeConversation}
+              getPollMetadata={getPollMetadata}
+              handlePollVote={handlePollVote}
+              pollActionMessageId={pollActionMessageId}
+              setPollVoterDialog={setPollVoterDialog}
+              pollNewOptionText={pollNewOptionText}
+              setPollNewOptionText={setPollNewOptionText}
+              handleAddPollOption={handleAddPollOption}
+              handleLockPoll={handleLockPoll}
+              handleDeletePoll={handleDeletePoll}
+              hasMoreMessages={hasMoreMessages}
+              sentinelRef={sentinelRef}
+              showScrollToLatest={showScrollToLatest}
+              scrollToBottom={scrollToBottom}
+              isGroupModeratorRole={isGroupModeratorRole}
+              currentGroupMembership={currentGroupMembership}
+              editingMessageId={editingMessageId}
+              editInputText={editInputText}
+              handleSaveEdit={handleSaveEdit}
+            />
 
             {selectedChatRequest && (
               <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
@@ -4259,785 +2635,88 @@ export const Chat = () => {
             )}
 
             {/* Message Input */}
-            <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
-              {/* Reply Preview */}
-              {replyTo && (
-                <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
-              )}
-
-              {activePrivateChatBlocked && (
-                <div className="mb-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
-                  <div className="font-semibold">
-                    {activePrivateChatBlockedByMe ? 'Bạn đã chặn người này.' : 'Người này đã chặn bạn.'}
-                  </div>
-                  <div className="mt-0.5 text-xs text-rose-700 dark:text-rose-200/80">
-                    {activePrivateChatBlockedByMe
-                      ? 'Bạn vẫn xem được lịch sử trò chuyện. Bỏ chặn nếu muốn tiếp tục nhắn tin.'
-                      : 'Bạn vẫn xem được lịch sử trò chuyện nhưng không thể gửi tin nhắn.'}
-                  </div>
-                </div>
-              )}
-
-              {!canSendInActiveConversation && !activePrivateChatBlocked && (
-                <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                  <div className="font-semibold">Hai bạn không còn là bạn bè.</div>
-                  <div className="mt-0.5 text-xs text-amber-700 dark:text-amber-200/80">
-                    Bạn vẫn xem được lịch sử trò chuyện. Nhập lời nhắn bên dưới để gửi tin nhắn chờ nếu muốn tiếp tục.
-                  </div>
-                  {pendingAttachments.length > 0 && (
-                    <div className="mt-1 text-xs text-amber-700 dark:text-amber-200/80">
-                      Tin nhắn chờ hiện chỉ gửi nội dung văn bản.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Attachment Preview Panel */}
-              {pendingAttachments.length > 0 && (
-                <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 p-3 border-b-0 animate-fadeIn ${
-                  replyTo ? 'border-t-0' : 'rounded-t-2xl'
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-gray-800 dark:text-white">
-                      {pendingAttachments.filter((attachment) => attachment.type === 'IMAGE').length > 0
-                        ? `${pendingAttachments.filter((attachment) => attachment.type === 'IMAGE').length} ảnh`
-                        : `${pendingAttachments.length} tệp`}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={resetUploadState}
-                      className="text-xs font-semibold text-gray-500 dark:text-zinc-400 hover:text-rose-500 transition"
-                    >
-                      Xóa tất cả
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {pendingAttachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="relative w-[90px] h-[90px] rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-800 overflow-hidden group"
-                        title={attachment.name}
-                      >
-                        {attachment.type === 'IMAGE' && attachment.previewUrl ? (
-                          <img src={attachment.previewUrl} alt={attachment.name} className="w-full h-full object-cover" />
-                        ) : attachment.type === 'VIDEO' ? (
-                          <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-discord-blurple">
-                            <Video className="w-7 h-7" />
-                          </div>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-discord-blurple">
-                            <FileText className="w-7 h-7" />
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => removePendingAttachment(attachment.id)}
-                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                          title="Xóa"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-
-                        {attachment.isUploading && (
-                          <div className="absolute inset-x-1 bottom-1 h-1 rounded-full bg-black/20 overflow-hidden">
-                            <div
-                              className="h-full bg-indigo-500 transition-all"
-                              style={{ width: `${attachment.progress}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation}
-                      onClick={() => {
-                        if (!canSendInActiveConversation) return;
-                        if (fileInputRef.current) {
-                          fileInputRef.current.accept = 'image/*,video/*';
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      className="w-[90px] h-[90px] rounded-lg border-2 border-dashed border-gray-300 dark:border-zinc-650 bg-gray-50 dark:bg-zinc-850 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-white hover:border-indigo-400 dark:hover:border-discord-blurple disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:border-gray-300 flex items-center justify-center transition"
-                      title="Thêm ảnh hoặc video"
-                    >
-                      <Plus className="w-7 h-7" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Toolbar & Input Box Container */}
-              <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 flex flex-col ${
-                (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
-              } overflow-hidden focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
-                
-                {/* Top Toolbar Row */}
-                <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10">
-                  <div className="flex items-center gap-0.5">
-                    {/* Sticker/Smile */}
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation}
-                      onClick={() => {
-                        setEmojiStickerTab('sticker');
-                        setIsEmojiStickerOpen((open) => !open);
-                      }}
-                      className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                        isEmojiStickerOpen && emojiStickerTab === 'sticker'
-                          ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-                      }`}
-                      title="Sticker"
-                    >
-                      <Smile className="w-4 h-4" />
-                    </button>
-
-                    {/* Image attachment */}
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation}
-                      onClick={() => {
-                        if (!canSendInActiveConversation) return;
-                        if (fileInputRef.current) {
-                          fileInputRef.current.accept = "image/*,video/*";
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-                      title="Send Images or Videos"
-                    >
-                      <Image className="w-4 h-4" />
-                    </button>
-
-                    {/* File attachment */}
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation}
-                      onClick={() => {
-                        if (!canSendInActiveConversation) return;
-                        if (fileInputRef.current) {
-                          fileInputRef.current.accept = ".pdf,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-                      title="Send Files"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </button>
-
-                    {/* Contact card */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Contact Card">
-                      <User className="w-4 h-4" />
-                    </button>
-
-                    {/* Screenshot */}
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation || isTakingScreenshot}
-                      onClick={handleTakeScreenshot}
-                      className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-                      title="Chụp màn hình"
-                    >
-                      {isTakingScreenshot ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Crop className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    {/* Formatting */}
-                    <button
-                      type="button"
-                      onClick={() => setIsFormattingOpen((open) => !open)}
-                      className={`p-1.5 rounded transition ${
-                        isFormattingOpen
-                          ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-                      }`}
-                      title="Text Formatting"
-                    >
-                      <Type className="w-4 h-4" />
-                    </button>
-
-                    {/* Quick message */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Quick Message Templates">
-                      <Zap className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation || !isGroupConversation || !isGroupModeratorRole(currentGroupMembership?.role)}
-                      onClick={() => setIsCreatePollOpen(true)}
-                      className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-                      title={isGroupConversation ? 'Tạo bình chọn' : 'Bình chọn chỉ dùng trong nhóm'}
-                    >
-                      <ListChecks className="w-4 h-4" />
-                    </button>
-
-                    {/* Credit card */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Gift/Card">
-                      <CreditCard className="w-4 h-4" />
-                    </button>
-
-                    {/* More */}
-                    <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="More Options">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {isFormattingOpen && (
-                  <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-discord-mid overflow-x-auto">
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('**', '**', 'đậm'); }} className={`p-1.5 rounded transition ${activeFormats.bold ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Đậm">
-                      <Bold className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('_', '_', 'nghiêng'); }} className={`p-1.5 rounded transition ${activeFormats.italic ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Nghiêng">
-                      <Italic className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('<u>', '</u>', 'gạch chân'); }} className={`p-1.5 rounded transition ${activeFormats.underline ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Gạch chân">
-                      <Underline className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('~~', '~~', 'gạch ngang'); }} className={`p-1.5 rounded transition ${activeFormats.strike ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Gạch ngang">
-                      <Strikethrough className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('<mark>', '</mark>', 'đánh dấu'); }} className={`p-1.5 rounded transition ${activeFormats.background ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Đánh dấu">
-                      <Highlighter className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('`', '`', 'code'); }} className={`p-1.5 rounded transition ${activeFormats.code ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Code">
-                      <Code className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('[', '](https://)', 'liên kết'); }} className={`p-1.5 rounded transition ${activeFormats.link ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Liên kết">
-                      <Link className="w-4 h-4" />
-                    </button>
-                    <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLineFormat('> '); }} className={`p-1.5 rounded transition ${activeFormats.blockquote ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Trích dẫn">
-                      <Quote className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLineFormat('- '); }} className={`p-1.5 rounded transition ${activeFormats.list === 'bullet' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Danh sách">
-                      <List className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyNumberedList(); }} className={`p-1.5 rounded transition ${activeFormats.list === 'ordered' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Danh sách số">
-                      <ListOrdered className="w-4 h-4" />
-                    </button>
-                    <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('left'); }} className={`p-1.5 rounded transition ${!activeFormats.align || activeFormats.align === 'left' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn trái">
-                      <AlignLeft className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('center'); }} className={`p-1.5 rounded transition ${activeFormats.align === 'center' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn giữa">
-                      <AlignCenter className="w-4 h-4" />
-                    </button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); applyAlignment('right'); }} className={`p-1.5 rounded transition ${activeFormats.align === 'right' ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Căn phải">
-                      <AlignRight className="w-4 h-4" />
-                    </button>
-                    <span className="h-5 w-px bg-gray-200 dark:bg-zinc-800 mx-1" />
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); clearFormatting(); }} className="p-1.5 rounded text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition" title="Xóa định dạng">
-                      <Eraser className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-
-                {isEmojiStickerOpen && (
-                  <div className="border-b border-gray-200/80 bg-white px-3 py-3 dark:border-zinc-800/80 dark:bg-discord-mid">
-                    <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-zinc-900">
-                      <button
-                        type="button"
-                        onClick={() => setEmojiStickerTab('emoji')}
-                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                          emojiStickerTab === 'emoji'
-                            ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                        }`}
-                      >
-                        Emoji
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEmojiStickerTab('sticker')}
-                        className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                          emojiStickerTab === 'sticker'
-                            ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
-                            : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                        }`}
-                      >
-                        Sticker
-                      </button>
-                    </div>
-
-                    {emojiStickerTab === 'emoji' ? (
-                      <div className="grid grid-cols-8 gap-1 sm:grid-cols-12">
-                        {emojiOptions.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleSelectEmoji(emoji)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-gray-100 dark:hover:bg-zinc-800"
-                            title={emoji}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {stickerOptions.map((sticker) => (
-                          <button
-                            key={sticker.label}
-                            type="button"
-                            onClick={() => handleSendSticker(sticker.value)}
-                            className="min-h-16 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/10"
-                            title={`Gửi ${sticker.label}`}
-                          >
-                            <span className="block text-xl">{sticker.value}</span>
-                            <span className="mt-1 block truncate text-[11px] font-semibold text-gray-500 dark:text-zinc-400">{sticker.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Input Text Area Row */}
-                <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    multiple
-                    className="hidden"
-                  />
-                  <input
-                    type="file"
-                    ref={groupAvatarInputRef}
-                    onChange={handleGroupAvatarSelected}
-                    accept="image/*"
-                    className="hidden"
-                  />
-
-                  <div
-                    className="min-w-0 flex-1"
-                    onPasteCapture={handleInputPaste}
-                    onKeyDownCapture={(e) => {
-                      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
-                        e.preventDefault();
-                        setIsFormattingOpen((open) => !open);
-                        return;
-                      }
-
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (canSendInActiveConversation) {
-                          handleSendMessage(e);
-                        } else if (activePrivateChatBlocked) {
-                          return;
-                        } else {
-                          handleSendBlockedChatRequest();
-                        }
-                      }
-                    }}
-                  >
-                    <div ref={quillEditorRef} className="nextalk-quill-input" />
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0 pb-1">
-                    {/* Emoji smile face */}
-                    <button
-                      type="button"
-                      disabled={!canSendInActiveConversation}
-                      onClick={() => {
-                        setEmojiStickerTab('emoji');
-                        setIsEmojiStickerOpen((open) => !open);
-                      }}
-                      className={`p-1.5 rounded-lg transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                        isEmojiStickerOpen && emojiStickerTab === 'emoji'
-                          ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                          : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-                      }`}
-                      title="Emoji"
-                    >
-                      <Smile className="w-5 h-5" />
-                    </button>
-
-                    {/* ThumbsUp or Send */}
-                    {(!inputMessage.trim() && pendingAttachments.length === 0) ? (
-                      <button
-                        type="button"
-                        onClick={handleSendThumbsUp}
-                        disabled={!canSendInActiveConversation}
-                        className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-450 rounded-lg hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:bg-transparent transition active:scale-90"
-                        title="Send Like"
-                      >
-                        <ThumbsUp className="w-5 h-5 fill-current" />
-                      </button>
-                    ) : (
-                      <button
-                        type={canSendInActiveConversation ? 'submit' : 'button'}
-                        onClick={!canSendInActiveConversation ? handleSendBlockedChatRequest : undefined}
-                        disabled={
-                          canSendInActiveConversation
-                            ? pendingAttachments.some((attachment) => attachment.isUploading)
-                            : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
-                        }
-                        className="p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"
-                        title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
-                      >
-                        {isSendingBlockedChatRequest ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </form>
+            <MessageInput
+              handleSendMessage={handleSendMessage}
+              conversationInfoOffsetClass={conversationInfoOffsetClass}
+              replyTo={replyTo}
+              setReplyTo={setReplyTo}
+              activePrivateChatBlocked={activePrivateChatBlocked}
+              activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+              canSendInActiveConversation={canSendInActiveConversation}
+              pendingAttachments={pendingAttachments}
+              resetUploadState={resetUploadState}
+              removePendingAttachment={removePendingAttachment}
+              isTakingScreenshot={isTakingScreenshot}
+              handleTakeScreenshot={handleTakeScreenshot}
+              setIsFormattingOpen={setIsFormattingOpen}
+              isFormattingOpen={isFormattingOpen}
+              applyInlineFormat={applyInlineFormat}
+              activeFormats={activeFormats}
+              applyLineFormat={applyLineFormat}
+              applyNumberedList={applyNumberedList}
+              applyAlignment={applyAlignment as any}
+              clearFormatting={clearFormatting}
+              isEmojiStickerOpen={isEmojiStickerOpen}
+              emojiStickerTab={emojiStickerTab}
+              setEmojiStickerTab={setEmojiStickerTab}
+              setIsEmojiStickerOpen={setIsEmojiStickerOpen}
+              handleSelectEmoji={handleSelectEmoji}
+              handleSendSticker={handleSendSticker}
+              fileInputRef={fileInputRef}
+              handleFileChange={handleFileChange}
+              groupAvatarInputRef={groupAvatarInputRef as any}
+              handleGroupAvatarSelected={handleGroupAvatarSelected}
+              handleInputPaste={handleInputPaste}
+              handleSendBlockedChatRequest={handleSendBlockedChatRequest}
+              quillEditorRef={quillEditorRef}
+              handleSendThumbsUp={handleSendThumbsUp}
+              inputMessage={inputMessage}
+              isSendingBlockedChatRequest={isSendingBlockedChatRequest}
+              isGroupConversation={isGroupConversation}
+              canCreatePoll={isGroupModeratorRole(currentGroupMembership?.role)}
+              setIsCreatePollOpen={setIsCreatePollOpen}
+            />
               </>
             )}
 
-            <aside
-              className={`absolute bottom-0 right-0 top-14 z-30 w-full border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 dark:border-zinc-800 dark:bg-discord-mid md:w-[360px] xl:w-[25vw] ${
-                isConversationInfoOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-              }`}
-              aria-hidden={!isConversationInfoOpen}
-            >
-              <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-zinc-800">
-                  <h3 className="m-0 text-sm font-bold text-gray-950 dark:text-white">Thông tin hội thoại</h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsConversationInfoOpen(false)}
-                    className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
-                    title="Đóng"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-                  <section className="flex flex-col items-center text-center">
-                    {isGroupConversation ? (
-                      activeGroup?.avatarUrl ? (
-                        <img
-                          src={activeGroup.avatarUrl}
-                          alt={activeGroup.name}
-                          className="h-20 w-20 rounded-2xl object-cover shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700"
-                        />
-                      ) : (
-                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow-sm">
-                          {(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}
-                        </div>
-                      )
-                    ) : activeFriend.avatarUrl ? (
-                      <img
-                        src={activeFriend.avatarUrl}
-                        alt={activeFriend.username}
-                        className="h-20 w-20 rounded-full object-cover shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-600 text-2xl font-bold text-white shadow-sm">
-                        {activeFriend.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setIsProfileModalOpen(true)}
-                      className="mt-3 max-w-full rounded-lg px-2 py-1 text-lg font-bold text-gray-950 transition hover:bg-gray-100 dark:text-white dark:hover:bg-zinc-800"
-                      title={isGroupConversation ? 'Xem hồ sơ nhóm' : 'Xem hồ sơ'}
-                    >
-                      <span className="block truncate">
-                        {isGroupConversation ? (activeGroup?.name || activeConversation.name || activeFriend.username) : activeFriend.username}
-                      </span>
-                    </button>
-                    <p className="m-0 text-xs font-medium text-gray-500 dark:text-zinc-400">{getConversationInfoSubtitle()}</p>
-                  </section>
-
-                  <section className="mt-6">
-                    <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Lối tắt nhanh</h4>
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isPinnedPanelOpen && activeConversation) {
-                            fetchPinnedMessages(activeConversation.id).catch((err) => console.error('Failed to fetch pinned messages:', err));
-                          }
-                          setIsPinnedPanelOpen(true);
-                          setIsConversationInfoOpen(false);
-                        }}
-                        className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      >
-                        <Pin className="h-4 w-4" />
-                        <span>Ghim</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      >
-                        <BellOff className="h-4 w-4" />
-                        <span>Tắt báo</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!isGroupConversation || !canInviteToActiveGroup}
-                        onClick={() => setIsInviteMembersOpen(true)}
-                        className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        <span>Thêm</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      >
-                        <Settings className="h-4 w-4" />
-                        <span>Cài đặt</span>
-                      </button>
-                    </div>
-                  </section>
-
-                  <section className="mt-6">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h4 className="m-0 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Kho lưu trữ</h4>
-                      {isLoadingConversationArchive && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Đang tải
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-white">
-                            <Image className="h-4 w-4 text-indigo-600" />
-                            Ảnh & video
-                          </span>
-                          <span className="text-xs text-gray-400">{activeConversationMedia.length}</span>
-                        </div>
-                        {activeConversationMedia.length > 0 ? (
-                          <div className="grid grid-cols-4 gap-2">
-                            {activeConversationMedia.map((item, index) => (
-                              <button
-                                type="button"
-                                key={`${item.url}-${index}`}
-                                onClick={() => handleJumpToMessage(item.message.id)}
-                                className="aspect-square overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200 transition hover:ring-indigo-500 dark:bg-zinc-900 dark:ring-zinc-800"
-                                title={item.name || getFileName(item.url)}
-                              >
-                                {item.type === 'IMAGE' ? (
-                                  <img src={item.url} alt={item.name || 'Shared image'} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-indigo-600 dark:text-indigo-400">
-                                    <Video className="h-5 w-5" />
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có ảnh hoặc video.</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-white">
-                            <FileText className="h-4 w-4 text-indigo-600" />
-                            File tài liệu
-                          </span>
-                          <span className="text-xs text-gray-400">{activeConversationFiles.length}</span>
-                        </div>
-                        <div className="space-y-2">
-                          {activeConversationFiles.length > 0 ? activeConversationFiles.map((item, index) => (
-                            <button
-                              type="button"
-                              key={`${item.url}-${index}`}
-                              onClick={() => handleJumpToMessage(item.message.id)}
-                              className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-2 text-left transition hover:bg-indigo-50 dark:bg-zinc-900/50 dark:hover:bg-zinc-800"
-                            >
-                              <FileText className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800 dark:text-zinc-100">
-                                {item.name || getFileName(item.url)}
-                              </span>
-                              <Download className="h-4 w-4 shrink-0 text-gray-400" />
-                            </button>
-                          )) : (
-                            <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có file tài liệu.</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-white">
-                            <Link className="h-4 w-4 text-indigo-600" />
-                            Link đã chia sẻ
-                          </span>
-                          <span className="text-xs text-gray-400">{activeConversationLinks.length}</span>
-                        </div>
-                        <div className="space-y-2">
-                          {activeConversationLinks.length > 0 ? activeConversationLinks.map((item, index) => (
-                            <div
-                              key={`${item.url}-${index}`}
-                              className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-zinc-900/50"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleJumpToMessage(item.message.id)}
-                                className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-gray-800 hover:text-indigo-600 dark:text-zinc-100 dark:hover:text-indigo-400"
-                                title={item.url}
-                              >
-                                {item.url}
-                              </button>
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-md p-1.5 text-gray-400 transition hover:bg-white hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                title="Mở link"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </div>
-                          )) : (
-                            <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có link đã chia sẻ.</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className="mt-6">
-                    <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Bảo mật & cài đặt</h4>
-                    <div className="space-y-2">
-                      <div className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 dark:bg-zinc-900/50 dark:text-zinc-200">
-                        <Shield className="h-4 w-4 text-gray-500" />
-                        <div className="min-w-0 flex-1">
-                          <span className="block">Tin nhắn tự xóa</span>
-                          <span className="mt-0.5 block text-xs font-normal text-gray-500 dark:text-zinc-400">
-                            Áp dụng cho tin nhắn mới
-                          </span>
-                        </div>
-                        <select
-                          value={activeConversation.selfDestructSeconds ?? 0}
-                          onChange={(event) => handleUpdateSelfDestruct(Number(event.target.value))}
-                          disabled={isUpdatingSelfDestruct}
-                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 outline-none transition focus:border-indigo-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-                          title={`Đang đặt: ${getSelfDestructLabel(activeConversation.selfDestructSeconds)}`}
-                        >
-                          {selfDestructOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {activeConversation.hidden ? (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setConversationActionId(`unhide-${activeConversation.id}`);
-                            try {
-                              const ok = await toggleHideConversation(activeConversation.id, false);
-                              if (ok) {
-                                await fetchConversations();
-                              }
-                            } finally {
-                              setConversationActionId(null);
-                            }
-                          }}
-                          disabled={conversationActionId === `unhide-${activeConversation.id}`}
-                          className="flex w-full items-center gap-3 rounded-lg bg-emerald-50 px-3 py-3 text-left text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                        >
-                          {conversationActionId === `unhide-${activeConversation.id}` ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
-                          ) : (
-                            <Unlock className="h-4 w-4 text-emerald-550" />
-                          )}
-                          <span className="min-w-0 flex-1">Bỏ ẩn trò chuyện</span>
-                          <span className="text-xs text-emerald-500 font-bold">Đang ẩn</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleHideClick(activeConversation.id)}
-                          disabled={conversationActionId === `hide-${activeConversation.id}`}
-                          className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                          {conversationActionId === `hide-${activeConversation.id}` ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                          ) : (
-                            <Lock className="h-4 w-4 text-gray-500" />
-                          )}
-                          <span className="min-w-0 flex-1">Ẩn trò chuyện bằng PIN</span>
-                          <span className="text-xs text-gray-400">Tắt</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleConversationPin(activeConversation.id, activeConversation.pinned)}
-                        disabled={conversationActionId === `pin-${activeConversation.id}`}
-                        className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        {conversationActionId === `pin-${activeConversation.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                        ) : activeConversation.pinned ? (
-                          <PinOff className="h-4 w-4 text-indigo-500" />
-                        ) : (
-                          <Pin className="h-4 w-4 text-gray-500" />
-                        )}
-                        <span className="min-w-0 flex-1">
-                          {activeConversation.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {activeConversation.pinned ? 'Đang ghim' : 'Tắt'}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteConversation(activeConversation.id)}
-                        disabled={conversationActionId === `delete-${activeConversation.id}`}
-                        className="flex w-full items-center gap-3 rounded-lg bg-rose-50 px-3 py-3 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                      >
-                        {conversationActionId === `delete-${activeConversation.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                        <span className="min-w-0 flex-1">Xóa hội thoại</span>
-                        <span className="text-xs font-semibold text-rose-400">Ẩn khỏi danh sách</span>
-                      </button>
-                      {isGroupConversation ? (
-                        <button
-                          type="button"
-                          onClick={handleLeaveActiveGroup}
-                          disabled={profileActionLoading || currentUserIsGroupOwner}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                          title={currentUserIsGroupOwner ? 'Chủ nhóm cần chuyển quyền trước khi rời nhóm' : 'Thoát nhóm'}
-                        >
-                          {profileActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-                          <span>{currentUserIsGroupOwner ? 'Chủ nhóm không thể rời' : 'Thoát nhóm'}</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleToggleBlockUser}
-                          disabled={blockActionLoading}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                        >
-                          {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                          <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
-                        </button>
-                      )}
-                    </div>
-                  </section>
-                </div>
-              </div>
-            </aside>
+            <ConversationInfoPanel
+              isConversationInfoOpen={isConversationInfoOpen}
+              setIsConversationInfoOpen={setIsConversationInfoOpen}
+              isGroupConversation={isGroupConversation}
+              activeGroup={activeGroup}
+              activeFriend={activeFriend}
+              activeConversation={activeConversation}
+              setIsProfileModalOpen={setIsProfileModalOpen}
+              getConversationInfoSubtitle={getConversationInfoSubtitle}
+              isPinnedPanelOpen={isPinnedPanelOpen}
+              setIsPinnedPanelOpen={setIsPinnedPanelOpen}
+              fetchPinnedMessages={fetchPinnedMessages}
+              canInviteToActiveGroup={canInviteToActiveGroup}
+              setIsInviteMembersOpen={setIsInviteMembersOpen}
+              isLoadingConversationArchive={isLoadingConversationArchive}
+              activeConversationMedia={activeConversationMedia}
+              handleJumpToMessage={handleJumpToMessage}
+              getFileName={getFileName}
+              activeConversationFiles={activeConversationFiles}
+              activeConversationLinks={activeConversationLinks}
+              handleUpdateSelfDestruct={handleUpdateSelfDestruct}
+              isUpdatingSelfDestruct={isUpdatingSelfDestruct}
+              getSelfDestructLabel={getSelfDestructLabel}
+              selfDestructOptions={selfDestructOptions}
+              conversationActionId={conversationActionId}
+              setConversationActionId={setConversationActionId}
+              toggleHideConversation={toggleHideConversation}
+              fetchConversations={fetchConversations}
+              handleHideClick={handleHideClick}
+              handleToggleConversationPin={handleToggleConversationPin}
+              handleDeleteConversation={handleDeleteConversation}
+              handleLeaveActiveGroup={handleLeaveActiveGroup}
+              profileActionLoading={profileActionLoading}
+              currentUserIsGroupOwner={currentUserIsGroupOwner}
+              handleToggleBlockUser={handleToggleBlockUser}
+              blockActionLoading={blockActionLoading}
+              activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+            />
           </>
         ) : selectedChatRequest ? (
           <div className="flex-1 overflow-y-auto bg-gray-100 p-4 dark:bg-discord-dark">
@@ -5223,709 +2902,102 @@ export const Chat = () => {
       )}
 
       {isProfileModalOpen && activeConversation && activeFriend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}>
-          <div
-            className="w-full max-w-md overflow-hidden rounded-2xl bg-white text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex justify-end px-4 pt-4">
-              <button
-                type="button"
-                onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}
-                disabled={isUpdatingGroupAvatar}
-                className="rounded-full bg-gray-100 p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {isGroupConversation ? (
-              <div className="px-5 pb-5">
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => currentUserIsGroupOwner && groupAvatarInputRef.current?.click()}
-                    disabled={!currentUserIsGroupOwner || isUpdatingGroupAvatar}
-                    className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow disabled:cursor-default"
-                    title={currentUserIsGroupOwner ? 'Đổi ảnh nhóm' : 'Chỉ trưởng nhóm được đổi ảnh nhóm'}
-                  >
-                    {activeGroup?.avatarUrl ? (
-                      <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <span>{(activeGroup?.name || activeFriend.username).charAt(0).toUpperCase()}</span>
-                    )}
-                    {currentUserIsGroupOwner && (
-                      <span className={`absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 text-white transition ${isUpdatingGroupAvatar ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                        {isUpdatingGroupAvatar ? (
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                        ) : (
-                          <Camera className="h-6 w-6" />
-                        )}
-                      </span>
-                    )}
-                  </button>
-                  <div className="min-w-0 pb-1 text-left flex-1">
-                    {isEditingGroupName && currentUserIsGroupOwner ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={editingGroupName}
-                          onChange={(e) => setEditingGroupName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameGroup();
-                            if (e.key === 'Escape') setIsEditingGroupName(false);
-                          }}
-                          maxLength={100}
-                          autoFocus
-                          disabled={isRenamingGroup}
-                          className="flex-1 min-w-0 text-xl font-bold bg-gray-100 dark:bg-zinc-800 rounded-lg px-2 py-1 text-gray-900 dark:text-white border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none transition-colors disabled:opacity-60"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleRenameGroup}
-                          disabled={!editingGroupName.trim() || isRenamingGroup}
-                          className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                        >
-                          {isRenamingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingGroupName(false)}
-                          disabled={isRenamingGroup}
-                          className="shrink-0 rounded-lg bg-gray-100 dark:bg-zinc-800 px-2.5 py-1.5 text-xs font-bold text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 group/name">
-                        <h3 className="m-0 truncate text-xl font-bold">{activeGroup?.name || activeConversation.name || 'Nhóm chat'}</h3>
-                        {currentUserIsGroupOwner && (
-                          <button
-                            type="button"
-                            onClick={() => { setEditingGroupName(activeGroup?.name || activeConversation.name || ''); setIsEditingGroupName(true); }}
-                            className="shrink-0 opacity-0 group-hover/name:opacity-100 rounded-md p-1 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"
-                            title="Đổi tên nhóm"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>{activeGroup?.memberCount ?? activeConversation.members.length} thành viên</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 p-3 text-left dark:bg-discord-black/35">
-                  <div>
-                    <p className="m-0 text-sm font-semibold">
-                      {currentUserIsGroupOwner ? 'Bạn là chủ nhóm' : 'Bạn là thành viên nhóm'}
-                    </p>
-                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
-                      {currentUserIsGroupOwner ? 'Chủ nhóm không thể thoát nhóm. Hãy chuyển quyền hoặc xoá nhóm nếu cần.' : 'Bạn có thể rời nhóm này bất cứ lúc nào.'}
-                    </p>
-                  </div>
-                  {!currentUserIsGroupOwner && (
-                    <button
-                      type="button"
-                      onClick={handleLeaveActiveGroup}
-                      disabled={profileActionLoading}
-                      className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700 disabled:opacity-60"
-                    >
-                      {profileActionLoading ? 'Đang xử lý...' : 'Thoát nhóm'}
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-                  <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                    <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Chủ nhóm</p>
-                    <p className="mt-1 truncate text-sm font-semibold">{activeGroup?.ownerUsername || 'Không rõ'}</p>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                    <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Ngày tạo</p>
-                    <p className="mt-1 truncate text-sm font-semibold">{formatProfileDate(activeGroup?.createdAt || activeConversation.createdAt)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-5 text-left">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="m-0 text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Thành viên</p>
-                    {activeGroup && canInviteToActiveGroup && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isUpdatingGroupAvatar) return;
-                          setIsProfileModalOpen(false);
-                          setIsInviteMembersOpen(true);
-                        }}
-                        disabled={isUpdatingGroupAvatar}
-                        className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-indigo-700"
-                      >
-                        Mời thêm
-                      </button>
-                    )}
-                  </div>
-                  {activeGroup && (
-                    <div className="relative mb-2">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
-                      <input
-                        type="text"
-                        value={groupMemberSearchQuery}
-                        onChange={(event) => setGroupMemberSearchQuery(event.target.value)}
-                        placeholder="Tìm thành viên..."
-                        className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-indigo-500 dark:focus:bg-zinc-950"
-                      />
-                    </div>
-                  )}
-                  <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                    {filteredGroupMembers.map((member) => {
-                      const canKick = canKickGroupMember(member);
-                      const canMakeDeputy = canSetGroupMemberRole(member, 'DEPUTY');
-                      const canMakeMember = canSetGroupMemberRole(member, 'MEMBER') && member.role !== 'MEMBER';
-                      const roleActionLoading = groupMemberActionId?.startsWith(`${member.userId}:`);
-                      return (
-                        <div key={member.userId} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-                          {member.avatarUrl ? (
-                            <img src={member.avatarUrl} alt={member.username} className="h-9 w-9 rounded-full object-cover" />
-                          ) : (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
-                              {member.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="m-0 truncate text-sm font-semibold">{member.username}</p>
-                            <p className="m-0 text-[11px] text-gray-400 dark:text-zinc-500">{roleLabels[member.role]}</p>
-                          </div>
-                          {(canMakeDeputy || canMakeMember) && (
-                            <div className="flex shrink-0 items-center gap-1">
-                              {canMakeDeputy && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateGroupMemberRole(member, 'DEPUTY')}
-                                  disabled={Boolean(groupMemberActionId)}
-                                  className="rounded-lg p-2 text-sky-500 transition hover:bg-sky-50 hover:text-sky-600 disabled:opacity-60 dark:hover:bg-sky-500/10"
-                                  title="Đặt làm phó nhóm"
-                                >
-                                  {roleActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCog className="h-4 w-4" />}
-                                </button>
-                              )}
-                              {canMakeMember && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateGroupMemberRole(member, 'MEMBER')}
-                                  disabled={Boolean(groupMemberActionId)}
-                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-60 dark:hover:bg-zinc-800"
-                                  title="Hạ xuống thành viên"
-                                >
-                                  {roleActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {canKick && (
-                            <button
-                              type="button"
-                              onClick={() => handleKickGroupMember(member)}
-                              disabled={Boolean(groupMemberActionId)}
-                              className="rounded-lg p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-60 dark:hover:bg-rose-500/10"
-                              title="Kick khỏi nhóm"
-                            >
-                              {groupMemberActionId === member.userId ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <UserMinus className="h-4 w-4" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {activeGroup && filteredGroupMembers.length === 0 && (
-                      <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-discord-black/35 dark:text-discord-muted">
-                        Không tìm thấy thành viên phù hợp.
-                      </p>
-                    )}
-                    {!activeGroup && (
-                      <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-discord-black/35 dark:text-discord-muted">
-                        Chưa tải được thông tin nhóm.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="px-5 pb-5">
-                <div className="flex items-center gap-4">
-                  {activeFriend.avatarUrl ? (
-                    <img
-                      src={activeFriend.avatarUrl}
-                      alt={activeFriend.username}
-                      className="h-20 w-20 shrink-0 rounded-full object-cover shadow"
-                    />
-                  ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-3xl font-bold text-white shadow">
-                      {activeFriend.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 pb-1 text-left">
-                    <h3 className="m-0 truncate text-xl font-bold">{activeFriend.username}</h3>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
-                      <span className={`h-2 w-2 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'}`} />
-                      <span className="capitalize">{activeFriend.status.toLowerCase()}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3 text-left">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                    <div>
-                      <p className="m-0 text-sm font-semibold">
-                        {activeFriendIsFriend ? 'Đã là bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời kết bạn' : 'Chưa là bạn bè'}
-                      </p>
-                      <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
-                        {activeFriendIsFriend ? 'Bạn có thể nhắn tin trực tiếp với người này.' : 'Gửi lời mời để kết nối với người này.'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleProfileFriendAction}
-                      disabled={profileActionLoading || activeFriendRequestSent}
-                      className={`rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${
-                        activeFriendIsFriend
-                          ? 'bg-rose-600 text-white hover:bg-rose-700'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      }`}
-                    >
-                      {profileActionLoading ? 'Đang xử lý...' : activeFriendIsFriend ? 'Hủy bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời' : 'Thêm bạn'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleToggleBlockUser}
-                      disabled={blockActionLoading}
-                      className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                    >
-                      {blockActionLoading ? 'Đang xử lý...' : activePrivateChatBlockedByMe ? 'Bỏ chặn' : 'Chặn'}
-                    </button>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                    <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Email</p>
-                    <p className="mt-1 break-all text-sm font-semibold">{activeFriend.email || 'Không có email'}</p>
-                  </div>
-                  <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                    <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Giới thiệu</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-zinc-200">{activeFriend.bio || 'Chưa có giới thiệu.'}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                      <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Tham gia</p>
-                      <p className="mt-1 text-sm font-semibold">{formatProfileDate(activeConversation.members.find((member) => member.id !== user?.id)?.createdAt)}</p>
-                    </div>
-                    <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                      <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Lần cuối</p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {activeFriend.status === 'OFFLINE' && activeFriend.lastSeen ? formatRelativeTime(activeFriend.lastSeen) : activeFriend.status.toLowerCase()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => !isUpdatingGroupAvatar && setIsProfileModalOpen(false)}
-                    disabled={isUpdatingGroupAvatar}
-                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Đóng
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ProfileModal
+          setIsProfileModalOpen={setIsProfileModalOpen}
+          activeConversation={activeConversation}
+          activeFriend={activeFriend}
+          isUpdatingGroupAvatar={isUpdatingGroupAvatar}
+          isGroupConversation={isGroupConversation}
+          currentUserIsGroupOwner={currentUserIsGroupOwner}
+          groupAvatarInputRef={groupAvatarInputRef as any}
+          activeGroup={activeGroup}
+          isEditingGroupName={isEditingGroupName}
+          editingGroupName={editingGroupName}
+          setEditingGroupName={setEditingGroupName}
+          setIsEditingGroupName={setIsEditingGroupName}
+          isRenamingGroup={isRenamingGroup}
+          handleRenameGroup={handleRenameGroup}
+          handleLeaveActiveGroup={handleLeaveActiveGroup}
+          profileActionLoading={profileActionLoading}
+          canInviteToActiveGroup={canInviteToActiveGroup}
+          setIsInviteMembersOpen={setIsInviteMembersOpen}
+          groupMemberSearchQuery={groupMemberSearchQuery}
+          setGroupMemberSearchQuery={setGroupMemberSearchQuery}
+          filteredGroupMembers={filteredGroupMembers}
+          canKickGroupMember={canKickGroupMember}
+          canSetGroupMemberRole={canSetGroupMemberRole as any}
+          groupMemberActionId={groupMemberActionId}
+          roleLabels={roleLabels}
+          handleUpdateGroupMemberRole={handleUpdateGroupMemberRole as any}
+          handleKickGroupMember={handleKickGroupMember}
+          activeFriendIsFriend={activeFriendIsFriend}
+          activeFriendRequestSent={activeFriendRequestSent}
+          handleProfileFriendAction={handleProfileFriendAction}
+          handleToggleBlockUser={handleToggleBlockUser}
+          blockActionLoading={blockActionLoading}
+          activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+          formatProfileDate={formatProfileDate}
+          formatRelativeTime={formatRelativeTime}
+          user={user}
+        />
       )}
 
-      {searchProfileUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setSearchProfileUser(null)}>
-          <div
-            className="w-full max-w-md overflow-hidden rounded-2xl bg-white text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex justify-end px-4 pt-4">
-              <button
-                type="button"
-                onClick={() => setSearchProfileUser(null)}
-                className="rounded-full bg-gray-100 p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="px-5 pb-5">
-              <div className="flex items-center gap-4">
-                {searchProfileUser.avatarUrl ? (
-                  <img src={searchProfileUser.avatarUrl} alt={searchProfileUser.username} className="h-20 w-20 shrink-0 rounded-full object-cover shadow" />
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-3xl font-bold text-white shadow">
-                    {searchProfileUser.username.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0 pb-1 text-left">
-                  <h3 className="m-0 truncate text-xl font-bold">{searchProfileUser.username}</h3>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
-                    <span className={`h-2 w-2 rounded-full ${searchProfileUser.status === 'AWAY' ? 'bg-amber-500' : searchProfileUser.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'}`} />
-                    <span className="capitalize">{searchProfileUser.status.toLowerCase()}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-3 text-left">
-                <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                  <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Email</p>
-                  <p className="mt-1 break-all text-sm font-semibold">{searchProfileUser.email || 'Không có email'}</p>
-                </div>
-                <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                  <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Giới thiệu</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-zinc-200">{searchProfileUser.bio || 'Chưa có giới thiệu.'}</p>
-                </div>
-
-                {isExistingFriend(searchProfileUser.id) ? (
-                  <button
-                    type="button"
-                    onClick={handleSendChatRequestFromProfile}
-                    disabled={profileChatActionId === searchProfileUser.id}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
-                  >
-                    {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                    Nhắn tin
-                  </button>
-                ) : sentChatRequestIds.includes(searchProfileUser.id) ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                    Tin nhắn đã được gửi vào mục Tin nhắn chờ của người nhận.
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-zinc-800 dark:bg-discord-black/35">
-                    <p className="m-0 text-sm font-semibold">Nhắn tin với người chưa kết bạn</p>
-                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
-                      Tin đầu tiên sẽ nằm trong Tin nhắn chờ cho đến khi người nhận trả lời.
-                    </p>
-                    <textarea
-                      value={profileChatMessage}
-                      onChange={(event) => setProfileChatMessage(event.target.value)}
-                      placeholder={`Nhập lời nhắn tới ${searchProfileUser.username}...`}
-                      rows={3}
-                      maxLength={500}
-                      className="mt-3 w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendChatRequestFromProfile}
-                      disabled={!profileChatMessage.trim() || profileChatActionId === searchProfileUser.id}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
-                    >
-                      {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Nhắn tin
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <SearchProfileModal
+        searchProfileUser={searchProfileUser}
+        setSearchProfileUser={setSearchProfileUser}
+        isExistingFriend={isExistingFriend}
+        handleSendChatRequestFromProfile={handleSendChatRequestFromProfile}
+        profileChatActionId={profileChatActionId}
+        sentChatRequestIds={sentChatRequestIds}
+        profileChatMessage={profileChatMessage}
+        setProfileChatMessage={setProfileChatMessage}
+      />
 
       {isCreatePollOpen && activeConversation?.type === 'GROUP' && isGroupModeratorRole(currentGroupMembership?.role) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setIsCreatePollOpen(false)}>
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white p-5 text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="m-0 flex items-center gap-2 text-lg font-bold">
-                <ListChecks className="h-5 w-5 text-indigo-600" />
-                Tạo bình chọn
-              </h3>
-              <button type="button" onClick={() => setIsCreatePollOpen(false)} className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <input
-                value={pollQuestion}
-                onChange={(event) => setPollQuestion(event.target.value)}
-                placeholder="Câu hỏi bình chọn"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-              />
-
-              <div className="space-y-2">
-                {pollOptions.map((option, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      value={option}
-                      onChange={(event) => setPollOptions((options) => options.map((item, i) => i === index ? event.target.value : item))}
-                      placeholder={`Lựa chọn ${index + 1}`}
-                      className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-                    />
-                    {pollOptions.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => setPollOptions((options) => options.filter((_, i) => i !== index))}
-                        className="rounded-xl px-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setPollOptions((options) => [...options, ''])}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Thêm lựa chọn
-                </button>
-              </div>
-
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
-                  <input type="checkbox" checked={pollAllowMultiple} onChange={(event) => setPollAllowMultiple(event.target.checked)} />
-                  <span>Chọn nhiều phương án</span>
-                </label>
-                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
-                  <input type="checkbox" checked={pollAllowAddOptions} onChange={(event) => setPollAllowAddOptions(event.target.checked)} />
-                  <span>Cho thêm lựa chọn</span>
-                </label>
-                <label className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
-                  <input type="checkbox" checked={pollAnonymous} onChange={(event) => setPollAnonymous(event.target.checked)} />
-                  <span>Ẩn người bình chọn</span>
-                </label>
-                <label className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-zinc-900">
-                  <span className="mb-1 block text-xs font-semibold text-gray-500 dark:text-zinc-400">Thời hạn khóa</span>
-                  <input
-                    type="datetime-local"
-                    value={pollExpiresAt}
-                    onChange={(event) => setPollExpiresAt(event.target.value)}
-                    className="w-full bg-transparent text-sm outline-none"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCreatePollOpen(false)}
-                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={submitCreatePoll}
-                disabled={pollActionMessageId === 'creating'}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {pollActionMessageId === 'creating' ? 'Đang tạo...' : 'Tạo bình chọn'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CreatePollModal
+          pollQuestion={pollQuestion}
+          setPollQuestion={setPollQuestion}
+          pollOptions={pollOptions}
+          setPollOptions={setPollOptions}
+          pollAllowMultiple={pollAllowMultiple}
+          setPollAllowMultiple={setPollAllowMultiple}
+          pollAllowAddOptions={pollAllowAddOptions}
+          setPollAllowAddOptions={setPollAllowAddOptions}
+          pollAnonymous={pollAnonymous}
+          setPollAnonymous={setPollAnonymous}
+          pollExpiresAt={pollExpiresAt}
+          setPollExpiresAt={setPollExpiresAt}
+          submitCreatePoll={submitCreatePoll}
+          pollActionMessageId={pollActionMessageId}
+          onClose={() => setIsCreatePollOpen(false)}
+        />
       )}
 
-      {pollVoterDialog && !pollVoterDialog.anonymous && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setPollVoterDialog(null)}>
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 text-gray-900 shadow-2xl dark:bg-discord-mid dark:text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="m-0 truncate text-base font-bold">{pollVoterDialog.option.text}</h3>
-              <button type="button" onClick={() => setPollVoterDialog(null)} className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto">
-              {(pollVoterDialog.option.voters ?? []).length > 0 ? (
-                (pollVoterDialog.option.voters ?? []).map((voter) => (
-                  <div key={voter.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/60">
-                    {voter.avatarUrl ? (
-                      <img src={voter.avatarUrl} alt={voter.username} className="h-9 w-9 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
-                        {voter.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="min-w-0 truncate text-sm font-semibold">{voter.username}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="m-0 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900 dark:text-zinc-400">
-                  Chưa có ai chọn phương án này.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <PollVoterDialogModal
+        pollVoterDialog={pollVoterDialog}
+        onClose={() => setPollVoterDialog(null)}
+      />
 
       {activeMedia && (
-        <div
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-          onClick={() => setActiveMedia(null)}
-        >
-          {/* Top bar with buttons */}
-          <div className="absolute top-4 right-4 z-[110] flex items-center gap-3">
-            <a
-              href={activeMedia.url}
-              download={activeMedia.name || 'download'}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition hover:bg-white/20 hover:scale-105"
-              title="Tải xuống tệp gốc"
-            >
-              <Download className="h-5 w-5" />
-            </a>
-            <button
-              type="button"
-              onClick={() => setActiveMedia(null)}
-              className="rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition hover:bg-white/20 hover:scale-105"
-              title="Đóng (Esc)"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Media container */}
-          <div
-            className="relative flex max-h-[85vh] max-w-[90vw] items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {activeMedia.type === 'IMAGE' ? (
-              <img
-                src={activeMedia.url}
-                alt={activeMedia.name || 'Shared Media'}
-                className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl select-none"
-              />
-            ) : (
-              <video
-                src={activeMedia.url}
-                controls
-                autoPlay
-                className="max-h-[85vh] max-w-[90vw] rounded-lg shadow-2xl bg-black"
-              />
-            )}
-          </div>
-
-          {/* Optional Caption/Name at the bottom */}
-          {activeMedia.name && (
-            <p className="mt-4 max-w-[80vw] truncate text-sm font-semibold text-white/80 backdrop-blur-sm bg-black/20 px-3 py-1.5 rounded-full">
-              {activeMedia.name}
-            </p>
-          )}
-        </div>
+        <MediaViewerModal
+          activeMedia={activeMedia}
+          onClose={() => setActiveMedia(null)}
+        />
       )}
 
       {isPinModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsPinModalOpen(false)} />
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-zinc-800">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-              Thiết lập mã PIN
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6 text-center">
-              {pinStep === 'enter'
-                ? 'Nhập mã PIN gồm 4 chữ số để ẩn cuộc trò chuyện này. Mã PIN này sẽ dùng chung cho tất cả cuộc trò chuyện bị ẩn.'
-                : 'Vui lòng nhập lại mã PIN để xác nhận.'}
-            </p>
-
-            <div className="flex justify-center mb-6">
-              <div className="flex gap-3">
-                {[0, 1, 2, 3].map((index) => {
-                  const currentValue = pinStep === 'enter' ? pinValue : confirmPinValue;
-                  const setFn = pinStep === 'enter' ? setPinValue : setConfirmPinValue;
-                  const inputId = `setup-pin-${pinStep}-${index}`;
-                  return (
-                    <input
-                      key={index}
-                      id={inputId}
-                      type="password"
-                      maxLength={1}
-                      autoFocus={index === 0 && !currentValue}
-                      className="w-12 h-14 text-center text-2xl font-bold rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                      value={currentValue[index] || ''}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        if (val) {
-                          const newVal = currentValue.substring(0, index) + val + currentValue.substring(index + 1);
-                          setFn(newVal.slice(0, 4));
-                          setPinError('');
-                          if (index < 3) {
-                            document.getElementById(`setup-pin-${pinStep}-${index + 1}`)?.focus();
-                          }
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Backspace') {
-                          if (!currentValue[index] && index > 0) {
-                            const newVal = currentValue.substring(0, index - 1) + currentValue.substring(index);
-                            setFn(newVal);
-                            document.getElementById(`setup-pin-${pinStep}-${index - 1}`)?.focus();
-                          } else {
-                            const newVal = currentValue.substring(0, index) + currentValue.substring(index + 1);
-                            setFn(newVal);
-                          }
-                          setPinError('');
-                        } else if (e.key === 'Enter' && currentValue.length === 4) {
-                          handlePinSubmit();
-                        }
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {pinError && (
-              <p className="text-sm text-rose-500 text-center mt-2 mb-4 font-medium">{pinError}</p>
-            )}
-
-            <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handlePinSubmit}
-                disabled={conversationActionId === 'pin-setup' || (pinStep === 'enter' ? pinValue.length !== 4 : confirmPinValue.length !== 4)}
-                className="w-full py-3 px-4 rounded-xl text-white font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
-              >
-                {conversationActionId === 'pin-setup' && <Loader2 className="w-4.5 h-4.5 animate-spin" />}
-                {pinStep === 'enter' ? 'Tiếp tục' : 'Xác nhận'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPinModalOpen(false)}
-                className="w-full py-3 px-4 rounded-xl text-gray-700 dark:text-zinc-300 font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all"
-              >
-                Hủy
-              </button>
-            </div>
-
-            <button
-              onClick={() => setIsPinModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <PinSetupModal
+          pinStep={pinStep}
+          pinValue={pinValue}
+          confirmPinValue={confirmPinValue}
+          pinError={pinError}
+          conversationActionId={conversationActionId}
+          setPinValue={setPinValue}
+          setConfirmPinValue={setConfirmPinValue}
+          setPinError={setPinError}
+          handlePinSubmit={handlePinSubmit}
+          onClose={() => setIsPinModalOpen(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -5945,129 +3017,11 @@ export const Chat = () => {
         }}
       />
 
-      {/* Create Channel Modal */}
-      {createChannelGroupId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) { setCreateChannelGroupId(null); } }}
-        >
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-700 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800">
-              <div>
-                <h2 className="text-base font-bold text-gray-900 dark:text-white">Tạo kênh mới</h2>
-                <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-                  {groups.find(g => g.id === createChannelGroupId)?.name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCreateChannelGroupId(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-5 py-5 space-y-4">
-              {/* Channel type selector */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">Loại kênh</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCreateChannelType('TEXT')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                      createChannelType === 'TEXT'
-                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                        : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-600'
-                    }`}
-                  >
-                    <Hash className="w-5 h-5 shrink-0" />
-                    <div className="text-left">
-                      <div className="text-sm font-semibold">Văn bản</div>
-                      <div className="text-[11px] opacity-70">Gửi tin nhắn</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCreateChannelType('VOICE')}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                      createChannelType === 'VOICE'
-                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                        : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-600'
-                    }`}
-                  >
-                    <Volume2 className="w-5 h-5 shrink-0" />
-                    <div className="text-left">
-                      <div className="text-sm font-semibold">Giọng nói</div>
-                      <div className="text-[11px] opacity-70">Kênh voice</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Channel name */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">
-                  Tên kênh
-                </label>
-                <div className="relative">
-                  {createChannelType === 'TEXT' ? (
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  ) : (
-                    <Volume2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  )}
-                  <input
-                    type="text"
-                    value={createChannelName}
-                    onChange={(e) => setCreateChannelName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChannel(); }}
-                    placeholder="Nhập tên kênh..."
-                    maxLength={100}
-                    autoFocus
-                    className="w-full pl-9 pr-4 py-2.5 bg-gray-100 dark:bg-zinc-800 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none transition-colors"
-                  />
-                </div>
-                <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1.5">Tối đa 100 ký tự.</p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex gap-2 px-5 pb-5">
-              <button
-                type="button"
-                onClick={() => setCreateChannelGroupId(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 dark:text-zinc-300 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateChannel}
-                disabled={!createChannelName.trim() || isCreatingChannel}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                {isCreatingChannel ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
-                ) : (
-                  <><Plus className="w-4 h-4" /> Tạo kênh</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Call Overlay */}
       <CallOverlay />
 
-      {/* Mobile Bottom Navigation */}
       {!activeConversation && !selectedChatRequest && <MobileBottomNav />}
     </div>
   );
 };
 
 export default Chat;
-

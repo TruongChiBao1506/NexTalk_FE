@@ -1,0 +1,930 @@
+// @ts-nocheck
+import React from 'react';
+import {
+  Pin,
+  PinOff,
+  Sparkles,
+  Video,
+  Phone,
+  ListChecks,
+  Check,
+  CornerUpLeft,
+  Download,
+  CheckCheck,
+  Loader2,
+  ArrowDown,
+  FileText
+} from 'lucide-react';
+import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
+import { MessageReactions } from './MessageReactions';
+
+interface MessageListProps {
+  pinnedMessages: any[];
+  handleJumpToMessage: (id: string) => void;
+  canPinMessage: (msg: any) => boolean;
+  togglePinMessage: (id: string, isPinned: boolean) => void;
+  activeConversationSummary: any;
+  conversationInfoOffsetClass: string;
+  messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+  handleMessagesScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  visibleMessages: any[];
+  user: any;
+  isGroupConversation: boolean;
+  activeFriend: any;
+  getSenderAvatar: (msg: any) => string | null;
+  getSenderUsername: (msg: any) => string;
+  hoveredMessageId: string | null;
+  setHoveredMessageId: (id: string | null) => void;
+  activeMenuMessageId: string | null;
+  setActiveMenuMessageId: (id: string | null) => void;
+  reactToMessage: (msgId: string, emoji: string) => void;
+  setReplyTo: (msg: any) => void;
+  setEditingMessageId: (id: string | null) => void;
+  setEditInputText: (text: string) => void;
+  recallMessage: (id: string) => void;
+  deleteMessage: (id: string) => void;
+  setSharingMessage: (msg: any) => void;
+  canRecallMessageInActiveConversation: (msg: any) => boolean;
+  getFileName: (url: string) => string;
+  setActiveMedia: (media: any) => void;
+  renderFormattedMessage: (content: string) => React.ReactNode;
+  stripMessageMarkup: (content: string) => string;
+  formatMessageTime: (date: any) => string;
+  getMessageStatus: (msg: any) => string;
+  formatDividerDate: (date: any) => string;
+  isCallHistoryMessage: (msg: any) => boolean;
+  getCallHistorySummary: (msg: any) => string;
+  getCallHistoryDetailStatus: (metadata: any) => string;
+  formatCallLogTime: (date: any) => string;
+  expandedCallLogId: string | null;
+  setExpandedCallLogId: (id: string | null) => void;
+  activeCallTarget: any;
+  initiateCall: (conversationId: string, type: 'voice' | 'video', target: any) => void;
+  activeConversation: any;
+  getPollMetadata: (msg: any) => any;
+  handlePollVote: (msgId: string, optionId: string) => void;
+  pollActionMessageId: string | null;
+  setPollVoterDialog: (dialog: any) => void;
+  pollNewOptionText: Record<string, string>;
+  setPollNewOptionText: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  handleAddPollOption: (msgId: string) => void;
+  handleLockPoll: (msgId: string) => void;
+  handleDeletePoll: (msgId: string) => void;
+  hasMoreMessages: boolean;
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  showScrollToLatest: boolean;
+  scrollToBottom: (behavior?: 'auto' | 'smooth') => void;
+  isGroupModeratorRole: (role: any) => boolean;
+  currentGroupMembership: any;
+  editingMessageId: string | null;
+  editInputText: string;
+  handleSaveEdit: (msgId: string) => void;
+}
+
+export const MessageList: React.FC<MessageListProps> = ({
+  pinnedMessages,
+  handleJumpToMessage,
+  canPinMessage,
+  togglePinMessage,
+  activeConversationSummary,
+  conversationInfoOffsetClass,
+  messagesContainerRef,
+  handleMessagesScroll,
+  messagesEndRef,
+  visibleMessages,
+  user,
+  isGroupConversation,
+  activeFriend,
+  getSenderAvatar,
+  getSenderUsername,
+  hoveredMessageId,
+  setHoveredMessageId,
+  activeMenuMessageId,
+  setActiveMenuMessageId,
+  reactToMessage,
+  setReplyTo,
+  setEditingMessageId,
+  setEditInputText,
+  recallMessage,
+  deleteMessage,
+  setSharingMessage,
+  canRecallMessageInActiveConversation,
+  getFileName,
+  setActiveMedia,
+  renderFormattedMessage,
+  stripMessageMarkup,
+  formatMessageTime,
+  getMessageStatus,
+  formatDividerDate,
+  isCallHistoryMessage,
+  getCallHistorySummary,
+  getCallHistoryDetailStatus,
+  formatCallLogTime,
+  expandedCallLogId,
+  setExpandedCallLogId,
+  activeCallTarget,
+  initiateCall,
+  activeConversation,
+  getPollMetadata,
+  handlePollVote,
+  pollActionMessageId,
+  setPollVoterDialog,
+  pollNewOptionText,
+  setPollNewOptionText,
+  handleAddPollOption,
+  handleLockPoll,
+  handleDeletePoll,
+  hasMoreMessages,
+  sentinelRef,
+  showScrollToLatest,
+  scrollToBottom,
+  isGroupModeratorRole,
+  currentGroupMembership,
+  editingMessageId,
+  editInputText,
+  handleSaveEdit,
+}) => {
+  return (
+    <>
+      {/* Pinned Messages Banner */}
+      {pinnedMessages && pinnedMessages.length > 0 && (() => {
+        const latestPinned = [...pinnedMessages].sort(
+          (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
+        )[0];
+        return (
+          <div className={`bg-white dark:bg-discord-dark border-b border-gray-200 dark:border-zinc-800/60 px-3 py-2 flex items-center gap-3 shrink-0 select-none group transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+            {/* Left accent bar */}
+            <div className="w-0.5 h-8 rounded-full bg-indigo-500 dark:bg-discord-blurple shrink-0" />
+
+            {/* Pin icon */}
+            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
+              <Pin className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 fill-current" />
+            </div>
+
+            {/* Text content */}
+            <div
+              className="flex-1 min-w-0 cursor-pointer"
+              onClick={() => handleJumpToMessage(latestPinned.id)}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide shrink-0">
+                  Tin nhắn
+                </span>
+                {pinnedMessages.length > 1 && (
+                  <span className="text-[10px] text-gray-400 dark:text-zinc-550 shrink-0">
+                    ({pinnedMessages.length})
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-gray-800 dark:text-zinc-200 truncate leading-tight mt-0.5">
+                <span className="font-semibold text-gray-700 dark:text-zinc-300">
+                  {latestPinned.senderUsername}:
+                </span>{' '}
+                <span className="text-gray-550 dark:text-zinc-405">
+                  {latestPinned.isRecalled ? 'Tin nhắn đã bị thu hồi' : latestPinned.content}
+                </span>
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              {pinnedMessages.length > 1 && (
+                <button
+                  onClick={() => handleJumpToMessage(latestPinned.id)}
+                  className="px-2 py-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                  title="Xem tất cả tin nhắn đã ghim"
+                >
+                  Xem tất cả
+                </button>
+              )}
+              {canPinMessage(latestPinned) && (
+                <button
+                  onClick={() => togglePinMessage(latestPinned.id, true)}
+                  className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors"
+                  title="Bỏ ghim"
+                >
+                  <PinOff className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {activeConversationSummary && (
+        <div className={`border-b border-indigo-100 bg-indigo-50/80 px-4 py-3 text-left dark:border-indigo-500/20 dark:bg-indigo-500/10 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-lg bg-white p-1.5 text-indigo-600 shadow-sm dark:bg-zinc-900/80 dark:text-indigo-300">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="m-0 text-sm font-bold text-indigo-700 dark:text-indigo-200">Tóm tắt cuộc trò chuyện</p>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-500 dark:bg-zinc-900/70 dark:text-indigo-300">
+                  {activeConversationSummary.sourceMessageCount} tin nhắn
+                </span>
+              </div>
+              <p className="m-0 mt-1 whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-zinc-200">
+                {activeConversationSummary.summary}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse transition-[margin] duration-300 ${conversationInfoOffsetClass}`}
+      >
+        <div ref={messagesEndRef} />
+
+        {visibleMessages.map((msg: any, index: number) => {
+          const isMe = msg.senderId === user?.id;
+          const nextMsg = visibleMessages[index + 1];
+          const showDivider = !nextMsg ||
+            new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
+
+          // In group chat, show sender names above non-self messages
+          const prevMsg = visibleMessages[index - 1];
+          const showSenderName = isGroupConversation && !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
+
+          // Find parent message if replied to
+          const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
+          const isCallLog = isCallHistoryMessage(msg);
+          const callMetadata = msg.metadata as any;
+
+          return (
+            <div
+              key={msg.id}
+              id={`message-${msg.id}`}
+              onMouseEnter={() => setHoveredMessageId(msg.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
+              className="relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors hover:bg-gray-150/20 dark:hover:bg-zinc-800/10"
+            >
+              {showDivider && (
+                <div className="flex items-center justify-center my-4 shrink-0 select-none">
+                  <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
+                  <span className="px-3 text-[10px] font-bold text-gray-500 dark:text-discord-muted bg-gray-100 dark:bg-discord-dark uppercase tracking-wider">
+                    {formatDividerDate(msg.createdAt)}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
+                </div>
+              )}
+
+              {msg.messageType === 'SYSTEM' ? (
+                <div className="flex justify-center py-1.5 select-none">
+                  {isCallLog ? (
+                    <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
+                        className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
+                        title="Xem chi tiết cuộc gọi"
+                      >
+                        {callMetadata?.callType === 'VIDEO' ? (
+                          <Video className="h-4 w-4 text-indigo-500" />
+                        ) : (
+                          <Phone className="h-4 w-4 text-indigo-500" />
+                        )}
+                        <span className="truncate">{getCallHistorySummary(msg)}</span>
+                      </button>
+
+                      {expandedCallLogId === msg.id && (
+                        <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
+                              <p className="m-0 mt-0.5">{formatCallLogTime(callMetadata?.startedAt)}</p>
+                            </div>
+                            <div>
+                              <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời lượng</p>
+                              <p className="m-0 mt-0.5">{getCallHistoryDetailStatus(callMetadata)}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3">
+                            <p className="m-0 mb-2 font-bold text-gray-700 dark:text-zinc-200">
+                              Thành viên đã tham gia ({callMetadata?.participantCount ?? callMetadata?.participants?.length ?? 0})
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {(callMetadata?.participants ?? []).map((participant: any) => (
+                                <span
+                                  key={participant.id}
+                                  className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                >
+                                  {participant.avatarUrl ? (
+                                    <img src={participant.avatarUrl} alt={participant.username} className="h-5 w-5 rounded-full object-cover" />
+                                  ) : (
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                                      {(participant.username || '?').charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span className="truncate">{participant.username}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {activeConversation && activeCallTarget && (
+                            <div className="mt-3 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => initiateCall(
+                                  activeConversation.id,
+                                  callMetadata?.callType === 'VIDEO' ? 'video' : 'voice',
+                                  activeCallTarget
+                                )}
+                                className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700"
+                              >
+                                {callMetadata?.callType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
+                                <span>Gọi lại</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
+                      <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                      <span className="min-w-0 truncate">
+                        <span className="font-semibold">
+                          {isMe ? 'Bạn' : msg.senderUsername}
+                        </span>{' '}
+                        {msg.content}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : msg.messageType === 'POLL' ? (
+                <div className="flex justify-center py-2">
+                  {(() => {
+                    const metadata = getPollMetadata(msg);
+                    const options = metadata.options ?? [];
+                    const totalVotes = options.reduce((sum: number, option: any) => sum + (option.voterIds?.length ?? 0), 0);
+                    const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
+                    const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
+                    const canManagePoll = msg.senderId === user?.id ||
+                      isGroupModeratorRole(currentGroupMembership?.role);
+
+                    if (msg.isRecalled) {
+                      return (
+                        <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-400">
+                          Bình chọn đã bị xóa
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                        <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                <ListChecks className="h-3.5 w-3.5" />
+                                <span>Bình chọn</span>
+                                {msg.isPinned && <span>• Đã ghim</span>}
+                              </div>
+                              <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">{metadata.question || msg.content}</h4>
+                              <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                                {metadata.allowMultiple ? 'Có thể chọn nhiều phương án' : 'Chọn một phương án'}
+                                {metadata.anonymous ? ' • Ẩn danh' : ''}
+                                {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              {canPinMessage(msg) && (
+                                <button
+                                  type="button"
+                                  onClick={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                                  className={`rounded-full p-1.5 transition ${
+                                    msg.isPinned
+                                      ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20'
+                                      : 'bg-gray-100 text-gray-505 hover:bg-gray-202 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                                  }`}
+                                  title={msg.isPinned ? 'Bỏ ghim bình chọn' : 'Ghim bình chọn'}
+                                >
+                                  {msg.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                              {isLocked && (
+                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-505 dark:bg-zinc-800 dark:text-zinc-400">
+                                  Đã khóa
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 px-4 py-3">
+                          {options.map((option: any) => {
+                            const voteCount = option.voterIds?.length ?? 0;
+                            const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                            const selected = Boolean(user?.id && option.voterIds?.includes(user.id));
+                            return (
+                              <div key={option.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                                <div className="flex w-full items-center gap-3 text-left">
+                                  <button
+                                    type="button"
+                                    onClick={() => !isLocked && handlePollVote(msg.id, option.id)}
+                                    disabled={isLocked || pollActionMessageId === msg.id}
+                                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+                                  >
+                                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                                      selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white dark:border-zinc-650 dark:bg-zinc-900'
+                                    }`}>
+                                      {selected && <Check className="h-3.5 w-3.5" />}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-905 dark:text-zinc-100">{option.text}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (!metadata.anonymous) {
+                                        setPollVoterDialog({ option, anonymous: Boolean(metadata.anonymous) });
+                                      }
+                                    }}
+                                    className={`shrink-0 text-xs font-bold ${metadata.anonymous ? 'cursor-default text-gray-400' : 'text-indigo-600 hover:underline dark:text-indigo-300'}`}
+                                    disabled={metadata.anonymous}
+                                    title={metadata.anonymous ? 'Bình chọn ẩn danh' : 'Xem người đã chọn'}
+                                  >
+                                    {voteCount} vote
+                                  </button>
+                                </div>
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
+                                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${percent}%` }} />
+                                </div>
+                                {!metadata.anonymous && (option.voters?.length ?? 0) > 0 && (
+                                  <div className="mt-2 flex items-center gap-1.5">
+                                    <div className="flex -space-x-2">
+                                      {(option.voters ?? []).slice(-6).map((voter: any) => (
+                                        voter.avatarUrl ? (
+                                          <img
+                                            key={voter.id}
+                                            src={voter.avatarUrl}
+                                            alt={voter.username}
+                                            className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-950"
+                                            title={voter.username}
+                                          />
+                                        ) : (
+                                          <div
+                                            key={voter.id}
+                                            className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-[10px] font-bold text-white shadow-sm dark:border-zinc-950"
+                                            title={voter.username}
+                                          >
+                                            {voter.username.charAt(0).toUpperCase()}
+                                          </div>
+                                        )
+                                      ))}
+                                    </div>
+                                    {(option.voters?.length ?? 0) > 6 && (
+                                      <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
+                                        +{(option.voters?.length ?? 0) - 6}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {metadata.allowAddOptions && !isLocked && (
+                          <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                            <input
+                              value={pollNewOptionText[msg.id] ?? ''}
+                              onChange={(event) => setPollNewOptionText((values) => ({ ...values, [msg.id]: event.target.value }))}
+                              placeholder="Thêm lựa chọn..."
+                              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddPollOption(msg.id)}
+                              disabled={pollActionMessageId === msg.id || !pollNewOptionText[msg.id]?.trim()}
+                              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                              Thêm
+                            </button>
+                          </div>
+                        )}
+
+                        {canManagePoll && !isLocked && (
+                          <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                            <button
+                              type="button"
+                              onClick={() => handleLockPoll(msg.id)}
+                              disabled={pollActionMessageId === msg.id}
+                              className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-205 dark:hover:bg-zinc-700"
+                            >
+                              Khóa bình chọn
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePoll(msg.id)}
+                              disabled={pollActionMessageId === msg.id}
+                              className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-505/20"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <>
+                  {/* Quoted Message / Reply Preview */}
+                  {msg.parentId && (
+                    <div className={`flex mb-1 max-w-[min(85vw,26rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
+                      <div 
+                        className="flex w-full bg-gray-100 dark:bg-zinc-800/80 rounded-lg border-l-[3px] border-indigo-400 dark:border-indigo-500 overflow-hidden hover:brightness-95 transition cursor-pointer"
+                        onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
+                      >
+                        <div className="px-3 py-1.5 flex items-center gap-1.5 overflow-hidden w-full">
+                          <CornerUpLeft className="w-3.5 h-3.5 text-gray-500 dark:text-zinc-400 shrink-0" />
+                          <span className="text-[12.5px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                            @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
+                          </span>
+                          <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-1.5 min-w-0">
+                            {parentMessage ? (
+                              parentMessage.isRecalled ? (
+                                <span className="truncate">Tin nhắn đã bị thu hồi</span>
+                              ) : (
+                                <>
+                                  {parentMessage.content && <span className="truncate">{stripMessageMarkup(parentMessage.content)}</span>}
+                                  {parentMessage.attachments && parentMessage.attachments.length > 0 && (
+                                    <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
+                                      {parentMessage.attachments[0].type === 'IMAGE' && (
+                                        <img src={parentMessage.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
+                                      )}
+                                      <span>
+                                        {parentMessage.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : parentMessage.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
+                                      </span>
+                                    </span>
+                                  )}
+                                </>
+                              )
+                            ) : (
+                              <span className="truncate">tin nhắn đã bị xoá hoặc không tìm thấy</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
+                    {/* Avatar */}
+                    {!isMe && (
+                      <div className="shrink-0 mt-0.5">
+                        {(() => {
+                          const avatarUrl = isGroupConversation
+                            ? getSenderAvatar(msg)
+                            : activeFriend.avatarUrl;
+                          const senderName = isGroupConversation
+                            ? getSenderUsername(msg)
+                            : activeFriend.username;
+                          return avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt={senderName}
+                              className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                              {senderName.charAt(0).toUpperCase()}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    <div className={`flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
+                      {showSenderName && (
+                        <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
+                          {getSenderUsername(msg)}
+                        </span>
+                      )}
+
+                      <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        {/* Context menu actions bar */}
+                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                          <div
+                            className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${
+                              isMe 
+                                ? 'right-0 md:right-[calc(100%+8px)] md:left-auto' 
+                                : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
+                            }`}
+                          >
+                            <MessageActionsBar
+                              message={msg}
+                              isMe={isMe}
+                              onReply={() => setReplyTo(msg)}
+                              onEdit={() => {
+                                setEditingMessageId(msg.id);
+                                setEditInputText(stripMessageMarkup(msg.content));
+                              }}
+                              onRecall={() => {
+                                if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
+                                  recallMessage(msg.id);
+                                }
+                              }}
+                              onDelete={() => {
+                                if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
+                                  deleteMessage(msg.id);
+                                }
+                              }}
+                              onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                              onShare={() => setSharingMessage(msg)}
+                              canPin={canPinMessage(msg)}
+                              canRecall={canRecallMessageInActiveConversation(msg)}
+                              onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                            />
+                          </div>
+                        )}
+
+                        {msg.forwardedFromMessageId && (
+                          <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
+                            <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-555 shrink-0" />
+                            <span className="truncate">
+                              Tin chuyển tiếp{msg.forwardedFromSenderUsername ? ` từ ${msg.forwardedFromSenderUsername}` : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {msg.isRecalled ? (
+                          <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
+                            isMe
+                              ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
+                              : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
+                          }`}>
+                            <span>Tin nhắn đã bị thu hồi</span>
+                          </div>
+                        ) : msg.attachments && msg.attachments.length > 0 ? (
+                          <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
+                            isMe
+                              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                          }`}>
+                            <div className={`grid gap-1.5 ${
+                              msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                            }`}>
+                              {msg.attachments.map((attachment: any, idx: number) => {
+                                if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
+                                  const mediaType = attachment.type;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={`${attachment.url}-${idx}`}
+                                      onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
+                                      className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
+                                        msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                      }`}
+                                      title={attachment.name || getFileName(attachment.url)}
+                                    >
+                                      {attachment.type === 'IMAGE' ? (
+                                        <img
+                                          src={attachment.url}
+                                          alt={attachment.name || 'Shared image'}
+                                          className="w-full max-h-72 object-cover"
+                                        />
+                                      ) : (
+                                        <div className="relative group w-full max-h-72 bg-black flex items-center justify-center aspect-video">
+                                          <video
+                                            src={attachment.url}
+                                            className="w-full max-h-72 bg-black"
+                                          />
+                                          <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/45 transition-colors">
+                                            <Video className="w-10 h-10 text-white drop-shadow-md" />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                } else {
+                                  return (
+                                    <a
+                                      key={`${attachment.url}-${idx}`}
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`block overflow-hidden bg-black/10 ${
+                                        msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                      }`}
+                                      title={attachment.name || getFileName(attachment.url)}
+                                    >
+                                      <div className={`flex items-center gap-3 p-3 min-w-[220px] ${
+                                        isMe ? 'text-white' : 'text-gray-900 dark:text-white'
+                                      }`}>
+                                        <FileText className="w-5 h-5 shrink-0" />
+                                        <span className="text-xs font-semibold truncate">
+                                          {attachment.name || getFileName(attachment.url)}
+                                        </span>
+                                      </div>
+                                    </a>
+                                  );
+                                }
+                              })}
+                            </div>
+                            {msg.content && (
+                              <div className="mt-2 px-1">
+                                {renderFormattedMessage(msg.content)}
+                              </div>
+                            )}
+                          </div>
+                        ) : msg.messageType === 'IMAGE' ? (
+                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                            <button
+                              type="button"
+                              onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
+                              className="w-full h-full p-0 border-0 outline-none"
+                            >
+                              <img
+                                src={msg.content}
+                                alt="Shared Image"
+                                className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
+                              />
+                            </button>
+                          </div>
+                        ) : msg.messageType === 'VIDEO' ? (
+                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
+                            <button
+                              type="button"
+                              onClick={() => setActiveMedia({ url: msg.content, type: 'VIDEO' })}
+                              className="relative group w-full p-0 border-0 outline-none flex items-center justify-center aspect-video cursor-zoom-in"
+                            >
+                              <video
+                                src={msg.content}
+                                className="max-h-72 w-full object-contain"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
+                                <Video className="w-10 h-10 text-white drop-shadow-md" />
+                              </div>
+                            </button>
+                          </div>
+                        ) : msg.messageType === 'FILE' ? (
+                          <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
+                            isMe
+                              ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                          }`}>
+                            <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="font-semibold text-xs truncate m-0" title={getFileName(msg.content)}>
+                                {getFileName(msg.content)}
+                              </p>
+                              <span className="text-[10px] opacity-75">
+                                Document File
+                              </span>
+                            </div>
+                            <a
+                              href={msg.content}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
+                              title="Download File"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </div>
+                        ) : editingMessageId === msg.id ? (
+                          /* Edit Mode */
+                          <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
+                            <textarea
+                              value={editInputText}
+                              onChange={(e) => {
+                                setEditInputText(e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${e.target.scrollHeight}px`;
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSaveEdit(msg.id);
+                                } else if (e.key === 'Escape') {
+                                  setEditingMessageId(null);
+                                }
+                              }}
+                              rows={2}
+                              className="w-full bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-xl px-3 py-2 text-sm text-gray-905 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 resize-none shadow-sm transition-colors leading-relaxed"
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMessageId(null)}
+                                className="px-3 py-1.5 text-xs font-semibold text-gray-650 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 rounded-lg transition-colors"
+                              >
+                                Huỷ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEdit(msg.id)}
+                                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 rounded-lg transition-colors shadow-sm"
+                              >
+                                Lưu
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
+                            isMe
+                              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                          }`}>
+                            <div className="m-0">
+                              {renderFormattedMessage(msg.content)}
+                              {msg.isEdited && (
+                                <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
+                                  (đã chỉnh sửa)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                          <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                            <MessageReactionButton
+                              onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                              align={isMe ? 'right' : 'left'}
+                              onOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Reactions list */}
+                        {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
+                          <div className="absolute -bottom-2 right-9 z-10">
+                            <MessageReactions
+                              reactions={msg.reactions}
+                              currentUserId={user?.id ?? ''}
+                              onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
+                              isMe={isMe}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status block */}
+                      <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${
+                        msg.reactions && msg.reactions.length > 0 ? 'pt-2.5' : ''
+                      } ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        {msg.isPinned && (
+                          <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
+                        )}
+                        <span>{formatMessageTime(msg.createdAt)}</span>
+                        {isMe && (
+                          <span className="inline-flex shrink-0" title={getMessageStatus(msg).toLowerCase()}>
+                            {getMessageStatus(msg) === 'SEEN' && (
+                              <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
+                            )}
+                            {getMessageStatus(msg) === 'DELIVERED' && (
+                              <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
+                            )}
+                            {getMessageStatus(msg) === 'SENT' && (
+                              <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                            )}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+
+        {hasMoreMessages && (
+          <div ref={sentinelRef} className="flex justify-center py-3 shrink-0 w-full select-none">
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold py-1.5 px-3 bg-indigo-50/50 dark:bg-zinc-800/50 border border-indigo-100/30 dark:border-zinc-800/40 rounded-full">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Đang tải tin nhắn cũ hơn...</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showScrollToLatest && (
+        <button
+          type="button"
+          onClick={() => scrollToBottom('smooth')}
+          className={`absolute bottom-28 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-100 bg-white/95 px-4 py-2 text-sm font-bold text-indigo-600 shadow-lg shadow-indigo-950/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-indigo-50 active:translate-y-0 dark:border-indigo-505/20 dark:bg-zinc-900/95 dark:text-indigo-305 dark:hover:bg-zinc-800 ${conversationInfoOffsetClass}`}
+          title="Cuộn về tin nhắn mới nhất"
+        >
+          <ArrowDown className="h-4 w-4" />
+          <span>Cuộn về tin nhắn mới nhất</span>
+        </button>
+      )}
+    </>
+  );
+};
