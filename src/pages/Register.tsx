@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { KeyRound, Mail, User as UserIcon, Eye, EyeOff, Loader2, MessageSquareCode, CheckCircle, MailWarning } from 'lucide-react';
+import { KeyRound, Mail, User as UserIcon, Eye, EyeOff, Loader2, CheckCircle, MailWarning } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuthStore } from '../store/authStore';
 import { registerSchema } from '../types/authRequests';

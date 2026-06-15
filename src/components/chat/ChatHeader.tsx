@@ -2,7 +2,6 @@ import React from 'react';
 import {
   ArrowLeft,
   Phone,
-  Headphones,
   Video,
   Sparkles,
   Loader2,
@@ -13,7 +12,6 @@ import {
   Users
 } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/time';
-import { useCallStore } from '../../store/callStore';
 
 interface ChatHeaderProps {
   selectConversation: (conversation: any) => void;

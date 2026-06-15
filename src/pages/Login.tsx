@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { KeyRound, Mail, Eye, EyeOff, Loader2, MessageSquareCode } from 'lucide-react';
+import { KeyRound, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { loginSchema } from '../types/authRequests';
 import type { LoginRequest } from '../types/authRequests';

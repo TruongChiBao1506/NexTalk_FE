@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Loader2, CheckCircle2, XCircle, MessageSquareCode } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
 import logo from '../assets/logo_notext.png';

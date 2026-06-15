@@ -4,6 +4,7 @@ import AgoraRTC, {
   type ICameraVideoTrack,
   type IMicrophoneAudioTrack,
   type ILocalVideoTrack,
+  type ILocalAudioTrack,
   type IAgoraRTCRemoteUser
 } from 'agora-rtc-sdk-ng';
 import { useChatStore } from './chatStore';
@@ -58,11 +59,9 @@ interface CallStore {
 
   agoraClient: IAgoraRTCClient | null;
   localAudioTrack: IMicrophoneAudioTrack | null;
+  localVideoTrack: ICameraVideoTrack | null;
   screenVideoTrack: ILocalVideoTrack | null;
   screenAudioTrack: ILocalAudioTrack | null;
-  isMicMuted: boolean;
-  isCameraMuted: boolean;
-  isSpeakerOn: boolean;
   isChannelSoundEnabled: boolean;
 
   initiateCall: (conversationId: string, callType: CallType, partner: any) => void;
