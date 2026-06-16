@@ -2533,9 +2533,9 @@ export const Chat = () => {
             <div className="w-16 h-16 rounded-2xl bg-indigo-600/10 dark:bg-discord-blurple/10 flex items-center justify-center text-indigo-650 dark:text-discord-blurple mb-4 border border-indigo-600/20 dark:border-discord-blurple/20 animate-bounce">
               <MessageSquare className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-bold text-gray-950 dark:text-white m-0">No Conversation Open</h3>
+            <h3 className="text-xl font-bold text-gray-950 dark:text-white m-0">Chưa chọn đoạn hội thoại</h3>
             <p className="text-sm text-gray-500 dark:text-discord-muted max-w-sm mt-2 leading-relaxed">
-              Pick a conversation from the sidebar, join a group chat, or head to Friends to start a new DM!
+              Chọn một đoạn hội thoại từ thanh bên, tham gia nhóm, hoặc vào mục Bạn bè để tạo cuộc trò chuyện mới!
             </p>
             <div className="flex gap-3 mt-4">
               <button
@@ -2543,14 +2543,14 @@ export const Chat = () => {
                 className="inline-flex items-center gap-1.5 py-2.5 px-5 rounded-2xl text-xs font-bold text-white bg-indigo-650 hover:bg-indigo-750 dark:bg-discord-blurple dark:hover:bg-indigo-650 transition-all duration-200 shadow-md active:scale-95"
               >
                 <Users className="w-4 h-4" />
-                <span>Friends</span>
+                <span>Bạn bè</span>
               </button>
               <button
                 onClick={() => setShowCreateGroupModal(true)}
                 className="inline-flex items-center gap-1.5 py-2.5 px-5 rounded-2xl text-xs font-bold text-indigo-700 dark:text-discord-blurple bg-indigo-50 dark:bg-discord-blurple/10 hover:bg-indigo-100 dark:hover:bg-discord-blurple/20 border border-indigo-200 dark:border-discord-blurple/30 transition-all duration-200 shadow active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                <span>New Group</span>
+                <span>Tạo nhóm mới</span>
               </button>
             </div>
           </div>
