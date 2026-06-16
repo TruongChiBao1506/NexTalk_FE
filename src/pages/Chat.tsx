@@ -27,6 +27,7 @@ import { useCallStore } from '../store/callStore';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
 import { formatRelativeTime } from '../utils/time';
+import { useStickerStore } from '../store/stickerStore';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata } from '../types/chat';
 import type { ChannelResponse, GroupResponse, GroupRole } from '../types/group';
@@ -131,6 +132,7 @@ export const Chat = () => {
 
 
   const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, pendingInvitations, fetchPendingInvitations } = useGroupStore();
+  const { fetchPacks: fetchStickers } = useStickerStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const { initiateCall, joinVoiceChannel, activeVoiceChannelId } = useCallStore();
 
@@ -139,9 +141,9 @@ export const Chat = () => {
     fetchNotifications,
   } = useNotificationStore();
 
-
-
-
+  useEffect(() => {
+    fetchStickers();
+  }, [fetchStickers]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
 
@@ -291,6 +293,8 @@ export const Chat = () => {
   } = useChatSearch({
     handleJumpToMessage
   });
+
+
 
   const resetUploadState = () => {
     setPendingAttachments((attachments) => {
@@ -788,7 +792,7 @@ export const Chat = () => {
 
   const handleSendSticker = (sticker: string) => {
     if (!canSendInActiveConversation) return;
-    sendStompMessage(sticker, 'TEXT', replyTo?.id ?? undefined);
+    sendStompMessage(sticker, 'STICKER', replyTo?.id ?? undefined);
     if (replyTo) {
       setReplyTo(null);
     }
@@ -1925,6 +1929,8 @@ export const Chat = () => {
         return `${prefix}[Video]`;
       case 'FILE':
         return `${prefix}[Tệp tin]`;
+      case 'STICKER':
+        return `${prefix}[Nhãn dán]`;
       case 'TEXT':
       default:
         return `${prefix}${stripHtml(msg.content)}`;

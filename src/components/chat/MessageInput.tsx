@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
+import { useStickerStore } from '../../store/stickerStore';
 
 const emojiOptions = [
   '😀', '😄', '😂', '😊', '😍', '😘', '😎', '🥳',
@@ -41,20 +42,6 @@ const emojiOptions = [
   '❤️', '💙', '🔥', '✨', '🎉', '✅', '⭐', '💯',
 ];
 
-const stickerOptions = [
-  { label: 'Cười lớn', value: '😂😂😂' },
-  { label: 'Yêu quá', value: '😍💖' },
-  { label: 'Đã rõ', value: '👍 OK!' },
-  { label: 'Cố lên', value: '💪 Cố lên!' },
-  { label: 'Chúc mừng', value: '🎉 Chúc mừng!' },
-  { label: 'Ôm một cái', value: '🤗' },
-  { label: 'Bất ngờ', value: '😮✨' },
-  { label: 'Buồn ngủ', value: '😴 Zzz' },
-  { label: 'Xin lỗi', value: '🙏 Xin lỗi nha' },
-  { label: 'Cảm ơn', value: '❤️ Cảm ơn!' },
-  { label: 'Tuyệt vời', value: '🌟 Tuyệt vời!' },
-  { label: 'Đang tới', value: '🏃 Đang tới!' },
-];
 
 interface MessageInputProps {
   handleSendMessage: (e: any) => void;
@@ -139,6 +126,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   canCreatePoll,
   setIsCreatePollOpen,
 }) => {
+  const { packs: stickerPacks, isLoading: isStickersLoading } = useStickerStore();
+  const [activePackId, setActivePackId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (stickerPacks.length > 0 && !activePackId) {
+      setActivePackId(stickerPacks[0].id);
+    }
+  }, [stickerPacks, activePackId]);
+
   return (
     <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
       {/* Reply Preview */}
@@ -472,19 +468,56 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {stickerOptions.map((sticker) => (
-                  <button
-                    key={sticker.label}
-                    type="button"
-                    onClick={() => handleSendSticker(sticker.value)}
-                    className="min-h-16 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/10"
-                    title={`Gửi ${sticker.label}`}
-                  >
-                    <span className="block text-xl">{sticker.value}</span>
-                    <span className="mt-1 block truncate text-[11px] font-semibold text-gray-500 dark:text-zinc-400">{sticker.label}</span>
-                  </button>
-                ))}
+              <div className="flex flex-col h-64">
+                {/* Pack Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-100 dark:border-zinc-800 shrink-0 custom-scrollbar">
+                  {stickerPacks.map((pack) => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      onClick={() => setActivePackId(pack.id)}
+                      className={`w-10 h-10 shrink-0 rounded-lg overflow-hidden transition-all border-2 ${
+                        activePackId === pack.id
+                          ? 'border-indigo-500 opacity-100 scale-105'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                      title={pack.name}
+                    >
+                      <img src={pack.coverUrl} alt={pack.name} className="w-full h-full object-cover bg-white" />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Stickers Grid */}
+                <div className="flex-1 overflow-y-auto mt-2 custom-scrollbar">
+                  {isStickersLoading ? (
+                    <div className="flex h-full items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : stickerPacks.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                      Chưa có nhãn dán nào.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 p-1">
+                      {stickerPacks.find(p => p.id === activePackId)?.stickers.map((sticker) => (
+                        <button
+                          key={sticker.id}
+                          type="button"
+                          onClick={() => handleSendSticker(sticker.stickerUrl)}
+                          className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl p-1.5 transition hover:bg-gray-100 dark:hover:bg-zinc-800 flex items-center justify-center active:scale-95 shrink-0"
+                        >
+                          <img 
+                            src={sticker.stickerUrl} 
+                            alt="Sticker" 
+                            className="max-w-full max-h-full object-contain pointer-events-none"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

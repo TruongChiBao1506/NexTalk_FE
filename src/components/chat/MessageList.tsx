@@ -782,6 +782,15 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </div>
                             )}
                           </div>
+                        ) : msg.messageType === 'STICKER' ? (
+                          <div className="w-[130px] h-[130px] shrink-0 select-none">
+                            <img
+                              src={msg.content}
+                              alt="Sticker"
+                              className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
+                              loading="lazy"
+                            />
+                          </div>
                         ) : msg.messageType === 'IMAGE' ? (
                           <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
                             <button

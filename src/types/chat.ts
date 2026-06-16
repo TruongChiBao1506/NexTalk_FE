@@ -23,7 +23,7 @@ export interface MessageRequest {
   parentId?: string;
 }
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER';
 
 export interface MessageAttachment {
   url: string;
