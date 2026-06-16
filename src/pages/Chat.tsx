@@ -206,6 +206,7 @@ export const Chat = () => {
     url: string | null;
     type: 'IMAGE' | 'VIDEO' | 'FILE';
     name: string;
+    size?: number;
     previewUrl: string | null;
     progress: number;
     isUploading: boolean;
@@ -359,8 +360,9 @@ export const Chat = () => {
         id: createAttachmentId(),
         url,
         type,
-        name: type === 'IMAGE' ? 'Ảnh từ liên kết' : 'Video từ liên kết',
-        previewUrl: type === 'IMAGE' ? url : null,
+        name: url.split('/').pop() || 'attachment',
+        size: 0,
+        previewUrl: url,
         progress: 100,
         isUploading: false,
       },
@@ -369,9 +371,7 @@ export const Chat = () => {
 
   const addUploadedFile = async (file: File) => {
     const type = getFileMessageType(file);
-    let maxSizeMB = 20; // default for documents (20MB)
-    if (type === 'IMAGE') maxSizeMB = 10; // 10MB limit for images
-    if (type === 'VIDEO') maxSizeMB = 50; // 50MB limit for videos
+    const maxSizeMB = 50; 
 
     if (file.size > maxSizeMB * 1024 * 1024) {
       window.alert(`Dung lượng ${type === 'IMAGE' ? 'ảnh' : type === 'VIDEO' ? 'video' : 'tệp tin'} "${file.name}" vượt quá giới hạn cho phép là ${maxSizeMB}MB.`);
@@ -388,6 +388,7 @@ export const Chat = () => {
         url: null,
         type,
         name: file.name,
+        size: file.size,
         previewUrl,
         progress: 0,
         isUploading: true,
@@ -1167,6 +1168,7 @@ export const Chat = () => {
           url: attachment.url,
           type: attachment.type,
           name: attachment.name,
+          size: attachment.size,
         }));
       const caption = currentMessage.trim();
       const messageType = attachments.length > 1 ? 'ALBUM' : attachments[0]?.type ?? 'ALBUM';

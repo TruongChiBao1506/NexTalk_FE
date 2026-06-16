@@ -29,6 +29,7 @@ export interface MessageAttachment {
   url: string;
   type: 'IMAGE' | 'VIDEO' | 'FILE';
   name?: string | null;
+  size?: number | null;
 }
 
 export interface MessageStatusResponse {

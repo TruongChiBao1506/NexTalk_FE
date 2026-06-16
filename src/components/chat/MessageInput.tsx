@@ -33,6 +33,7 @@ import {
   Video
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
+import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
 
 const emojiOptions = [
   '😀', '😄', '😂', '😊', '😍', '😘', '😎', '🥳',
@@ -207,8 +208,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     <Video className="w-7 h-7" />
                   </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-discord-blurple">
-                    <FileText className="w-7 h-7" />
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                    {(() => {
+                      const { icon: FileIcon, colorClass } = getFileIconConfig(attachment.name);
+                      return <FileIcon className={`w-7 h-7 ${colorClass}`} />;
+                    })()}
+                    {attachment.size != null && attachment.size > 0 && (
+                      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 max-w-full px-1 truncate">
+                        {formatFileSize(attachment.size)}
+                      </span>
+                    )}
                   </div>
                 )}
 

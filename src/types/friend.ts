@@ -20,3 +20,15 @@ export interface FriendshipAcceptRequest {
 export interface FriendshipAcceptResponse {
   conversationId: string;
 }
+
+export interface FriendSuggestionResponse {
+  id: string;
+  username: string;
+  email: string;
+  avatarUrl?: string;
+  bio?: string;
+  status: string;
+  lastSeen?: string;
+  mutualFriendsCount: number;
+  isRequestSent: boolean;
+}

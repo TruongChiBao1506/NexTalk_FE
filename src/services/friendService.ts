@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { FriendResponse, FriendshipAcceptResponse } from '../types/friend';
+import type { FriendResponse, FriendshipAcceptResponse, FriendSuggestionResponse } from '../types/friend';
 
 export const friendService = {
   async sendRequest(receiverId: string): Promise<ApiResponse<void>> {
@@ -25,6 +25,13 @@ export const friendService = {
     return response.data;
   },
 
+  async cancelRequest(receiverId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>('/friends/cancel', {
+      params: { receiverId }
+    });
+    return response.data;
+  },
+
   async getFriends(): Promise<ApiResponse<FriendResponse[]>> {
     const response = await apiClient.get<ApiResponse<FriendResponse[]>>('/friends');
     return response.data;
@@ -32,6 +39,11 @@ export const friendService = {
 
   async getPending(): Promise<ApiResponse<FriendResponse[]>> {
     const response = await apiClient.get<ApiResponse<FriendResponse[]>>('/friends/pending');
+    return response.data;
+  },
+
+  async getSuggestions(): Promise<ApiResponse<FriendSuggestionResponse[]>> {
+    const response = await apiClient.get<ApiResponse<FriendSuggestionResponse[]>>('/friends/suggestions');
     return response.data;
   }
 };

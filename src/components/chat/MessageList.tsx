@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pin,
   PinOff,
@@ -13,10 +13,34 @@ import {
   CheckCheck,
   Loader2,
   ArrowDown,
-  FileText
+  FileText,
+  Image,
+  PhoneMissed,
+  Users,
+  AlertTriangle,
+  Play,
+  Lock,
+  Hash,
+  Mic,
+  MicOff,
+  Settings,
+  Search,
+  Paperclip,
+  MoreVertical,
+  Reply,
+  Copy,
+  Trash2,
+  Edit2,
+  CornerUpRight,
+  FileQuestion,
+  Cloud,
+  Folder
 } from 'lucide-react';
+import { VideoThumbnail } from './VideoThumbnail';
+import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
 import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface MessageListProps {
   pinnedMessages: any[];
@@ -145,6 +169,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   editInputText,
   handleSaveEdit,
 }) => {
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    type: 'recall' | 'delete' | null;
+    messageId: string | null;
+  }>({ isOpen: false, type: null, messageId: null });
+
   return (
     <>
       {/* Pinned Messages Banner */}
@@ -630,14 +660,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 setEditInputText(stripMessageMarkup(msg.content));
                               }}
                               onRecall={() => {
-                                if (confirm('Bạn có chắc muốn thu hồi tin nhắn này?')) {
-                                  recallMessage(msg.id);
-                                }
+                                setConfirmState({ isOpen: true, type: 'recall', messageId: msg.id });
                               }}
                               onDelete={() => {
-                                if (confirm('Bạn có muốn xoá tin nhắn này ở phía bạn?')) {
-                                  deleteMessage(msg.id);
-                                }
+                                setConfirmState({ isOpen: true, type: 'delete', messageId: msg.id });
                               }}
                               onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
                               onShare={() => setSharingMessage(msg)}
@@ -677,56 +703,75 @@ export const MessageList: React.FC<MessageListProps> = ({
                               {msg.attachments.map((attachment: any, idx: number) => {
                                 if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
                                   const mediaType = attachment.type;
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={`${attachment.url}-${idx}`}
-                                      onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                      className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
-                                        msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                      }`}
-                                      title={attachment.name || getFileName(attachment.url)}
-                                    >
-                                      {attachment.type === 'IMAGE' ? (
+                                  if (attachment.type === 'IMAGE') {
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={`${attachment.url}-${idx}`}
+                                        onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
+                                        className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
+                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                        }`}
+                                        title={attachment.name || getFileName(attachment.url)}
+                                      >
                                         <img
                                           src={attachment.url}
                                           alt={attachment.name || 'Shared image'}
                                           className="w-full max-h-72 object-cover"
                                         />
-                                      ) : (
-                                        <div className="relative group w-full max-h-72 bg-black flex items-center justify-center aspect-video">
-                                          <video
-                                            src={attachment.url}
-                                            className="w-full max-h-72 bg-black"
-                                          />
-                                          <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/45 transition-colors">
-                                            <Video className="w-10 h-10 text-white drop-shadow-md" />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                } else {
-                                  return (
-                                    <a
-                                      key={`${attachment.url}-${idx}`}
-                                      href={attachment.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={`block overflow-hidden bg-black/10 ${
-                                        msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                      }`}
-                                      title={attachment.name || getFileName(attachment.url)}
-                                    >
-                                      <div className={`flex items-center gap-3 p-3 min-w-[220px] ${
-                                        isMe ? 'text-white' : 'text-gray-900 dark:text-white'
-                                      }`}>
-                                        <FileText className="w-5 h-5 shrink-0" />
-                                        <span className="text-xs font-semibold truncate">
-                                          {attachment.name || getFileName(attachment.url)}
-                                        </span>
+                                      </button>
+                                    );
+                                  } else {
+                                    return (
+                                      <div
+                                        key={`${attachment.url}-${idx}`}
+                                        className={`block overflow-hidden bg-black/10 w-full ${
+                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                        }`}
+                                        title={attachment.name || getFileName(attachment.url)}
+                                      >
+                                        <VideoThumbnail
+                                          src={attachment.url}
+                                          onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
+                                        />
                                       </div>
-                                    </a>
+                                    );
+                                  }
+                                } else {
+                                  const fileUrl = attachment.url;
+                                  const fileName = attachment.name || getFileName(attachment.url);
+                                  const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+
+                                  return (
+                                    <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
+                                      <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${
+                                        isMe
+                                          ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
+                                          : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                                      }`}>
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
+                                          <FileIcon className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-left">
+                                          <p className="font-semibold text-xs truncate m-0" title={fileName}>
+                                            {fileName}
+                                          </p>
+                                          {attachment.size != null && attachment.size > 0 && (
+                                            <span className={`text-[10px] mt-0.5 block ${isMe ? 'opacity-80' : 'text-gray-500 dark:text-gray-400'}`}>
+                                              {formatFileSize(attachment.size)}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => downloadFile(fileUrl, fileName)}
+                                          className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
+                                          title="Tải xuống"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
                                   );
                                 }
                               })}
@@ -752,48 +797,83 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </button>
                           </div>
                         ) : msg.messageType === 'VIDEO' ? (
-                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black">
-                            <button
-                              type="button"
-                              onClick={() => setActiveMedia({ url: msg.content, type: 'VIDEO' })}
-                              className="relative group w-full p-0 border-0 outline-none flex items-center justify-center aspect-video cursor-zoom-in"
-                            >
-                              <video
-                                src={msg.content}
-                                className="max-h-72 w-full object-contain"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors">
-                                <Video className="w-10 h-10 text-white drop-shadow-md" />
+                          <div className={`flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${
+                            isMe
+                              ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
+                              : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
+                          }`}>
+                            {(() => {
+                              const attachment = msg.attachments?.[0];
+                              const fileUrl = attachment?.url || msg.content;
+                              return (
+                                <VideoThumbnail 
+                                  src={fileUrl} 
+                                  onClick={() => setActiveMedia({ url: fileUrl, type: 'VIDEO' })}
+                                />
+                              );
+                            })()}
+                            {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
+                              <div className={`px-3 py-2 text-sm ${isMe ? 'bg-indigo-600/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
+                                {renderFormattedMessage(msg.content)}
                               </div>
-                            </button>
+                            )}
                           </div>
                         ) : msg.messageType === 'FILE' ? (
-                          <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm max-w-xs sm:max-w-sm ${
-                            isMe
-                              ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
-                          }`}>
-                            <div className={`p-2.5 rounded-xl shrink-0 ${isMe ? 'bg-indigo-750 dark:bg-discord-blurple/70 text-white' : 'bg-gray-300 dark:bg-zinc-800 text-indigo-600 dark:text-discord-blurple'}`}>
-                              <FileText className="w-5 h-5" />
+                          <div className="flex flex-col gap-1 w-full max-w-sm">
+                            <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${
+                              isMe
+                                ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
+                                : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
+                            }`}>
+                              {(() => {
+                                const attachment = msg.attachments?.[0];
+                                const fileUrl = attachment?.url || msg.content;
+                                const fileName = attachment?.name || getFileName(fileUrl);
+                                const fileSize = attachment?.size;
+                                const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+
+                                return (
+                                  <>
+                                    <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
+                                      <FileIcon className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-left flex flex-col justify-center">
+                                      <p className="font-semibold text-[13px] text-gray-900 dark:text-white truncate m-0 leading-tight" title={fileName}>
+                                        {fileName}
+                                      </p>
+                                      {fileSize != null && fileSize > 0 && (
+                                        <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                          {formatFileSize(fileSize)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => window.open(fileUrl, '_blank')}
+                                        className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
+                                        title="Mở"
+                                      >
+                                        <ExternalLink className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => downloadFile(fileUrl, fileName)}
+                                        className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
+                                        title="Tải xuống"
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="font-semibold text-xs truncate m-0" title={getFileName(msg.content)}>
-                                {getFileName(msg.content)}
-                              </p>
-                              <span className="text-[10px] opacity-75">
-                                Document File
-                              </span>
-                            </div>
-                            <a
-                              href={msg.content}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
-                              title="Download File"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
+                            {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
+                              <div className={`px-2 py-1 text-sm ${isMe ? 'text-indigo-900 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                {renderFormattedMessage(msg.content)}
+                              </div>
+                            )}
                           </div>
                         ) : editingMessageId === msg.id ? (
                           /* Edit Mode */
@@ -925,6 +1005,27 @@ export const MessageList: React.FC<MessageListProps> = ({
           <span>Cuộn về tin nhắn mới nhất</span>
         </button>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.type === 'recall' ? 'Thu hồi tin nhắn' : 'Xóa tin nhắn'}
+        description={
+          confirmState.type === 'recall'
+            ? 'Bạn có chắc chắn muốn thu hồi tin nhắn này không? Hành động này sẽ xóa tin nhắn ở cả phía bạn và người nhận.'
+            : 'Bạn có chắc chắn muốn xóa tin nhắn này không? Tin nhắn sẽ chỉ bị xóa ở phía bạn.'
+        }
+        confirmLabel={confirmState.type === 'recall' ? 'Thu hồi' : 'Xóa'}
+        variant="danger"
+        onCancel={() => setConfirmState({ isOpen: false, type: null, messageId: null })}
+        onConfirm={() => {
+          if (confirmState.type === 'recall' && confirmState.messageId) {
+            recallMessage(confirmState.messageId);
+          } else if (confirmState.type === 'delete' && confirmState.messageId) {
+            deleteMessage(confirmState.messageId);
+          }
+          setConfirmState({ isOpen: false, type: null, messageId: null });
+        }}
+      />
     </>
   );
 };

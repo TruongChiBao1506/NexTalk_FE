@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users } from 'lucide-react';
+import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
@@ -19,13 +19,17 @@ export const Friends = () => {
   const {
     friends,
     pending,
+    suggestions,
     isLoading: isStoreLoading,
     error: storeError,
     fetchFriends,
     fetchPending,
+    fetchSuggestions,
     acceptRequest,
     rejectRequest,
     removeFriend,
+    sendFriendRequest,
+    cancelFriendRequest,
   } = useFriendStore();
   const {
     groups,
@@ -40,7 +44,6 @@ export const Friends = () => {
 
   const { getOrCreatePrivateConversation, fetchConversations, selectConversation } = useChatStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>('friends');
-  const [chatRequests] = useState<any[]>([]);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [removeFriendConfirm, setRemoveFriendConfirm] = useState<{ id: string; username: string } | null>(null);
@@ -49,12 +52,13 @@ export const Friends = () => {
     fetchConversations();
     fetchPending();
     fetchPendingInvitations();
+    fetchSuggestions();
     if (activeTab === 'friends') {
       fetchFriends();
     } else if (activeTab === 'groups') {
       fetchGroups();
     }
-  }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations]);
+  }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations, fetchSuggestions]);
 
   const handleAccept = async (senderId: string) => {
     setActionLoadingId(senderId);
@@ -70,6 +74,18 @@ export const Friends = () => {
   const handleReject = async (senderId: string) => {
     setActionLoadingId(senderId);
     await rejectRequest(senderId);
+    setActionLoadingId(null);
+  };
+
+  const handleSendSuggestionRequest = async (userId: string) => {
+    setActionLoadingId(userId);
+    await sendFriendRequest(userId);
+    setActionLoadingId(null);
+  };
+
+  const handleCancelSuggestionRequest = async (userId: string) => {
+    setActionLoadingId(userId);
+    await cancelFriendRequest(userId);
     setActionLoadingId(null);
   };
 
@@ -421,6 +437,72 @@ export const Friends = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {suggestions && suggestions.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="font-bold text-gray-950 dark:text-white text-lg m-0">Những người bạn có thể biết</h3>
+                    <div className="h-px flex-1 bg-gray-200 dark:bg-zinc-800"></div>
+                  </div>
+                  <div className="space-y-3">
+                    {suggestions.map((suggestion) => (
+                      <div
+                        key={suggestion.id}
+                        className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4 hover:shadow-md transition"
+                      >
+                        {suggestion.avatarUrl ? (
+                          <img
+                            src={suggestion.avatarUrl}
+                            alt={suggestion.username}
+                            className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
+                            {suggestion.username?.charAt(0)?.toUpperCase() ?? '?'}
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0 text-left">
+                          <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{suggestion.username}</h4>
+                          <p className="text-sm text-gray-550 dark:text-discord-muted truncate mt-0.5 flex items-center gap-1.5">
+                            <Users className="w-4 h-4" />
+                            Có {suggestion.mutualFriendsCount} bạn chung
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {suggestion.isRequestSent ? (
+                            <button
+                              onClick={() => handleCancelSuggestionRequest(suggestion.id)}
+                              disabled={actionLoadingId === suggestion.id}
+                              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-red-50 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-red-500/10 dark:hover:text-red-400 active:scale-[0.98] disabled:opacity-50 border border-transparent hover:border-red-200 dark:hover:border-red-500/20"
+                            >
+                              {actionLoadingId === suggestion.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                                <>
+                                  <X className="w-4 h-4" />
+                                  Hủy yêu cầu
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSendSuggestionRequest(suggestion.id)}
+                              disabled={actionLoadingId === suggestion.id}
+                              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-lg bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 active:scale-[0.98] disabled:opacity-50 border border-indigo-200 dark:border-indigo-500/20"
+                            >
+                              {actionLoadingId === suggestion.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                                <>
+                                  <UserPlus className="w-4 h-4" />
+                                  Thêm bạn bè
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
