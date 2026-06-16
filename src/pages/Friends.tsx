@@ -11,7 +11,7 @@ import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 
-type ActiveTab = 'friends' | 'groups' | 'pending' | 'chat_requests';
+type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations' | 'chat_requests';
 
 export const Friends = () => {
   const navigate = useNavigate();
@@ -29,9 +29,13 @@ export const Friends = () => {
   } = useFriendStore();
   const {
     groups,
+    pendingInvitations,
     isLoading: isGroupLoading,
     error: groupError,
     fetchGroups,
+    fetchPendingInvitations,
+    acceptInvitation,
+    rejectInvitation,
   } = useGroupStore();
 
   const { getOrCreatePrivateConversation, fetchConversations, selectConversation } = useChatStore();
@@ -44,12 +48,13 @@ export const Friends = () => {
   useEffect(() => {
     fetchConversations();
     fetchPending();
+    fetchPendingInvitations();
     if (activeTab === 'friends') {
       fetchFriends();
     } else if (activeTab === 'groups') {
       fetchGroups();
     }
-  }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending]);
+  }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations]);
 
   const handleAccept = async (senderId: string) => {
     setActionLoadingId(senderId);
@@ -65,6 +70,18 @@ export const Friends = () => {
   const handleReject = async (senderId: string) => {
     setActionLoadingId(senderId);
     await rejectRequest(senderId);
+    setActionLoadingId(null);
+  };
+
+  const handleAcceptGroupInvite = async (inviteId: string) => {
+    setActionLoadingId(inviteId);
+    await acceptInvitation(inviteId);
+    setActionLoadingId(null);
+  };
+
+  const handleRejectGroupInvite = async (inviteId: string) => {
+    setActionLoadingId(inviteId);
+    await rejectInvitation(inviteId);
     setActionLoadingId(null);
   };
 
@@ -192,6 +209,21 @@ export const Friends = () => {
               {pending.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
                   {pending.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('group_invitations')}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
+                activeTab === 'group_invitations'
+                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Lời mời vào nhóm
+              {pendingInvitations.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {pendingInvitations.length}
                 </span>
               )}
             </button>
@@ -385,6 +417,61 @@ export const Friends = () => {
                           title="Từ chối"
                         >
                           {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Từ chối'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'group_invitations' ? (
+            <div className="space-y-3">
+              {pendingInvitations.length === 0 ? (
+                <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
+                  <p className="text-gray-500 dark:text-discord-muted m-0">Không có lời mời vào nhóm nào.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingInvitations.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4"
+                    >
+                      {invite.groupAvatarUrl ? (
+                        <img
+                          src={invite.groupAvatarUrl}
+                          alt={invite.groupName}
+                          className="w-12 h-12 rounded-2xl object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
+                          {invite.groupName?.charAt(0)?.toUpperCase() ?? '#'}
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0 text-left">
+                        <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{invite.groupName}</h4>
+                        <p className="text-xs text-gray-500 dark:text-discord-muted truncate mt-0.5">
+                          Được mời bởi <strong>{invite.inviterUsername}</strong>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleAcceptGroupInvite(invite.id)}
+                          disabled={actionLoadingId === invite.id}
+                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50"
+                          title="Chấp nhận"
+                        >
+                          {actionLoadingId === invite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đồng ý'}
+                        </button>
+                        <button
+                          onClick={() => handleRejectGroupInvite(invite.id)}
+                          disabled={actionLoadingId === invite.id}
+                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:scale-[0.98] disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                          title="Từ chối"
+                        >
+                          {actionLoadingId === invite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Từ chối'}
                         </button>
                       </div>
                     </div>

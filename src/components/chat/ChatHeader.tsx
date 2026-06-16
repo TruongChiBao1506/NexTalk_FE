@@ -109,7 +109,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               {isGroupConversation ? (
                 <>
                   <Users className="w-3 h-3" />
-                  <span>{activeGroup?.memberCount ?? '?'} members</span>
+                  <span>{activeGroup?.memberCount ?? '?'} thành viên</span>
                 </>
               ) : activeFriend ? (
                 <>
@@ -179,9 +179,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsConversationInfoOpen(false);
             }}
             title="Tìm kiếm tin nhắn"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-              isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-            }`}
+            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+              }`}
           >
             <Search className="w-4 h-4" />
           </button>
@@ -211,9 +210,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsConversationInfoOpen(false);
             }}
             title="Tin nhắn đã ghim"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-              isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-            }`}
+            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+              }`}
           >
             <Pin className="w-4 h-4" />
           </button>
@@ -227,9 +225,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsPinnedPanelOpen(false);
             }}
             title="Thông tin hội thoại"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-550 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${
-              isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
-            }`}
+            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-550 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+              }`}
           >
             <Info className="w-4 h-4" />
           </button>

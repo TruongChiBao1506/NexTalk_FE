@@ -7,6 +7,9 @@ import type {
   AddMemberRequest,
   UpdateMemberRoleRequest,
   ChannelResponse,
+  GroupInvitationResponse,
+  InviteUserRequest,
+  PublicGroupInfoResponse,
 } from '../types/group';
 
 export const groupService = {
@@ -67,6 +70,56 @@ export const groupService = {
 
   async getChannels(groupId: string): Promise<ApiResponse<ChannelResponse[]>> {
     const response = await apiClient.get<ApiResponse<ChannelResponse[]>>(`/groups/${groupId}/channels`);
+    return response.data;
+  },
+
+  async inviteMember(groupId: string, data: InviteUserRequest): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/${groupId}/invites`, data);
+    return response.data;
+  },
+
+  async getPendingInvitations(): Promise<ApiResponse<GroupInvitationResponse[]>> {
+    const response = await apiClient.get<ApiResponse<GroupInvitationResponse[]>>(`/groups/invites/pending`);
+    return response.data;
+  },
+
+  async getWaitingApprovals(groupId: string): Promise<ApiResponse<GroupInvitationResponse[]>> {
+    const response = await apiClient.get<ApiResponse<GroupInvitationResponse[]>>(`/groups/${groupId}/invites/waiting`);
+    return response.data;
+  },
+
+  async acceptInvitation(inviteId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/invites/${inviteId}/accept`);
+    return response.data;
+  },
+
+  async rejectInvitation(inviteId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/invites/${inviteId}/reject`);
+    return response.data;
+  },
+
+  async approveMember(inviteId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/invites/${inviteId}/approve`);
+    return response.data;
+  },
+
+  async declineMember(inviteId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/invites/${inviteId}/decline`);
+    return response.data;
+  },
+
+  async refreshInviteCode(groupId: string): Promise<ApiResponse<GroupResponse>> {
+    const response = await apiClient.post<ApiResponse<GroupResponse>>(`/groups/${groupId}/invite-code/refresh`);
+    return response.data;
+  },
+
+  async getPublicGroupInfoByInviteCode(code: string): Promise<ApiResponse<PublicGroupInfoResponse>> {
+    const response = await apiClient.get<ApiResponse<PublicGroupInfoResponse>>(`/groups/join/${code}/info`);
+    return response.data;
+  },
+
+  async joinGroupByInviteCode(code: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/join/${code}`);
     return response.data;
   },
 };

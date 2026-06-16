@@ -15,6 +15,7 @@ import { fileService } from '../services/fileService';
 import { chatRequestService } from '../services/chatRequestService';
 import { messageService } from '../services/messageService';
 import { blockService } from '../services/blockService';
+import { groupService } from '../services/groupService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
@@ -36,7 +37,8 @@ import type { User as AuthUser } from '../types/auth';
 import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
 import { SearchPanel } from '../components/chat/SearchPanel';
 import { ShareMessageModal } from '../components/chat/ShareMessageModal';
-import { InviteGroupMembersModal } from '../components/chat/InviteGroupMembersModal';
+import InviteGroupMembersModal from '../components/chat/InviteGroupMembersModal';
+import GroupApprovalsModal from '../components/chat/GroupApprovalsModal';
 import { ConversationList } from '../components/chat/ConversationList';
 import { SidebarNavigation } from '../components/chat/SidebarNavigation';
 import { SidebarHeader } from '../components/chat/SidebarHeader';
@@ -99,6 +101,9 @@ export const Chat = () => {
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+  const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
+  const [isGroupApprovalsModalOpen, setIsGroupApprovalsModalOpen] = useState(false);
+  const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
 
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
   const [conversationArchiveMessages, setConversationArchiveMessages] = useState<MessageResponse[]>([]);
@@ -125,7 +130,7 @@ export const Chat = () => {
 
 
 
-  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, pendingInvitations, fetchPendingInvitations } = useGroupStore();
   const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const { initiateCall, joinVoiceChannel, activeVoiceChannelId } = useCallStore();
 
@@ -152,10 +157,10 @@ export const Chat = () => {
 
   const getGroupConversationId = (group: GroupResponse) =>
     group.conversationId
-      ?? group.channels?.find((channel) => channel.name === 'Chung')?.conversationId
-      ?? group.channels?.find((channel) => channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
-      ?? group.channels?.[0]?.conversationId
-      ?? null;
+    ?? group.channels?.find((channel) => channel.name === 'Chung')?.conversationId
+    ?? group.channels?.find((channel) => channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
+    ?? group.channels?.[0]?.conversationId
+    ?? null;
 
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
   const [incomingChatRequests, setIncomingChatRequests] = useState<ChatRequestResponse[]>([]);
@@ -174,6 +179,8 @@ export const Chat = () => {
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState('');
   const [isRenamingGroup, setIsRenamingGroup] = useState(false);
+  const [isTogglingApproval, setIsTogglingApproval] = useState(false);
+  const [isRefreshingInviteCode, setIsRefreshingInviteCode] = useState(false);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
 
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
@@ -212,14 +219,14 @@ export const Chat = () => {
   const quillRef = useRef<Quill | null>(null);
 
   const {
-    isInviteMembersOpen, setIsInviteMembersOpen,
+    isInviteMembersOpen: _, setIsInviteMembersOpen: __,
     isProfileModalOpen, setIsProfileModalOpen,
     isCreatePollOpen, setIsCreatePollOpen,
     pollVoterDialog, setPollVoterDialog,
     activeMedia, setActiveMedia,
     sharingMessage, setSharingMessage,
     isPinModalOpen, setIsPinModalOpen,
-    searchProfileUser, setSearchProfileUser,
+    searchProfileUser: ___, setSearchProfileUser: ____,
     confirmDialog, setConfirmDialog,
   } = useChatModals();
 
@@ -512,6 +519,7 @@ export const Chat = () => {
         fetchGroups(),
         fetchFriends(),
         fetchPending(),
+        fetchPendingInvitations(),
         fetchNotifications(),
         fetchIncomingChatRequests(),
       ]);
@@ -534,7 +542,7 @@ export const Chat = () => {
 
     reloadChatData();
 
-    const handleResume = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
 
       const now = Date.now();
@@ -544,15 +552,19 @@ export const Chat = () => {
       reloadChatData(true);
     };
 
-    window.addEventListener('focus', handleResume);
-    document.addEventListener('visibilitychange', handleResume);
+    const handleOnline = () => {
+      reloadChatData(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
 
     return () => {
       cancelled = true;
-      window.removeEventListener('focus', handleResume);
-      document.removeEventListener('visibilitychange', handleResume);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
     };
-  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications, fetchPending]);
+  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications, fetchPending, fetchPendingInvitations]);
 
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
@@ -728,23 +740,23 @@ export const Chat = () => {
     (
       activeConversation.type === 'PRIVATE'
         ? !activePrivateChatBlocked && (
-            activeConversation.canSendMessages === true ||
-            (
-              activeConversation.canSendMessages === undefined &&
-              (!activePrivateFriendId || friends.some((friend) => friend.id === activePrivateFriendId))
-            )
+          activeConversation.canSendMessages === true ||
+          (
+            activeConversation.canSendMessages === undefined &&
+            (!activePrivateFriendId || friends.some((friend) => friend.id === activePrivateFriendId))
           )
+        )
         : true
     );
   const messagePlaceholder = activePrivateChatBlockedByMe
     ? 'Bạn đã chặn người này. Bỏ chặn để tiếp tục nhắn tin.'
     : activePrivateChatBlockedMe
-    ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn.'
-    : !canSendInActiveConversation
-    ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
-    : activeConversation?.type === 'GROUP'
-    ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
-    : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
+      ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn.'
+      : !canSendInActiveConversation
+        ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
+        : activeConversation?.type === 'GROUP'
+          ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
+          : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
 
 
 
@@ -797,16 +809,16 @@ export const Chat = () => {
   const applyQuillInlineFormat = (format: string, value: unknown = true) => {
     const quill = quillRef.current;
     if (!quill) return;
-    
+
     let range = quill.getSelection();
     if (!range) {
       quill.focus();
       range = quill.getSelection(true);
     }
-    
+
     const currentValue = range ? quill.getFormat(range)[format] : false;
     quill.format(format, currentValue ? false : value);
-    
+
     const newRange = quill.getSelection();
     if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
@@ -828,18 +840,18 @@ export const Chat = () => {
   const applyLineFormat = (prefix: string) => {
     const quill = quillRef.current;
     if (!quill) return;
-    
+
     let range = quill.getSelection();
     if (!range) {
       quill.focus();
       range = quill.getSelection(true);
     }
-    
+
     const format = prefix.trim() === '>' ? 'blockquote' : 'list';
     const value = prefix.trim() === '>' ? true : 'bullet';
     const currentFormat = range ? quill.getFormat(range)[format] : false;
     quill.format(format, currentFormat === value ? false : value);
-    
+
     const newRange = quill.getSelection();
     if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
@@ -847,16 +859,16 @@ export const Chat = () => {
   const applyNumberedList = () => {
     const quill = quillRef.current;
     if (!quill) return;
-    
+
     let range = quill.getSelection();
     if (!range) {
       quill.focus();
       range = quill.getSelection(true);
     }
-    
+
     const currentValue = range ? quill.getFormat(range).list : false;
     quill.format('list', currentValue === 'ordered' ? false : 'ordered');
-    
+
     const newRange = quill.getSelection();
     if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
@@ -864,15 +876,15 @@ export const Chat = () => {
   const applyAlignment = (align: 'left' | 'center' | 'right') => {
     const quill = quillRef.current;
     if (!quill) return;
-    
+
     let range = quill.getSelection();
     if (!range) {
       quill.focus();
       range = quill.getSelection(true);
     }
-    
+
     quill.format('align', align === 'left' ? false : align);
-    
+
     const newRange = quill.getSelection();
     if (newRange) setActiveFormats(quill.getFormat(newRange));
   };
@@ -907,12 +919,12 @@ export const Chat = () => {
             const currentConversation = useChatStore.getState().activeConversation;
             const currentUser = useAuthStore.getState().user;
             const values: { id: string, value: string }[] = [];
-            
+
             if (currentConversation) {
               if (currentConversation.type === 'GROUP') {
                 values.push({ id: 'all', value: 'Mọi người' });
               }
-              
+
               currentConversation.members.forEach((member) => {
                 if (member.id !== currentUser?.id) {
                   values.push({ id: member.id, value: member.username });
@@ -1015,9 +1027,9 @@ export const Chat = () => {
     // Check if the content is an HTML string generated by Quill (always wraps in block elements like <p>)
     if (/^\s*<(p|div|ul|ol|h[1-6]|blockquote)/i.test(content)) {
       return (
-        <div 
+        <div
           className="m-0 whitespace-pre-wrap break-words ql-editor !p-0 !min-h-0"
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { ADD_ATTR: ['target'] }) }} 
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content, { ADD_ATTR: ['target'] }) }}
         />
       );
     }
@@ -1549,18 +1561,26 @@ export const Chat = () => {
 
   const handleKickGroupMember = async (member: GroupResponse['members'][number]) => {
     if (!activeGroup || !canKickGroupMember(member) || groupMemberActionId) return;
-    if (!window.confirm(`Kick ${member.username} khỏi nhóm ${activeGroup.name}?`)) return;
 
-    setGroupMemberActionId(member.userId);
-    try {
-      const ok = await removeGroupMember(activeGroup.id, member.userId);
-      if (ok) {
-        await fetchGroups();
-        await fetchConversations();
-      }
-    } finally {
-      setGroupMemberActionId(null);
-    }
+    setConfirmDialog({
+      title: 'Mời khỏi nhóm',
+      description: `Kick ${member.username} khỏi nhóm ${activeGroup.name}?`,
+      confirmLabel: 'Đồng ý',
+      variant: 'danger',
+      onConfirm: async () => {
+        setGroupMemberActionId(member.userId);
+        try {
+          const ok = await removeGroupMember(activeGroup.id, member.userId);
+          if (ok) {
+            await fetchGroups();
+            await fetchConversations();
+          }
+        } finally {
+          setGroupMemberActionId(null);
+          setConfirmDialog(null);
+        }
+      },
+    });
   };
 
   const getConversationTitle = (conversationId: string) => {
@@ -1612,9 +1632,7 @@ export const Chat = () => {
     : null;
   const activeChannel = activeGroup?.channels?.find(ch => ch.conversationId === activeConversation?.id) || null;
   const canInviteToActiveGroup = Boolean(
-    activeGroup?.members.some((member) =>
-      member.userId === user?.id && isGroupModeratorRole(member.role)
-    )
+    activeGroup?.members.some((member) => member.userId === user?.id)
   );
   const currentGroupMembership = activeGroup?.members.find((member) => member.userId === user?.id) ?? null;
   const currentUserIsGroupOwner = isGroupLeaderRole(currentGroupMembership?.role);
@@ -1652,7 +1670,7 @@ export const Chat = () => {
     if (date.toDateString() === today.toDateString()) {
       return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return 'Hôm qua';
     }
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
@@ -1802,6 +1820,40 @@ export const Chat = () => {
   const getPollMetadata = (msg: MessageResponse): PollMetadata => (msg.metadata ?? {}) as PollMetadata;
 
 
+  const handleToggleRequiresApproval = async () => {
+    if (!activeGroup || isTogglingApproval) return;
+    setIsTogglingApproval(true);
+    try {
+      const updatedGroup = await updateGroup(activeGroup.id, { requiresApproval: !activeGroup.requiresApproval });
+      if (!updatedGroup) {
+        window.alert('Không thể thay đổi cài đặt nhóm. Vui lòng thử lại.');
+      } else {
+        await fetchGroups();
+      }
+    } catch (err: any) {
+      window.alert(err.message || 'Lỗi khi cập nhật nhóm');
+    } finally {
+      setIsTogglingApproval(false);
+    }
+  };
+
+  const handleRefreshInviteCode = async () => {
+    if (!activeGroup || isRefreshingInviteCode) return;
+    setIsRefreshingInviteCode(true);
+    try {
+      const response = await groupService.refreshInviteCode(activeGroup.id);
+      if (response.success && response.data) {
+        await fetchGroups();
+      } else {
+        window.alert('Không thể làm mới liên kết. Vui lòng thử lại.');
+      }
+    } catch (err: any) {
+      window.alert(err.message || 'Lỗi khi làm mới liên kết');
+    } finally {
+      setIsRefreshingInviteCode(false);
+    }
+  };
+
   const submitCreatePoll = async (data: CreatePollData) => {
     if (!activeConversation || activeConversation.type !== 'GROUP') return;
     const options = data.options.map((option) => option.trim()).filter(Boolean);
@@ -1852,7 +1904,7 @@ export const Chat = () => {
       const metadata = getPollMetadata(msg);
       return `${prefix}[Bình chọn] ${metadata.question || msg.content}`;
     }
-    
+
     if (msg.attachments && msg.attachments.length > 0) {
       const caption = msg.content ? ` ${msg.content}` : '';
       if (msg.attachments.length > 1) {
@@ -1927,8 +1979,8 @@ export const Chat = () => {
     item.kind === 'dm'
       ? item.conv
       : getGroupConversationId(item.group)
-      ? conversations.find((conversation) => conversation.id === getGroupConversationId(item.group)) ?? null
-      : null;
+        ? conversations.find((conversation) => conversation.id === getGroupConversationId(item.group)) ?? null
+        : null;
 
   const isUnifiedPinned = (item: UnifiedItem) => getUnifiedConversation(item)?.pinned === true;
 
@@ -1962,7 +2014,7 @@ export const Chat = () => {
     .slice(0, 8);
   const sharedDataResults = globalMessageResults
     .filter((message) => messageHasSearchableAttachment(message) || messageHasSharedLink(message))
-const visibleMessages = messages.filter((message) => !isMessageExpired(message));
+  const visibleMessages = messages.filter((message) => !isMessageExpired(message));
 
   const getSenderAvatar = (msg: MessageResponse): string | null => {
     if (!activeConversation) return null;
@@ -1990,7 +2042,7 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
 
       {/* Column 1: Sidebar Navigation */}
       <SidebarNavigation
-        pendingCount={pending.length}
+        pendingCount={pending.length + pendingInvitations.length}
         handleLogout={handleLogout}
         isLoggingOut={isLoggingOut}
       />
@@ -2124,7 +2176,7 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
                       <p className="text-sm leading-relaxed text-gray-500 dark:text-zinc-400 mb-6">
                         Kết nối âm thanh để trò chuyện với mọi người trong kênh này.
                       </p>
-                      <button 
+                      <button
                         onClick={() => joinVoiceChannel(activeChannel.id, activeChannel.name, activeConversation.id)}
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow transition"
                       >
@@ -2137,198 +2189,198 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
               </div>
             ) : (
               <>
-            <MessageList
-              pinnedMessages={pinnedMessages}
-              handleJumpToMessage={handleJumpToMessage}
-              canPinMessage={canPinMessage}
-              togglePinMessage={togglePinMessage}
-              activeConversationSummary={activeConversationSummary}
-              conversationInfoOffsetClass={conversationInfoOffsetClass}
-              messagesContainerRef={messagesContainerRef}
-              handleMessagesScroll={handleMessagesScroll}
-              messagesEndRef={messagesEndRef}
-              visibleMessages={visibleMessages}
-              user={user}
-              isGroupConversation={isGroupConversation}
-              activeFriend={activeFriend}
-              getSenderAvatar={getSenderAvatar}
-              getSenderUsername={getSenderUsername}
-              hoveredMessageId={hoveredMessageId}
-              setHoveredMessageId={setHoveredMessageId}
-              activeMenuMessageId={activeMenuMessageId}
-              setActiveMenuMessageId={setActiveMenuMessageId}
-              reactToMessage={reactToMessage}
-              setReplyTo={setReplyTo}
-              setEditingMessageId={setEditingMessageId}
-              setEditInputText={setEditInputText}
-              recallMessage={recallMessage}
-              deleteMessage={deleteMessage}
-              setSharingMessage={setSharingMessage}
-              canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
-              getFileName={getFileName}
-              setActiveMedia={setActiveMedia}
-              renderFormattedMessage={renderFormattedMessage}
-              stripMessageMarkup={stripMessageMarkup}
-              formatMessageTime={formatMessageTime}
-              getMessageStatus={getMessageStatus}
-              formatDividerDate={formatDividerDate}
-              isCallHistoryMessage={isCallHistoryMessage}
-              getCallHistorySummary={getCallHistorySummary}
-              getCallHistoryDetailStatus={getCallHistoryDetailStatus}
-              formatCallLogTime={formatCallLogTime}
-              expandedCallLogId={expandedCallLogId}
-              setExpandedCallLogId={setExpandedCallLogId}
-              activeCallTarget={activeCallTarget}
-              initiateCall={initiateCall}
-              activeConversation={activeConversation}
-              getPollMetadata={getPollMetadata}
-              handlePollVote={handlePollVote}
-              pollActionMessageId={pollActionMessageId}
-              setPollVoterDialog={setPollVoterDialog}
-              pollNewOptionText={pollNewOptionText}
-              setPollNewOptionText={setPollNewOptionText}
-              handleAddPollOption={handleAddPollOption}
-              handleLockPoll={handleLockPoll}
-              handleDeletePoll={handleDeletePoll}
-              hasMoreMessages={hasMoreMessages}
-              sentinelRef={sentinelRef}
-              showScrollToLatest={showScrollToLatest}
-              scrollToBottom={scrollToBottom}
-              isGroupModeratorRole={isGroupModeratorRole}
-              currentGroupMembership={currentGroupMembership}
-              editingMessageId={editingMessageId}
-              editInputText={editInputText}
-              handleSaveEdit={handleSaveEdit}
-            />
+                <MessageList
+                  pinnedMessages={pinnedMessages}
+                  handleJumpToMessage={handleJumpToMessage}
+                  canPinMessage={canPinMessage}
+                  togglePinMessage={togglePinMessage}
+                  activeConversationSummary={activeConversationSummary}
+                  conversationInfoOffsetClass={conversationInfoOffsetClass}
+                  messagesContainerRef={messagesContainerRef}
+                  handleMessagesScroll={handleMessagesScroll}
+                  messagesEndRef={messagesEndRef}
+                  visibleMessages={visibleMessages}
+                  user={user}
+                  isGroupConversation={isGroupConversation}
+                  activeFriend={activeFriend}
+                  getSenderAvatar={getSenderAvatar}
+                  getSenderUsername={getSenderUsername}
+                  hoveredMessageId={hoveredMessageId}
+                  setHoveredMessageId={setHoveredMessageId}
+                  activeMenuMessageId={activeMenuMessageId}
+                  setActiveMenuMessageId={setActiveMenuMessageId}
+                  reactToMessage={reactToMessage}
+                  setReplyTo={setReplyTo}
+                  setEditingMessageId={setEditingMessageId}
+                  setEditInputText={setEditInputText}
+                  recallMessage={recallMessage}
+                  deleteMessage={deleteMessage}
+                  setSharingMessage={setSharingMessage}
+                  canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
+                  getFileName={getFileName}
+                  setActiveMedia={setActiveMedia}
+                  renderFormattedMessage={renderFormattedMessage}
+                  stripMessageMarkup={stripMessageMarkup}
+                  formatMessageTime={formatMessageTime}
+                  getMessageStatus={getMessageStatus}
+                  formatDividerDate={formatDividerDate}
+                  isCallHistoryMessage={isCallHistoryMessage}
+                  getCallHistorySummary={getCallHistorySummary}
+                  getCallHistoryDetailStatus={getCallHistoryDetailStatus}
+                  formatCallLogTime={formatCallLogTime}
+                  expandedCallLogId={expandedCallLogId}
+                  setExpandedCallLogId={setExpandedCallLogId}
+                  activeCallTarget={activeCallTarget}
+                  initiateCall={initiateCall}
+                  activeConversation={activeConversation}
+                  getPollMetadata={getPollMetadata}
+                  handlePollVote={handlePollVote}
+                  pollActionMessageId={pollActionMessageId}
+                  setPollVoterDialog={setPollVoterDialog}
+                  pollNewOptionText={pollNewOptionText}
+                  setPollNewOptionText={setPollNewOptionText}
+                  handleAddPollOption={handleAddPollOption}
+                  handleLockPoll={handleLockPoll}
+                  handleDeletePoll={handleDeletePoll}
+                  hasMoreMessages={hasMoreMessages}
+                  sentinelRef={sentinelRef}
+                  showScrollToLatest={showScrollToLatest}
+                  scrollToBottom={scrollToBottom}
+                  isGroupModeratorRole={isGroupModeratorRole}
+                  currentGroupMembership={currentGroupMembership}
+                  editingMessageId={editingMessageId}
+                  editInputText={editInputText}
+                  handleSaveEdit={handleSaveEdit}
+                />
 
-            {selectedChatRequest && (
-              <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
-                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                    <div className="flex items-start gap-2">
-                      <Shield className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>Tin nhắn từ người chưa kết bạn. Chỉ trả lời khi bạn nhận ra người gửi.</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    {selectedChatRequest.sender.avatarUrl ? (
-                      <img
-                        src={selectedChatRequest.sender.avatarUrl}
-                        alt={selectedChatRequest.sender.username}
-                        className="h-12 w-12 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white">
-                        {selectedChatRequest.sender.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="m-0 truncate text-sm font-bold text-gray-950 dark:text-white">
-                            {selectedChatRequest.sender.username}
-                          </h3>
-                          <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">
-                            {selectedChatRequest.sender.email}
-                          </p>
+                {selectedChatRequest && (
+                  <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
+                      <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                        <div className="flex items-start gap-2">
+                          <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>Tin nhắn từ người chưa kết bạn. Chỉ trả lời khi bạn nhận ra người gửi.</span>
                         </div>
-                        <span className="shrink-0 text-xs text-gray-400 dark:text-zinc-500">
-                          {formatConversationTime(selectedChatRequest.createdAt)}
-                        </span>
                       </div>
 
-                      <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
-                        {selectedChatRequest.message}
-                      </div>
+                      <div className="flex items-start gap-3">
+                        {selectedChatRequest.sender.avatarUrl ? (
+                          <img
+                            src={selectedChatRequest.sender.avatarUrl}
+                            alt={selectedChatRequest.sender.username}
+                            className="h-12 w-12 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white">
+                            {selectedChatRequest.sender.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSendFriendRequestFromSearch(selectedChatRequest.sender.id)}
-                          disabled={friendRequestActionId === selectedChatRequest.sender.id || sentFriendRequestIds.includes(selectedChatRequest.sender.id)}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {friendRequestActionId === selectedChatRequest.sender.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                          {sentFriendRequestIds.includes(selectedChatRequest.sender.id) ? 'Đã gửi' : 'Kết bạn'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAcceptChatRequest(selectedChatRequest.id)}
-                          disabled={chatRequestActionId === selectedChatRequest.id}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
-                        >
-                          {chatRequestActionId === selectedChatRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                          Nhắn tin
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleReportChatRequest(selectedChatRequest)}
-                          disabled={chatRequestActionId === selectedChatRequest.id}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                        >
-                          <Shield className="h-4 w-4" />
-                          Báo xấu
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBlockChatRequest(selectedChatRequest)}
-                          disabled={chatRequestActionId === selectedChatRequest.id}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                        >
-                          <Lock className="h-4 w-4" />
-                          Chặn
-                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="m-0 truncate text-sm font-bold text-gray-950 dark:text-white">
+                                {selectedChatRequest.sender.username}
+                              </h3>
+                              <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">
+                                {selectedChatRequest.sender.email}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-xs text-gray-400 dark:text-zinc-500">
+                              {formatConversationTime(selectedChatRequest.createdAt)}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
+                            {selectedChatRequest.message}
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSendFriendRequestFromSearch(selectedChatRequest.sender.id)}
+                              disabled={friendRequestActionId === selectedChatRequest.sender.id || sentFriendRequestIds.includes(selectedChatRequest.sender.id)}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {friendRequestActionId === selectedChatRequest.sender.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                              {sentFriendRequestIds.includes(selectedChatRequest.sender.id) ? 'Đã gửi' : 'Kết bạn'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptChatRequest(selectedChatRequest.id)}
+                              disabled={chatRequestActionId === selectedChatRequest.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                            >
+                              {chatRequestActionId === selectedChatRequest.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                              Nhắn tin
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReportChatRequest(selectedChatRequest)}
+                              disabled={chatRequestActionId === selectedChatRequest.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                            >
+                              <Shield className="h-4 w-4" />
+                              Báo xấu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBlockChatRequest(selectedChatRequest)}
+                              disabled={chatRequestActionId === selectedChatRequest.id}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              <Lock className="h-4 w-4" />
+                              Chặn
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Message Input */}
-            <MessageInput
-              handleSendMessage={handleSendMessage}
-              conversationInfoOffsetClass={conversationInfoOffsetClass}
-              replyTo={replyTo}
-              setReplyTo={setReplyTo}
-              activePrivateChatBlocked={activePrivateChatBlocked}
-              activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
-              canSendInActiveConversation={canSendInActiveConversation}
-              pendingAttachments={pendingAttachments}
-              resetUploadState={resetUploadState}
-              removePendingAttachment={removePendingAttachment}
-              isTakingScreenshot={isTakingScreenshot}
-              handleTakeScreenshot={handleTakeScreenshot}
-              setIsFormattingOpen={setIsFormattingOpen}
-              isFormattingOpen={isFormattingOpen}
-              applyInlineFormat={applyInlineFormat}
-              activeFormats={activeFormats}
-              applyLineFormat={applyLineFormat}
-              applyNumberedList={applyNumberedList}
-              applyAlignment={applyAlignment as any}
-              clearFormatting={clearFormatting}
-              isEmojiStickerOpen={isEmojiStickerOpen}
-              emojiStickerTab={emojiStickerTab}
-              setEmojiStickerTab={setEmojiStickerTab}
-              setIsEmojiStickerOpen={setIsEmojiStickerOpen}
-              handleSelectEmoji={handleSelectEmoji}
-              handleSendSticker={handleSendSticker}
-              fileInputRef={fileInputRef}
-              handleFileChange={handleFileChange}
-              groupAvatarInputRef={groupAvatarInputRef as any}
-              handleGroupAvatarSelected={handleGroupAvatarSelected}
-              handleInputPaste={handleInputPaste}
-              handleSendBlockedChatRequest={handleSendBlockedChatRequest}
-              quillEditorRef={quillEditorRef}
-              handleSendThumbsUp={handleSendThumbsUp}
-              inputMessage={inputMessage}
-              isSendingBlockedChatRequest={isSendingBlockedChatRequest}
-              isGroupConversation={isGroupConversation}
-              canCreatePoll={isGroupModeratorRole(currentGroupMembership?.role)}
-              setIsCreatePollOpen={setIsCreatePollOpen}
-            />
+                {/* Message Input */}
+                <MessageInput
+                  handleSendMessage={handleSendMessage}
+                  conversationInfoOffsetClass={conversationInfoOffsetClass}
+                  replyTo={replyTo}
+                  setReplyTo={setReplyTo}
+                  activePrivateChatBlocked={activePrivateChatBlocked}
+                  activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+                  canSendInActiveConversation={canSendInActiveConversation}
+                  pendingAttachments={pendingAttachments}
+                  resetUploadState={resetUploadState}
+                  removePendingAttachment={removePendingAttachment}
+                  isTakingScreenshot={isTakingScreenshot}
+                  handleTakeScreenshot={handleTakeScreenshot}
+                  setIsFormattingOpen={setIsFormattingOpen}
+                  isFormattingOpen={isFormattingOpen}
+                  applyInlineFormat={applyInlineFormat}
+                  activeFormats={activeFormats}
+                  applyLineFormat={applyLineFormat}
+                  applyNumberedList={applyNumberedList}
+                  applyAlignment={applyAlignment as any}
+                  clearFormatting={clearFormatting}
+                  isEmojiStickerOpen={isEmojiStickerOpen}
+                  emojiStickerTab={emojiStickerTab}
+                  setEmojiStickerTab={setEmojiStickerTab}
+                  setIsEmojiStickerOpen={setIsEmojiStickerOpen}
+                  handleSelectEmoji={handleSelectEmoji}
+                  handleSendSticker={handleSendSticker}
+                  fileInputRef={fileInputRef}
+                  handleFileChange={handleFileChange}
+                  groupAvatarInputRef={groupAvatarInputRef as any}
+                  handleGroupAvatarSelected={handleGroupAvatarSelected}
+                  handleInputPaste={handleInputPaste}
+                  handleSendBlockedChatRequest={handleSendBlockedChatRequest}
+                  quillEditorRef={quillEditorRef}
+                  handleSendThumbsUp={handleSendThumbsUp}
+                  inputMessage={inputMessage}
+                  isSendingBlockedChatRequest={isSendingBlockedChatRequest}
+                  isGroupConversation={isGroupConversation}
+                  canCreatePoll={isGroupModeratorRole(currentGroupMembership?.role)}
+                  setIsCreatePollOpen={setIsCreatePollOpen}
+                />
               </>
             )}
 
@@ -2346,6 +2398,7 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
               fetchPinnedMessages={fetchPinnedMessages}
               canInviteToActiveGroup={canInviteToActiveGroup}
               setIsInviteMembersOpen={setIsInviteMembersOpen}
+              setIsGroupApprovalsModalOpen={setIsGroupApprovalsModalOpen}
               isLoadingConversationArchive={isLoadingConversationArchive}
               activeConversationMedia={activeConversationMedia}
               handleJumpToMessage={handleJumpToMessage}
@@ -2369,6 +2422,8 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
               handleToggleBlockUser={handleToggleBlockUser}
               blockActionLoading={blockActionLoading}
               activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+              isRefreshingInviteCode={isRefreshingInviteCode}
+              handleRefreshInviteCode={handleRefreshInviteCode}
             />
           </>
         ) : selectedChatRequest ? (
@@ -2554,7 +2609,7 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
         />
       )}
 
-      {isProfileModalOpen && activeConversation && activeFriend && (
+      {isProfileModalOpen && activeConversation && (activeFriend || isGroupConversation) && (
         <ProfileModal
           setIsProfileModalOpen={setIsProfileModalOpen}
           activeConversation={activeConversation}
@@ -2570,6 +2625,10 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
           setIsEditingGroupName={setIsEditingGroupName}
           isRenamingGroup={isRenamingGroup}
           handleRenameGroup={handleRenameGroup}
+          isTogglingApproval={isTogglingApproval}
+          handleToggleRequiresApproval={handleToggleRequiresApproval}
+          isRefreshingInviteCode={isRefreshingInviteCode}
+          handleRefreshInviteCode={handleRefreshInviteCode}
           handleLeaveActiveGroup={handleLeaveActiveGroup}
           profileActionLoading={profileActionLoading}
           canInviteToActiveGroup={canInviteToActiveGroup}
@@ -2631,6 +2690,24 @@ const visibleMessages = messages.filter((message) => !isMessageExpired(message))
             setPendingHideId(null);
           }}
           onClose={() => setIsPinModalOpen(false)}
+        />
+      )}
+
+      {isInviteMembersOpen && activeGroup && (
+        <InviteGroupMembersModal
+          group={activeGroup}
+          onClose={() => setIsInviteMembersOpen(false)}
+          onInvited={(updatedGroup) => {
+            fetchGroups();
+            fetchConversations();
+          }}
+        />
+      )}
+
+      {isGroupApprovalsModalOpen && activeGroup && (
+        <GroupApprovalsModal
+          group={activeGroup}
+          onClose={() => setIsGroupApprovalsModalOpen(false)}
         />
       )}
 

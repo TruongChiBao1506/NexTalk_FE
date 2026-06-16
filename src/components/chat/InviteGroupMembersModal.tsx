@@ -12,7 +12,7 @@ interface InviteGroupMembersModalProps {
 }
 
 export const InviteGroupMembersModal = ({ group, onClose, onInvited }: InviteGroupMembersModalProps) => {
-  const addMember = useGroupStore((state) => state.addMember);
+  const inviteMember = useGroupStore((state) => state.inviteMember);
   const groups = useGroupStore((state) => state.groups);
   const currentGroup = groups.find((item) => item.id === group.id) || group;
 
@@ -71,7 +71,7 @@ export const InviteGroupMembersModal = ({ group, onClose, onInvited }: InviteGro
     let latestGroup: GroupResponse | null = null;
 
     for (const userId of Array.from(selectedIds)) {
-      const ok = await addMember(group.id, userId);
+      const ok = await inviteMember(group.id, userId);
       if (!ok) {
         setError('Có thành viên chưa được mời thành công. Vui lòng thử lại.');
         setIsInviting(false);

@@ -18,6 +18,8 @@ interface ProfileModalProps {
   setIsEditingGroupName: (val: boolean) => void;
   isRenamingGroup: boolean;
   handleRenameGroup: () => void;
+  isTogglingApproval: boolean;
+  handleToggleRequiresApproval: () => void;
   handleLeaveActiveGroup: () => void;
   profileActionLoading: boolean;
   formatProfileDate: (date: any) => string;
@@ -57,6 +59,8 @@ export const ProfileModal = ({
   setIsEditingGroupName,
   isRenamingGroup,
   handleRenameGroup,
+  isTogglingApproval,
+  handleToggleRequiresApproval,
   handleLeaveActiveGroup,
   profileActionLoading,
   formatProfileDate,
@@ -209,6 +213,33 @@ export const ProfileModal = ({
                 <p className="mt-1 truncate text-sm font-semibold">{formatProfileDate(activeGroup?.createdAt || activeConversation.createdAt)}</p>
               </div>
             </div>
+
+            {activeGroup && currentUserIsGroupOwner && (
+              <div className="mt-5 flex items-center justify-between gap-2 rounded-xl bg-gray-50 p-3 text-left dark:bg-discord-black/35">
+                <div>
+                  <p className="m-0 text-sm font-semibold">Phê duyệt thành viên</p>
+                  <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">Quản trị viên cần duyệt khi có người mới tham gia.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleRequiresApproval}
+                  disabled={isTogglingApproval}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    activeGroup.requiresApproval ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-300 dark:bg-zinc-700'
+                  }`}
+                  role="switch"
+                  aria-checked={activeGroup.requiresApproval}
+                >
+                  <span className="sr-only">Toggle requires approval</span>
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      activeGroup.requiresApproval ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
             <div className="mt-5 text-left">
               <div className="mb-2 flex items-center justify-between">

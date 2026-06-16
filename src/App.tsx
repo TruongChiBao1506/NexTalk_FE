@@ -8,6 +8,7 @@ import ResetPassword from './pages/ResetPassword';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import Friends from './pages/Friends';
+import JoinGroup from './pages/JoinGroup';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
@@ -117,6 +118,7 @@ function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/friends" element={<Friends />} />
+            <Route path="/g/:code" element={<JoinGroup />} />
           </Route>
 
           {/* Fallback Redirects */}

@@ -740,9 +740,14 @@ export const ConversationList = ({
                     </div>
                   )}
                   {/* Group badge */}
-                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center">
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center shadow-sm">
                     <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
                   </div>
+                  {g.pendingApprovalCount > 0 && g.ownerId === user?.id && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
+                      {g.pendingApprovalCount}
+                    </span>
+                  )}
                 </div>
 
                 {/* Content */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Pin,
@@ -17,7 +17,8 @@ import {
   PinOff,
   Trash2,
   Loader2,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
 
@@ -35,6 +36,7 @@ interface ConversationInfoPanelProps {
   fetchPinnedMessages: (conversationId: string) => Promise<any>;
   canInviteToActiveGroup: boolean;
   setIsInviteMembersOpen: (open: boolean) => void;
+  setIsGroupApprovalsModalOpen: (open: boolean) => void;
   isLoadingConversationArchive: boolean;
   activeConversationMedia: any[];
   handleJumpToMessage: (messageId: string) => void;
@@ -58,6 +60,8 @@ interface ConversationInfoPanelProps {
   handleToggleBlockUser: () => void;
   blockActionLoading: boolean;
   activePrivateChatBlockedByMe: boolean;
+  isRefreshingInviteCode: boolean;
+  handleRefreshInviteCode: () => void;
 }
 
 export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
@@ -74,6 +78,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   fetchPinnedMessages,
   canInviteToActiveGroup,
   setIsInviteMembersOpen,
+  setIsGroupApprovalsModalOpen,
   isLoadingConversationArchive,
   activeConversationMedia,
   handleJumpToMessage,
@@ -97,7 +102,20 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   handleToggleBlockUser,
   blockActionLoading,
   activePrivateChatBlockedByMe,
+  isRefreshingInviteCode,
+  handleRefreshInviteCode,
 }) => {
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyInviteLink = () => {
+    if (!activeGroup?.inviteCode) return;
+    const link = `${window.location.origin}/g/${activeGroup.inviteCode}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    });
+  };
+
   return (
     <aside
       className={`absolute bottom-0 right-0 top-14 z-30 w-full border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 dark:border-zinc-800 dark:bg-discord-mid md:w-[360px] xl:w-[25vw] ${
@@ -180,6 +198,21 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 <BellOff className="h-4 w-4" />
                 <span>Tắt báo</span>
               </button>
+              {isGroupConversation && activeGroup?.requiresApproval && currentUserIsGroupOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsGroupApprovalsModalOpen(true)}
+                  className="relative flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Chờ duyệt</span>
+                  {activeGroup.pendingApprovalCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
+                      {activeGroup.pendingApprovalCount}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!isGroupConversation || !canInviteToActiveGroup}
@@ -198,6 +231,53 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               </button>
             </div>
           </section>
+
+          {isGroupConversation && activeGroup && (
+            <section className="mt-6">
+              <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Liên kết tham gia nhóm</h4>
+              {activeGroup.inviteCode ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600 ring-1 ring-inset ring-gray-200 dark:bg-zinc-900/50 dark:text-zinc-300 dark:ring-zinc-800">
+                    <span className="truncate">{`${window.location.origin}/g/${activeGroup.inviteCode}`}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyInviteLink}
+                      className="flex-1 rounded-lg bg-indigo-50 py-2 text-center text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
+                    >
+                      {copiedLink ? 'Đã copy' : 'Copy liên kết'}
+                    </button>
+                    {currentUserIsGroupOwner && (
+                      <button
+                        type="button"
+                        onClick={handleRefreshInviteCode}
+                        disabled={isRefreshingInviteCode}
+                        title="Làm mới liên kết"
+                        className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-gray-100 py-2 text-center text-xs font-semibold text-gray-600 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                      >
+                        {isRefreshingInviteCode ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Làm mới'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 rounded-lg bg-gray-50 px-3 py-4 text-center ring-1 ring-inset ring-gray-200 dark:bg-zinc-900/50 dark:ring-zinc-800">
+                  <p className="m-0 text-xs italic text-gray-500 dark:text-zinc-400">Nhóm chưa có liên kết. Vui lòng tạo liên kết mới.</p>
+                  {currentUserIsGroupOwner && (
+                    <button
+                      type="button"
+                      onClick={handleRefreshInviteCode}
+                      disabled={isRefreshingInviteCode}
+                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50 dark:bg-discord-blurple dark:hover:bg-indigo-500"
+                    >
+                      {isRefreshingInviteCode ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Tạo liên kết'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="mt-6">
             <div className="mb-2 flex items-center justify-between">

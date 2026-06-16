@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { groupService } from '../services/groupService';
-import type { GroupResponse, CreateGroupRequest, GroupRole, UpdateGroupRequest } from '../types/group';
+import type { GroupResponse, CreateGroupRequest, GroupRole, UpdateGroupRequest, GroupInvitationResponse } from '../types/group';
 
 const dedupeGroups = (groups: GroupResponse[]) => {
   const byId = new Map<string, GroupResponse>();
@@ -12,6 +12,7 @@ const dedupeGroups = (groups: GroupResponse[]) => {
 
 interface GroupState {
   groups: GroupResponse[];
+  pendingInvitations: GroupInvitationResponse[];
   isLoading: boolean;
   error: string | null;
 
@@ -26,10 +27,16 @@ interface GroupState {
   createChannel: (groupId: string, data: { name: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
   updateChannel: (groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
   deleteChannel: (groupId: string, channelId: string) => Promise<boolean>;
+
+  fetchPendingInvitations: () => Promise<void>;
+  acceptInvitation: (inviteId: string) => Promise<boolean>;
+  rejectInvitation: (inviteId: string) => Promise<boolean>;
+  inviteMember: (groupId: string, userId: string) => Promise<boolean>;
 }
 
 export const useGroupStore = create<GroupState>((set, get) => ({
   groups: [],
+  pendingInvitations: [],
   isLoading: false,
   error: null,
 
@@ -187,6 +194,61 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       return true;
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete channel' });
+    }
+    return false;
+  },
+
+  fetchPendingInvitations: async () => {
+    try {
+      const response = await groupService.getPendingInvitations();
+      if (response.success && response.data) {
+        set({ pendingInvitations: response.data });
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch pending invitations', err);
+    }
+  },
+
+  acceptInvitation: async (inviteId: string) => {
+    try {
+      const response = await groupService.acceptInvitation(inviteId);
+      if (response.success) {
+        set((state) => ({
+          pendingInvitations: state.pendingInvitations.filter(i => i.id !== inviteId)
+        }));
+        get().fetchGroups(); // Refresh groups
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Failed to accept invitation', err);
+    }
+    return false;
+  },
+
+  rejectInvitation: async (inviteId: string) => {
+    try {
+      const response = await groupService.rejectInvitation(inviteId);
+      if (response.success) {
+        set((state) => ({
+          pendingInvitations: state.pendingInvitations.filter(i => i.id !== inviteId)
+        }));
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Failed to reject invitation', err);
+    }
+    return false;
+  },
+
+  inviteMember: async (groupId: string, userId: string) => {
+    try {
+      const response = await groupService.inviteMember(groupId, { userId });
+      if (response.success) {
+        get().fetchGroups(); // Just to refresh if any direct add occurred
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Failed to invite member', err);
     }
     return false;
   },

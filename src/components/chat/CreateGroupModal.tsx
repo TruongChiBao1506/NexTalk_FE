@@ -14,6 +14,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
   const { createGroup, isLoading } = useGroupStore();
 
   const [groupName, setGroupName] = useState('');
+  const [requiresApproval, setRequiresApproval] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
   const [friends, setFriends] = useState<FriendResponse[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,6 +57,7 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
     const group = await createGroup({
       name: groupName.trim(),
       memberIds: Array.from(selectedIds),
+      requiresApproval,
     });
 
     if (group) {
@@ -107,6 +109,23 @@ export const CreateGroupModal = ({ onClose, onCreated }: CreateGroupModalProps) 
                 maxLength={50}
                 className="w-full bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-discord-blurple transition"
               />
+            </div>
+
+            {/* Requires Approval */}
+            <div className="flex items-center gap-3">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={requiresApproval}
+                  onChange={(e) => setRequiresApproval(e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600 dark:peer-checked:bg-discord-blurple"></div>
+              </label>
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-white m-0">Bật duyệt thành viên</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 m-0">Người được mời phải được Admin duyệt mới có thể vào nhóm</p>
+              </div>
             </div>
 
             {/* Members */}
