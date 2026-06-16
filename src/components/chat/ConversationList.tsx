@@ -29,6 +29,7 @@
   Plus,
   PinOff,
   Link,
+  BellRing,
 } from "lucide-react";
 import React from "react";
 
@@ -600,9 +601,23 @@ export const ConversationList = ({
                           : "text-gray-400 dark:text-zinc-500"
                       }`}
                     >
-                      {lastMsg
-                        ? formatLastMessage(lastMsg, false)
-                        : "Bắt đầu cuộc trò chuyện"}
+                      {lastMsg ? (
+                        <>
+                          {lastMsg.metadata?.priority === 'IMPORTANT' && (
+                            <span className="text-rose-600 dark:text-rose-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
+                              <AlertTriangle className="w-3.5 h-3.5" /> [Quan trọng]
+                            </span>
+                          )}
+                          {lastMsg.metadata?.priority === 'URGENT' && (
+                            <span className="text-amber-600 dark:text-amber-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
+                              <BellRing className="w-3.5 h-3.5" /> [Khẩn cấp]
+                            </span>
+                          )}
+                          {formatLastMessage(lastMsg, false)}
+                        </>
+                      ) : (
+                        "Bắt đầu cuộc trò chuyện"
+                      )}
                     </p>
                     <div className="relative shrink-0">
                       <button
@@ -785,9 +800,23 @@ export const ConversationList = ({
                           : "text-gray-400 dark:text-zinc-500"
                       }`}
                     >
-                      {lastMsg
-                        ? formatLastMessage(lastMsg, true)
-                        : `${g.memberCount} thành viên`}
+                      {lastMsg ? (
+                        <>
+                          {lastMsg.metadata?.priority === 'IMPORTANT' && (
+                            <span className="text-rose-600 dark:text-rose-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
+                              <AlertTriangle className="w-3.5 h-3.5" /> [Quan trọng]
+                            </span>
+                          )}
+                          {lastMsg.metadata?.priority === 'URGENT' && (
+                            <span className="text-amber-600 dark:text-amber-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
+                              <BellRing className="w-3.5 h-3.5" /> [Khẩn cấp]
+                            </span>
+                          )}
+                          {formatLastMessage(lastMsg, true)}
+                        </>
+                      ) : (
+                        `${g.memberCount} thành viên`
+                      )}
                     </p>
                     {groupConversationId && groupConversation && (
                       <div className="flex items-center gap-0.5 shrink-0">

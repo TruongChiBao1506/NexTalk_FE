@@ -281,12 +281,15 @@ export const MessageList: React.FC<MessageListProps> = ({
           const renderPriorityBadge = () => {
             if (!msg.metadata?.priority) return null;
             const isImportant = msg.metadata.priority === 'IMPORTANT';
+            
+            const textColor = isImportant 
+              ? (isMe ? 'text-rose-200 dark:text-rose-300' : 'text-rose-600 dark:text-rose-500')
+              : (isMe ? 'text-amber-200 dark:text-amber-300' : 'text-amber-600 dark:text-amber-500');
+
             return (
-              <div className="flex mb-1.5 shrink-0">
-                <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] uppercase font-bold tracking-wider shadow-sm border ${
-                  isImportant ? 'bg-white text-rose-600 border-rose-200 dark:bg-zinc-900 dark:border-rose-900/50' : 'bg-white text-amber-600 border-amber-200 dark:bg-zinc-900 dark:border-amber-900/50'
-                }`}>
-                  {isImportant ? <AlertTriangle className="w-3 h-3" /> : <BellRing className="w-3 h-3" />}
+              <div className="flex mb-1 shrink-0">
+                <div className={`inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider drop-shadow-sm ${textColor}`}>
+                  {isImportant ? <AlertTriangle className="w-3.5 h-3.5" /> : <BellRing className="w-3.5 h-3.5" />}
                   {isImportant ? 'Quan trọng' : 'Khẩn cấp'}
                 </div>
               </div>

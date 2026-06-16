@@ -312,7 +312,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       } focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
         
         {/* Top Toolbar Row */}
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10">
+        <div className={`flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10 ${
+          (pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[15px]'
+        }`}>
           <div className="flex items-center gap-0.5">
             {/* Sticker/Smile */}
             <button
@@ -626,8 +628,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         )}
 
-        {/* Input Text Area Row */}
-        <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid">
+        {/* Input Box Row */}
+        <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid rounded-b-[15px]">
           <input
             type="file"
             ref={fileInputRef}
