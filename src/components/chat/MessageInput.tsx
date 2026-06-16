@@ -29,7 +29,10 @@ import {
   ThumbsUp,
   Send,
   X,
-  Video
+  Video,
+  AlertCircle,
+  BellRing,
+  Clock
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
@@ -115,6 +118,8 @@ interface MessageInputProps {
   isGroupConversation: boolean;
   canCreatePoll: boolean;
   setIsCreatePollOpen: (open: boolean) => void;
+  messagePriority: string | null;
+  setMessagePriority: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -157,9 +162,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   isGroupConversation,
   canCreatePoll,
   setIsCreatePollOpen,
+  messagePriority,
+  setMessagePriority,
 }) => {
   const { packs: stickerPacks, isLoading: isStickersLoading } = useStickerStore();
   const [activePackId, setActivePackId] = React.useState<string | null>(null);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     if (stickerPacks.length > 0 && !activePackId) {
@@ -290,7 +309,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       {/* Toolbar & Input Box Container */}
       <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 flex flex-col ${
         (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
-      } overflow-hidden focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
+      } focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
         
         {/* Top Toolbar Row */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10">
@@ -402,9 +421,52 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             </button>
 
             {/* More */}
-            <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="More Options">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
+            <div className="relative" ref={moreMenuRef}>
+              <button 
+                type="button" 
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className={`p-1.5 rounded transition ${isMoreMenuOpen ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'}`} 
+                title="More Options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <button type="button" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition">
+                    <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span>Tạo nhắc hẹn</span>
+                  </button>
+                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setMessagePriority('IMPORTANT');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                      <span>Đánh dấu tin quan trọng</span>
+                    </div>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setMessagePriority('URGENT');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <BellRing className="w-4 h-4 text-amber-500" />
+                      <span>Đánh dấu tin khẩn cấp</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -603,6 +665,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               }
             }}
           >
+            {messagePriority && (
+              <div className="flex mb-1 mt-1">
+                <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${messagePriority === 'IMPORTANT' ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'}`}>
+                  {messagePriority === 'IMPORTANT' ? <AlertCircle className="w-3.5 h-3.5" /> : <BellRing className="w-3.5 h-3.5" />}
+                  {messagePriority === 'IMPORTANT' ? 'Quan trọng' : 'Khẩn cấp'}
+                  <button 
+                    type="button" 
+                    onClick={() => setMessagePriority(null)}
+                    className="ml-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
             <div ref={quillEditorRef} className="nextalk-quill-input" />
           </div>
 

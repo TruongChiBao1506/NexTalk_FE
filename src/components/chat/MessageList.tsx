@@ -34,7 +34,8 @@ import {
   CornerUpRight,
   FileQuestion,
   Cloud,
-  Folder
+  Folder,
+  BellRing
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
@@ -276,6 +277,21 @@ export const MessageList: React.FC<MessageListProps> = ({
           const nextMsg = visibleMessages[index + 1];
           const showDivider = !nextMsg ||
             new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
+
+          const renderPriorityBadge = () => {
+            if (!msg.metadata?.priority) return null;
+            const isImportant = msg.metadata.priority === 'IMPORTANT';
+            return (
+              <div className="flex mb-1.5 shrink-0">
+                <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] uppercase font-bold tracking-wider shadow-sm border ${
+                  isImportant ? 'bg-white text-rose-600 border-rose-200 dark:bg-zinc-900 dark:border-rose-900/50' : 'bg-white text-amber-600 border-amber-200 dark:bg-zinc-900 dark:border-amber-900/50'
+                }`}>
+                  {isImportant ? <AlertTriangle className="w-3 h-3" /> : <BellRing className="w-3 h-3" />}
+                  {isImportant ? 'Quan trọng' : 'Khẩn cấp'}
+                </div>
+              </div>
+            );
+          };
 
           // In group chat, show sender names above non-self messages
           const prevMsg = visibleMessages[index - 1];
@@ -674,6 +690,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                           </div>
                         )}
 
+
+
                         {msg.forwardedFromMessageId && (
                           <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
                             <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-555 shrink-0" />
@@ -689,14 +707,16 @@ export const MessageList: React.FC<MessageListProps> = ({
                               ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
                               : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
                           }`}>
+                            {renderPriorityBadge()}
                             <span>Tin nhắn đã bị thu hồi</span>
                           </div>
                         ) : msg.attachments && msg.attachments.length > 0 ? (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
                             isMe
-                              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
+                              ? 'bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
                               : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                           }`}>
+                            {renderPriorityBadge()}
                             <div className={`grid gap-1.5 ${
                               msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
                             }`}>
@@ -746,7 +766,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
                                       <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${
                                         isMe
-                                          ? 'bg-indigo-600/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
+                                          ? 'bg-indigo-500/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
                                           : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                                       }`}>
                                         <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
@@ -792,7 +812,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                             />
                           </div>
                         ) : msg.messageType === 'IMAGE' ? (
-                          <div className="rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                          <div className="relative rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                            <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
+                              {renderPriorityBadge()}
+                            </div>
                             <button
                               type="button"
                               onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
@@ -806,11 +829,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </button>
                           </div>
                         ) : msg.messageType === 'VIDEO' ? (
-                          <div className={`flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${
+                          <div className={`relative flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${
                             isMe
                               ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
                               : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
                           }`}>
+                            <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
+                              {renderPriorityBadge()}
+                            </div>
                             {(() => {
                               const attachment = msg.attachments?.[0];
                               const fileUrl = attachment?.url || msg.content;
@@ -822,18 +848,20 @@ export const MessageList: React.FC<MessageListProps> = ({
                               );
                             })()}
                             {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
-                              <div className={`px-3 py-2 text-sm ${isMe ? 'bg-indigo-600/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
+                              <div className={`px-3 py-2 text-sm ${isMe ? 'bg-indigo-500/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
                                 {renderFormattedMessage(msg.content)}
                               </div>
                             )}
                           </div>
                         ) : msg.messageType === 'FILE' ? (
                           <div className="flex flex-col gap-1 w-full max-w-sm">
-                            <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${
+                            <div className={`flex flex-col p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${
                               isMe
                                 ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
                                 : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
                             }`}>
+                              {renderPriorityBadge()}
+                              <div className="flex items-center gap-3">
                               {(() => {
                                 const attachment = msg.attachments?.[0];
                                 const fileUrl = attachment?.url || msg.content;
@@ -878,6 +906,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 );
                               })()}
                             </div>
+                          </div>
                             {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
                               <div className={`px-2 py-1 text-sm ${isMe ? 'text-indigo-900 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'}`}>
                                 {renderFormattedMessage(msg.content)}
@@ -926,9 +955,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
                             isMe
-                              ? 'bg-indigo-600 dark:bg-discord-blurple text-white rounded-tr-none'
+                              ? 'bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
                               : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                           }`}>
+                            {renderPriorityBadge()}
                             <div className="m-0">
                               {renderFormattedMessage(msg.content)}
                               {msg.isEdited && (

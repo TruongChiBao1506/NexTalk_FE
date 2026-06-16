@@ -183,6 +183,7 @@ export const Chat = () => {
   const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [isTogglingApproval, setIsTogglingApproval] = useState(false);
   const [isRefreshingInviteCode, setIsRefreshingInviteCode] = useState(false);
+  const [messagePriority, setMessagePriority] = useState<string | null>(null);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
 
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
@@ -1176,9 +1177,10 @@ export const Chat = () => {
         }));
       const caption = currentMessage.trim();
       const messageType = attachments.length > 1 ? 'ALBUM' : attachments[0]?.type ?? 'ALBUM';
-      sendStompMessage(caption, messageType, replyTo?.id ?? undefined, attachments);
+      sendStompMessage(caption, messageType, replyTo?.id ?? undefined, attachments, messagePriority || undefined);
       resetUploadState();
       clearQuillInput();
+      setMessagePriority(null);
     } else if (currentMessage.trim()) {
       // Send text if typed without attachments
       const trimmedMessage = currentMessage.trim();
@@ -1190,9 +1192,10 @@ export const Chat = () => {
           name: pastedMediaType === 'IMAGE' ? 'Ảnh từ liên kết' : 'Video từ liên kết',
         }]);
       } else {
-        sendStompMessage(trimmedMessage, 'TEXT', replyTo?.id ?? undefined);
+        sendStompMessage(trimmedMessage, 'TEXT', replyTo?.id ?? undefined, undefined, messagePriority || undefined);
       }
       clearQuillInput();
+      setMessagePriority(null);
     }
 
     if (replyTo) {
@@ -2388,6 +2391,8 @@ export const Chat = () => {
                   isGroupConversation={isGroupConversation}
                   canCreatePoll={isGroupModeratorRole(currentGroupMembership?.role)}
                   setIsCreatePollOpen={setIsCreatePollOpen}
+                  messagePriority={messagePriority}
+                  setMessagePriority={setMessagePriority}
                 />
               </>
             )}

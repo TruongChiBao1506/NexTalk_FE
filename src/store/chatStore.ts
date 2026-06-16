@@ -53,7 +53,7 @@ interface ChatState {
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[]) => void;
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
@@ -284,7 +284,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[]) => {
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => {
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
@@ -297,6 +297,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageType: messageType || 'TEXT',
         parentId: parentId || undefined,
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        priority: priority || undefined,
       };
 
     stompClient.publish({
