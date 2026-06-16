@@ -29,7 +29,6 @@ import {
   ThumbsUp,
   Send,
   X,
-  FileText,
   Video
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';

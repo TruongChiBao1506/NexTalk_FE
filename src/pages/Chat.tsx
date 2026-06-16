@@ -2629,8 +2629,6 @@ export const Chat = () => {
           handleRenameGroup={handleRenameGroup}
           isTogglingApproval={isTogglingApproval}
           handleToggleRequiresApproval={handleToggleRequiresApproval}
-          isRefreshingInviteCode={isRefreshingInviteCode}
-          handleRefreshInviteCode={handleRefreshInviteCode}
           handleLeaveActiveGroup={handleLeaveActiveGroup}
           profileActionLoading={profileActionLoading}
           canInviteToActiveGroup={canInviteToActiveGroup}
@@ -2699,7 +2697,7 @@ export const Chat = () => {
         <InviteGroupMembersModal
           group={activeGroup}
           onClose={() => setIsInviteMembersOpen(false)}
-          onInvited={(updatedGroup) => {
+          onInvited={() => {
             fetchGroups();
             fetchConversations();
           }}

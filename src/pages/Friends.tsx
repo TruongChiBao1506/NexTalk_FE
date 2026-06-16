@@ -564,7 +564,7 @@ export const Friends = () => {
           ) : (
             <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
               <p className="text-gray-500 dark:text-discord-muted m-0">
-                {chatRequests.length === 0 ? 'Không có tin nhắn chờ nào.' : `${chatRequests.length} tin nhắn chờ`}
+                Tính năng tin nhắn chờ đang được phát triển.
               </p>
             </div>
           )}

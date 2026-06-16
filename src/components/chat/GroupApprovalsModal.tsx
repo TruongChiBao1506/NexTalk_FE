@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, X, Loader2, Users } from 'lucide-react';
+import { X, Loader2, Users } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { useGroupStore } from '../../store/groupStore';
 import type { GroupInvitationResponse, GroupResponse } from '../../types/group';
