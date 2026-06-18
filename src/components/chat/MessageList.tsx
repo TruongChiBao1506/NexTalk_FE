@@ -79,6 +79,9 @@ interface MessageListProps {
   recallMessage: (id: string) => void;
   deleteMessage: (id: string) => void;
   setSharingMessage: (msg: any) => void;
+  setReminderTargetMessage: (msg: any) => void;
+  onDeleteMessageReminder: (reminderId: string) => void;
+  onRecreateMessageReminder: (messageId: string) => void;
   canRecallMessageInActiveConversation: (msg: any) => boolean;
   getFileName: (url: string) => string;
   setActiveMedia: (media: any) => void;
@@ -147,6 +150,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   recallMessage,
   deleteMessage,
   setSharingMessage,
+  setReminderTargetMessage,
+  onDeleteMessageReminder,
+  onRecreateMessageReminder,
   canRecallMessageInActiveConversation,
   getFileName,
   setActiveMedia,
@@ -220,6 +226,69 @@ export const MessageList: React.FC<MessageListProps> = ({
           <span className="truncate">{preview.fileName || preview.text}</span>
         </span>
       </>
+    );
+  };
+
+  const renderReminderSystemMessage = (msg: any) => {
+    const metadata = msg.metadata ?? {};
+    const isDeleted = metadata.reminderStatus === 'DELETED';
+    const isActiveCreatedNotice = metadata.reminderStatus === 'CREATED' && !metadata.isDeleted;
+
+    return (
+      <div className="inline-flex max-w-[min(88vw,620px)] items-center gap-2 rounded-full bg-white/95 px-3.5 py-2 text-sm text-slate-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
+          isDeleted
+            ? 'border-rose-200 bg-rose-50 text-rose-500 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300'
+        }`}>
+          <BellRing className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 truncate">
+          <span>{isDeleted ? 'Bạn xóa nhắc hẹn ' : 'Bạn tạo nhắc hẹn mới '}</span>
+          <span className="font-bold text-slate-700 dark:text-zinc-100">
+            {metadata.note || metadata.preview || 'tin nhắn'}
+          </span>
+          {metadata.remindAt && (
+            <span className="font-semibold text-slate-500 dark:text-zinc-300">
+              {' - '}
+              {new Date(metadata.remindAt).toLocaleString('vi-VN', {
+                weekday: 'short',
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          )}
+        </span>
+        {isActiveCreatedNotice && (
+          <>
+            <button
+              type="button"
+              onClick={() => handleJumpToMessage(metadata.messageId)}
+              className="shrink-0 text-sm font-bold text-sky-600 transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+            >
+              Xem
+            </button>
+            <button
+              type="button"
+              onClick={() => onDeleteMessageReminder(metadata.reminderId)}
+              className="shrink-0 text-sm font-bold text-rose-500 transition hover:text-rose-600 dark:text-rose-300 dark:hover:text-rose-200"
+            >
+              Xóa
+            </button>
+          </>
+        )}
+        {isDeleted && (
+          <button
+            type="button"
+            onClick={() => onRecreateMessageReminder(metadata.messageId)}
+            className="shrink-0 text-sm font-bold text-sky-600 transition hover:text-sky-700 dark:text-sky-300 dark:hover:text-sky-200"
+          >
+            Tạo mới
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -338,6 +407,10 @@ export const MessageList: React.FC<MessageListProps> = ({
 
         {visibleMessages.map((msg: any, index: number) => {
           const isMe = msg.senderId === user?.id;
+          const isMentionedCurrentUser = !isMe && Boolean(
+            msg.metadata?.mentionAll ||
+            (Array.isArray(msg.metadata?.mentionedUserIds) && msg.metadata.mentionedUserIds.includes(user?.id))
+          );
           const nextMsg = visibleMessages[index + 1];
           const showDivider = !nextMsg ||
             new Date(msg.createdAt).toDateString() !== new Date(nextMsg.createdAt).toDateString();
@@ -377,7 +450,11 @@ export const MessageList: React.FC<MessageListProps> = ({
               id={`message-${msg.id}`}
               onMouseEnter={() => setHoveredMessageId(msg.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
-              className="relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors hover:bg-gray-150/20 dark:hover:bg-zinc-800/10"
+              className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors ${
+                isMentionedCurrentUser
+                  ? 'bg-amber-50/80 ring-1 ring-amber-200 hover:bg-amber-50 dark:bg-amber-500/10 dark:ring-amber-500/30 dark:hover:bg-amber-500/15'
+                  : 'hover:bg-gray-150/20 dark:hover:bg-zinc-800/10'
+              }`}
             >
               {showDivider && (
                 <div className="flex items-center justify-center my-4 shrink-0 select-none">
@@ -391,7 +468,9 @@ export const MessageList: React.FC<MessageListProps> = ({
 
               {msg.messageType === 'SYSTEM' ? (
                 <div className="flex justify-center py-1.5 select-none">
-                  {isCallLog ? (
+                  {msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
+                    renderReminderSystemMessage(msg)
+                  ) : isCallLog ? (
                     <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
                       <button
                         type="button"
@@ -755,6 +834,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               }}
                               onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
                               onShare={() => setSharingMessage(msg)}
+                              onRemind={() => setReminderTargetMessage(msg)}
                               canPin={canPinMessage(msg)}
                               canRecall={canRecallMessageInActiveConversation(msg)}
                               onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}

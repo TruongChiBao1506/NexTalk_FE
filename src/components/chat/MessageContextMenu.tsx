@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward } from 'lucide-react';
+import { BellRing, CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
 
@@ -12,6 +12,7 @@ interface MessageActionsBarProps {
   onDelete: () => void;
   onPinToggle: () => void;
   onShare: () => void;
+  onRemind: () => void;
   canPin?: boolean;
   canRecall?: boolean;
   onMenuOpenChange?: (isOpen: boolean) => void;
@@ -128,6 +129,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
   onDelete,
   onPinToggle,
   onShare,
+  onRemind,
   canPin = true,
   canRecall,
   onMenuOpenChange,
@@ -160,6 +162,11 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
     setShowDropdown(false);
   };
 
+  const handleRemind = () => {
+    onRemind();
+    setShowDropdown(false);
+  };
+
   return (
     <div className="flex items-center bg-white dark:bg-discord-dark border border-gray-200 dark:border-discord-gray-600 rounded-md shadow-md px-1.5 py-0.5 space-x-1 text-gray-700 dark:text-discord-gray-200 select-none h-8 transition-colors">
       <button
@@ -179,6 +186,17 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
           title="Chia sẻ tin nhắn"
         >
           <Forward className="w-4 h-4" />
+        </button>
+      )}
+
+      {!message.isRecalled && (
+        <button
+          type="button"
+          onClick={handleRemind}
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-discord-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors duration-150"
+          title="Tạo nhắc hẹn"
+        >
+          <BellRing className="w-4 h-4" />
         </button>
       )}
 
@@ -213,6 +231,15 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
             >
               <Copy className="w-3.5 h-3.5 mr-2" />
               <span>Sao chép nội dung</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRemind}
+              className="w-full flex items-center px-2 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-650 dark:hover:bg-discord-blurple dark:hover:text-white transition-colors duration-150 text-left font-medium"
+            >
+              <BellRing className="w-3.5 h-3.5 mr-2" />
+              <span>Tạo nhắc hẹn</span>
             </button>
 
             {canPin && (

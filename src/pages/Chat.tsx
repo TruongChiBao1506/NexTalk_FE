@@ -19,7 +19,7 @@ import { groupService } from '../services/groupService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
-  Shield, Lock, Headphones, Mic
+  Shield, Lock, Headphones, Mic, BellRing
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -38,6 +38,7 @@ import type { User as AuthUser } from '../types/auth';
 import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
 import { SearchPanel } from '../components/chat/SearchPanel';
 import { ShareMessageModal } from '../components/chat/ShareMessageModal';
+import { MessageReminderModal } from '../components/chat/MessageReminderModal';
 import InviteGroupMembersModal from '../components/chat/InviteGroupMembersModal';
 import GroupApprovalsModal from '../components/chat/GroupApprovalsModal';
 import { ConversationList } from '../components/chat/ConversationList';
@@ -63,8 +64,22 @@ import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
 import { stripHtml } from '../utils/text';
+import { getMessagePreviewData } from '../utils/messagePreview';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
+
+type MessageReminder = {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  senderUsername: string;
+  messagePreview: string;
+  remindAt: string;
+  note: string;
+  createdAt: string;
+  fired?: boolean;
+  deletedAt?: string;
+};
 
 type SpeechRecognitionResultLike = {
   isFinal: boolean;
@@ -248,6 +263,9 @@ export const Chat = () => {
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
+  const [reminderTargetMessage, setReminderTargetMessage] = useState<MessageResponse | null>(null);
+  const [messageReminders, setMessageReminders] = useState<MessageReminder[]>([]);
+  const [triggeredReminder, setTriggeredReminder] = useState<MessageReminder | null>(null);
 
 
   const [inputMessage, setInputMessage] = useState('');
@@ -358,6 +376,131 @@ export const Chat = () => {
   } = useChatSearch({
     handleJumpToMessage
   });
+
+  const getMessageReminderStorageKey = () => `nextalk_messageReminders:${user?.id ?? 'anonymous'}`;
+
+  const persistMessageReminders = (reminders: MessageReminder[]) => {
+    if (!user?.id) return;
+    localStorage.setItem(getMessageReminderStorageKey(), JSON.stringify(reminders));
+  };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setMessageReminders([]);
+      return;
+    }
+
+    try {
+      const rawReminders = localStorage.getItem(getMessageReminderStorageKey());
+      const parsedReminders = rawReminders ? JSON.parse(rawReminders) : [];
+      setMessageReminders(Array.isArray(parsedReminders) ? parsedReminders : []);
+    } catch {
+      setMessageReminders([]);
+    }
+  }, [user?.id]);
+
+  const fireMessageReminder = (reminder: MessageReminder) => {
+    setMessageReminders((current) => {
+      const next = current.map((item) => (
+        item.id === reminder.id ? { ...item, fired: true } : item
+      ));
+      persistMessageReminders(next);
+      return next;
+    });
+
+    const title = 'NexTalk nhắc hẹn';
+    const body = reminder.note || `${reminder.senderUsername}: ${reminder.messagePreview}`;
+    setTriggeredReminder(reminder);
+
+    if (document.visibilityState !== 'visible' && 'Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification(title, {
+        body,
+        tag: reminder.id,
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        selectConversation(reminder.conversationId);
+        window.setTimeout(() => handleJumpToMessage(reminder.messageId), 450);
+        notification.close();
+      };
+      return;
+    }
+
+  };
+
+  useEffect(() => {
+    const nextReminder = messageReminders
+      .filter((reminder) => !reminder.fired && !reminder.deletedAt)
+      .sort((a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime())[0];
+
+    if (!nextReminder) return;
+
+    const delay = Math.max(0, new Date(nextReminder.remindAt).getTime() - Date.now());
+    const timer = window.setTimeout(() => fireMessageReminder(nextReminder), delay);
+    return () => window.clearTimeout(timer);
+  }, [messageReminders]);
+
+  const handleSaveMessageReminder = async ({ remindAt, note }: { remindAt: string; note: string }) => {
+    if (!reminderTargetMessage || !activeConversation?.id) return;
+
+    const preview = getMessagePreviewData(reminderTargetMessage);
+    const nextReminder: MessageReminder = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      messageId: reminderTargetMessage.id,
+      conversationId: (reminderTargetMessage as any).conversationId ?? activeConversation.id,
+      senderUsername: reminderTargetMessage.senderUsername ?? 'NexTalk',
+      messagePreview: preview.fileName || preview.text,
+      remindAt,
+      note,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessageReminders((current) => {
+      const next = [...current, nextReminder].sort(
+        (a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime()
+      );
+      persistMessageReminders(next);
+      return next;
+    });
+
+    setReminderTargetMessage(null);
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  };
+
+  const handleDeleteMessageReminder = (reminderId: string) => {
+    setMessageReminders((current) => {
+      const next = current.map((reminder) => (
+        reminder.id === reminderId
+          ? { ...reminder, deletedAt: new Date().toISOString(), fired: true }
+          : reminder
+      ));
+      persistMessageReminders(next);
+      return next;
+    });
+  };
+
+  const handleRecreateMessageReminder = (messageId: string) => {
+    const targetMessage = messages.find((message) => message.id === messageId);
+    if (targetMessage) {
+      setReminderTargetMessage(targetMessage);
+      return;
+    }
+
+    handleJumpToMessage(messageId);
+  };
+
+  const handleOpenTriggeredReminderMessage = () => {
+    if (!triggeredReminder) return;
+
+    const reminder = triggeredReminder;
+    setTriggeredReminder(null);
+    selectConversation(reminder.conversationId);
+    window.setTimeout(() => handleJumpToMessage(reminder.messageId), 450);
+  };
 
 
 
@@ -1159,6 +1302,11 @@ export const Chat = () => {
             if (currentConversation) {
               if (currentConversation.type === 'GROUP') {
                 values.push({ id: 'all', value: 'Mọi người' });
+              }
+
+              const allMention = values.find((item) => item.id === 'all');
+              if (allMention) {
+                allMention.value = 'all';
               }
 
               currentConversation.members.forEach((member) => {
@@ -2288,7 +2436,75 @@ export const Chat = () => {
     .slice(0, 8);
   const sharedDataResults = globalMessageResults
     .filter((message) => messageHasSearchableAttachment(message) || messageHasSharedLink(message))
-  const visibleMessages = messages.filter((message) => !isMessageExpired(message));
+  const formatReminderNoticeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '';
+
+    return new Intl.DateTimeFormat('vi-VN', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  const activeReminderSystemMessages = activeConversation
+    ? messageReminders
+      .filter((reminder) => reminder.conversationId === activeConversation.id)
+      .flatMap((reminder) => {
+        const createNotice = {
+          id: `reminder-created-${reminder.id}`,
+          conversationId: reminder.conversationId,
+          senderId: user?.id ?? 'system',
+          senderUsername: user?.username ?? 'Bạn',
+          content: `Bạn tạo nhắc hẹn mới ${formatReminderNoticeTime(reminder.remindAt)}${reminder.note ? ` ${reminder.note}` : ''}`,
+          messageType: 'SYSTEM' as const,
+          createdAt: reminder.createdAt,
+          metadata: {
+            systemType: 'MESSAGE_REMINDER',
+            reminderStatus: 'CREATED',
+            reminderId: reminder.id,
+            messageId: reminder.messageId,
+            remindAt: reminder.remindAt,
+            note: reminder.note,
+            preview: reminder.messagePreview,
+            isDeleted: Boolean(reminder.deletedAt),
+          },
+        };
+
+        if (!reminder.deletedAt) {
+          return [createNotice];
+        }
+
+        return [
+          createNotice,
+          {
+            id: `reminder-deleted-${reminder.id}`,
+            conversationId: reminder.conversationId,
+            senderId: user?.id ?? 'system',
+            senderUsername: user?.username ?? 'Bạn',
+            content: `Bạn xóa nhắc hẹn ${formatReminderNoticeTime(reminder.remindAt)}`,
+            messageType: 'SYSTEM' as const,
+            createdAt: reminder.deletedAt,
+            metadata: {
+              systemType: 'MESSAGE_REMINDER',
+              reminderStatus: 'DELETED',
+              reminderId: reminder.id,
+              messageId: reminder.messageId,
+              remindAt: reminder.remindAt,
+              note: reminder.note,
+              preview: reminder.messagePreview,
+            },
+          },
+        ];
+      })
+    : [];
+
+  const visibleMessages = [
+    ...messages.filter((message) => !isMessageExpired(message)),
+    ...activeReminderSystemMessages,
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getSenderAvatar = (msg: MessageResponse): string | null => {
     if (!activeConversation) return null;
@@ -2502,6 +2718,9 @@ export const Chat = () => {
                   recallMessage={recallMessage}
                   deleteMessage={deleteMessage}
                   setSharingMessage={setSharingMessage}
+                  setReminderTargetMessage={setReminderTargetMessage}
+                  onDeleteMessageReminder={handleDeleteMessageReminder}
+                  onRecreateMessageReminder={handleRecreateMessageReminder}
                   canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
                   getFileName={getFileName}
                   setActiveMedia={setActiveMedia}
@@ -2884,6 +3103,13 @@ export const Chat = () => {
         />
       )}
 
+      <MessageReminderModal
+        message={reminderTargetMessage}
+        isOpen={Boolean(reminderTargetMessage)}
+        onClose={() => setReminderTargetMessage(null)}
+        onSave={handleSaveMessageReminder}
+      />
+
       {isInviteMembersOpen && activeGroup && (
         <InviteGroupMembersModal
           group={activeGroup}
@@ -3015,6 +3241,22 @@ export const Chat = () => {
         onConfirm={() => {
           confirmDialog?.onConfirm();
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(triggeredReminder)}
+        title="Đến giờ nhắc hẹn"
+        description={
+          triggeredReminder
+            ? triggeredReminder.note || `${triggeredReminder.senderUsername}: ${triggeredReminder.messagePreview}`
+            : ''
+        }
+        confirmLabel="Xem tin nhắn"
+        cancelLabel="Đóng"
+        variant="primary"
+        icon={<BellRing className="h-5 w-5" />}
+        onCancel={() => setTriggeredReminder(null)}
+        onConfirm={handleOpenTriggeredReminderMessage}
       />
 
       <CallOverlay />

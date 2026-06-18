@@ -537,7 +537,9 @@ export const ConversationList = ({
             const isSelected = activeConversation?.id === c.id;
             const unreadNotifs = notifications.filter(
               (n) =>
-                n.referenceId === c.id && !n.read && n.type === "NEW_MESSAGE",
+                n.referenceId === c.id &&
+                !n.read &&
+                (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
             );
             const unreadCount = unreadNotifs.length;
             const hasUnread = unreadCount > 0;
@@ -741,7 +743,7 @@ export const ConversationList = ({
             (n) =>
               n.referenceId === groupConversationId &&
               !n.read &&
-              n.type === "NEW_MESSAGE",
+              (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
           );
           const unreadCount = unreadNotifs.length;
           const hasUnread = unreadCount > 0;
@@ -994,7 +996,7 @@ export const ConversationList = ({
                       (n) =>
                         n.referenceId === ch.conversationId &&
                         !n.read &&
-                        n.type === "NEW_MESSAGE",
+                        (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
                     );
                     const channelUnreadCount = channelNotifs.length;
                     const channelHasUnread = channelUnreadCount > 0;

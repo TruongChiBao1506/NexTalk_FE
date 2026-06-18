@@ -38,7 +38,7 @@ function App() {
     }
 
     const unreadMessages = notifications
-      .filter((notification) => notification.type === 'NEW_MESSAGE' && !notification.read)
+      .filter((notification) => (notification.type === 'NEW_MESSAGE' || notification.type === 'MENTION') && !notification.read)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     if (unreadMessages.length === 0) {

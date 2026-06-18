@@ -457,7 +457,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
               {isMoreMenuOpen && (
                 <div className="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <button type="button" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition">
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 dark:text-zinc-500 cursor-not-allowed"
+                    title="Chọn một tin nhắn rồi bấm biểu tượng chuông để tạo nhắc hẹn"
+                  >
                     <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     <span>Tạo nhắc hẹn</span>
                   </button>

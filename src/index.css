@@ -201,11 +201,24 @@
 }
 
 .mention {
+  display: inline-flex;
+  width: auto !important;
+  height: auto !important;
+  max-width: 100%;
+  align-items: center;
+  vertical-align: baseline;
   background-color: #e0e7ff;
   color: #4f46e5;
   padding: 0.125rem 0.25rem;
+  margin: 0 0.125rem;
   border-radius: 0.25rem;
   font-weight: 500;
+  line-height: 1.2;
+  user-select: text;
+}
+
+.mention > span {
+  margin: 0 !important;
 }
 
 .dark .mention {

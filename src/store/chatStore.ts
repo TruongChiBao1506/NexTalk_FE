@@ -216,7 +216,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Mark any unread notifications for this conversation as read
     const notifications = useNotificationStore.getState().notifications;
-    const unreadForThisConv = notifications.filter(n => n.referenceId === conversationId && !n.read && n.type === 'NEW_MESSAGE');
+    const unreadForThisConv = notifications.filter(n =>
+      n.referenceId === conversationId &&
+      !n.read &&
+      (n.type === 'NEW_MESSAGE' || n.type === 'MENTION')
+    );
     const unreadCountAtOpen = unreadForThisConv.length;
     for (const n of unreadForThisConv) {
       useNotificationStore.getState().markAsRead(n.id).catch(() => {});
@@ -537,7 +541,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const body = JSON.parse(message.body);
           const activeConversation = get().activeConversation;
           
-          if (body.type === 'NEW_MESSAGE' && activeConversation && body.referenceId === activeConversation.id) {
+          if ((body.type === 'NEW_MESSAGE' || body.type === 'MENTION') && activeConversation && body.referenceId === activeConversation.id) {
             // Automatically mark as read if conversation is currently active
             const readNotification = { ...body, read: true };
             useNotificationStore.getState().addNotification(readNotification);
