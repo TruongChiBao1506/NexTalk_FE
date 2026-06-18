@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2, Monitor, MapPin, X } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
+import type { SessionResponse } from '../services/authService';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import ThemeToggle from '../components/common/ThemeToggle';
@@ -24,6 +25,10 @@ export const Profile = () => {
   const [isPinInputModalOpen, setIsPinInputModalOpen] = useState(false);
   const [resetPinInput, setResetPinInput] = useState('');
   const [resetPinError, setResetPinError] = useState('');
+  const [sessions, setSessions] = useState<SessionResponse[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -43,10 +48,57 @@ export const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
+    loadSessions();
   }, [fetchProfile]);
 
+  const loadSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const response = await authService.getSessions();
+      if (response.success && response.data) {
+        setSessions(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const formatSessionDate = (date?: string | null) => {
+    if (!date) return 'Chưa rõ';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return 'Chưa rõ';
+    return parsed.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    setRevokingSessionId(sessionId);
+    try {
+      const response = await authService.revokeSession(sessionId);
+      if (response.success) {
+        setSessions((current) => current.filter((session) => session.id !== sessionId));
+        const currentRefreshToken = localStorage.getItem('nextalk_refreshToken');
+        if (sessions.length === 1 && currentRefreshToken) {
+          logout();
+          navigate('/login');
+        }
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || 'Không thể đăng xuất thiết bị này.');
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
+
   return (
-    <div className="relative h-dvh w-screen overflow-y-auto flex items-center justify-center p-4 pb-20 md:pb-4 bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="relative min-h-dvh w-screen overflow-y-auto flex items-start justify-center px-4 pb-24 pt-16 md:items-center md:py-14 bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
@@ -64,9 +116,9 @@ export const Profile = () => {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-xl z-10 pt-20 md:pt-12">
+      <div className="w-full max-w-5xl z-10">
         {/* Main profile card */}
-        <div className="glass rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
+        <div className="glass rounded-3xl p-5 sm:p-6 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
 
           {isLoading && !profile ? (
             <div className="flex flex-col items-center py-16 space-y-4">
@@ -86,10 +138,10 @@ export const Profile = () => {
               </button>
             </div>
           ) : profile ? (
-            <div className="space-y-6">
+            <div className="space-y-5 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-x-6 md:gap-y-4 md:space-y-0">
 
               {/* Profile Card Header with Avatar */}
-              <div className="flex flex-col items-center text-center pb-6 border-b border-gray-150 dark:border-zinc-800/60">
+              <div className="flex flex-col items-center text-center pb-5 border-b border-gray-150 dark:border-zinc-800/60 md:row-span-7 md:self-start md:border-b-0 md:border-r md:pb-0 md:pr-6 dark:md:border-zinc-800/60">
                 <div className="relative group mb-4">
                   {profile.avatarUrl ? (
                     <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-discord-mid shadow-lg">
@@ -137,12 +189,43 @@ export const Profile = () => {
                     </>
                   )}
                 </div>
+
+                <div className="mt-6 flex w-full flex-col gap-3">
+                  <button
+                    onClick={() => setIsEditOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.99] transition-all duration-200 shadow-md shadow-indigo-600/10 dark:shadow-discord-blurple/10"
+                  >
+                    <Edit3 className="w-4.5 h-4.5" />
+                    <span>Chỉnh sửa hồ sơ</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl text-gray-700 dark:text-zinc-300 font-medium bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-gray-500/20 active:scale-[0.99] transition-all duration-200"
+                  >
+                    <Lock className="w-4.5 h-4.5" />
+                    <span>Đổi mật khẩu</span>
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl text-rose-600 dark:text-rose-450 font-semibold bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border border-rose-200/50 dark:border-rose-900/30 focus:outline-none transition-all duration-200 disabled:opacity-50 active:scale-[0.99]"
+                  >
+                    {isLoggingOut ? (
+                      <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                    ) : (
+                      <LogOut className="w-4.5 h-4.5" />
+                    )}
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
               </div>
 
               {/* Bio description */}
               <div className="space-y-2 text-left">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-discord-muted">Giới thiệu bản thân</span>
-                <div className="bg-white/60 dark:bg-discord-black/40 p-4 rounded-2xl border border-gray-150 dark:border-zinc-900/40 min-h-[4.5rem]">
+                <div className="bg-white/60 dark:bg-discord-black/40 p-3.5 rounded-2xl border border-gray-150 dark:border-zinc-900/40 min-h-[3.75rem]">
                   <p className="text-sm text-gray-700 dark:text-discord-text italic leading-relaxed m-0 break-words whitespace-pre-wrap">
                     {profile.bio ? `"${profile.bio}"` : 'Chưa có giới thiệu'}
                   </p>
@@ -150,8 +233,32 @@ export const Profile = () => {
               </div>
 
               {/* Details table */}
-              <div className="space-y-3 pt-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left dark:border-zinc-900/30 dark:bg-discord-black/20">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                    <Monitor className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="m-0 text-sm font-bold text-gray-900 dark:text-white">Thiết bị đăng nhập</h3>
+                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+                      {isLoadingSessions ? 'Đang tải phiên...' : `${sessions.length} phiên đang còn hiệu lực`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSessionsModalOpen(true);
+                    loadSessions();
+                  }}
+                  className="shrink-0 rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  Quản lý
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
                   <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Mail className="w-4.5 h-4.5" />
                     <span>Địa chỉ email</span>
@@ -159,7 +266,7 @@ export const Profile = () => {
                   <span className="font-semibold text-gray-950 dark:text-white break-all sm:break-normal text-left sm:text-right">{profile.email}</span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
                   <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                     <Calendar className="w-4.5 h-4.5" />
                     <span>Ngày tham gia</span>
@@ -174,7 +281,7 @@ export const Profile = () => {
                 </div>
 
                 {profile.hasChatPin && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
                     <div className="flex items-center gap-2.5 text-gray-500 dark:text-discord-muted shrink-0">
                       <Lock className="w-4.5 h-4.5 text-indigo-500" />
                       <span>Khóa ẩn trò chuyện</span>
@@ -203,37 +310,73 @@ export const Profile = () => {
                 )}
               </div>
 
-              {/* Trigger Modal */}
-              <button
-                onClick={() => setIsEditOpen(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-white font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-discord-blurple dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.99] transition-all duration-200 shadow-md shadow-indigo-600/10 dark:shadow-discord-blurple/10"
-              >
-                <Edit3 className="w-4.5 h-4.5" />
-                <span>Chỉnh sửa hồ sơ</span>
-              </button>
+              <div className="hidden">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="m-0 text-sm font-bold text-gray-900 dark:text-white">Thiết bị đăng nhập</h3>
+                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-zinc-400">Quản lý các phiên đang còn hiệu lực.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadSessions}
+                    disabled={isLoadingSessions}
+                    className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  >
+                    {isLoadingSessions ? 'Đang tải' : 'Làm mới'}
+                  </button>
+                </div>
 
-              {/* Change Password Button */}
-              <button
-                onClick={() => setIsChangePasswordOpen(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-gray-700 dark:text-zinc-300 font-medium bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-gray-500/20 active:scale-[0.99] transition-all duration-200"
-              >
-                <Lock className="w-4.5 h-4.5" />
-                <span>Đổi mật khẩu</span>
-              </button>
+                <div className="space-y-2">
+                  {isLoadingSessions && sessions.length === 0 ? (
+                    <div className="flex items-center justify-center rounded-2xl border border-gray-100 bg-white/50 py-6 text-sm text-gray-500 dark:border-zinc-900/30 dark:bg-discord-black/20 dark:text-zinc-400">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang tải thiết bị...
+                    </div>
+                  ) : sessions.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-100 bg-white/50 p-4 text-sm text-gray-500 dark:border-zinc-900/30 dark:bg-discord-black/20 dark:text-zinc-400">
+                      Chưa có phiên đăng nhập nào.
+                    </div>
+                  ) : (
+                    sessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="rounded-2xl border border-gray-100 bg-white/55 p-3.5 text-left dark:border-zinc-900/30 dark:bg-discord-black/20"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <Monitor className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="m-0 truncate text-sm font-bold text-gray-950 dark:text-white">{session.deviceName || 'Thiết bị không xác định'}</p>
+                                <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">{session.userAgent || 'Không có thông tin trình duyệt'}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeSession(session.id)}
+                                disabled={revokingSessionId === session.id}
+                                className="shrink-0 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                              >
+                                {revokingSessionId === session.id ? 'Đang thoát' : 'Đăng xuất'}
+                              </button>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-zinc-400">
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {session.ipAddress || 'Không rõ IP'}
+                              </span>
+                              <span>Lần dùng gần nhất: {formatSessionDate(session.lastUsedAt || session.createdAt)}</span>
+                              <span>Hết hạn: {formatSessionDate(session.expiresAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
-              {/* Log Out Button */}
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-rose-600 dark:text-rose-450 font-semibold bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 border border-rose-200/50 dark:border-rose-900/30 focus:outline-none transition-all duration-200 disabled:opacity-50 active:scale-[0.99]"
-              >
-                {isLoggingOut ? (
-                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
-                ) : (
-                  <LogOut className="w-4.5 h-4.5" />
-                )}
-                <span>Đăng xuất</span>
-              </button>
             </div>
           ) : null}
 
@@ -385,6 +528,98 @@ export const Profile = () => {
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+
+      {isSessionsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsSessionsModalOpen(false)}
+          />
+          <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 dark:border-zinc-800">
+              <div className="min-w-0">
+                <h3 className="m-0 text-lg font-bold text-gray-950 dark:text-white">Thiết bị đăng nhập</h3>
+                <p className="m-0 mt-1 text-sm text-gray-500 dark:text-zinc-400">
+                  Quản lý các phiên đang còn hiệu lực trên tài khoản của bạn.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadSessions}
+                  disabled={isLoadingSessions}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  {isLoadingSessions && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Làm mới
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSessionsModalOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                  aria-label="Đóng"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[65vh] space-y-2 overflow-y-auto p-4">
+              {isLoadingSessions && sessions.length === 0 ? (
+                <div className="flex items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 py-8 text-sm text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang tải thiết bị...
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
+                  Chưa có phiên đăng nhập nào.
+                </div>
+              ) : (
+                sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-2xl border border-gray-100 bg-gray-50 p-3.5 text-left dark:border-zinc-800 dark:bg-zinc-950/40"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                        <Monitor className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="m-0 truncate text-sm font-bold text-gray-950 dark:text-white">
+                              {session.deviceName || 'Thiết bị không xác định'}
+                            </p>
+                            <p className="m-0 mt-0.5 truncate text-xs text-gray-500 dark:text-zinc-400">
+                              {session.userAgent || 'Không có thông tin trình duyệt'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRevokeSession(session.id)}
+                            disabled={revokingSessionId === session.id}
+                            className="shrink-0 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                          >
+                            {revokingSessionId === session.id ? 'Đang thoát' : 'Đăng xuất'}
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-zinc-400">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {session.ipAddress || 'Không rõ IP'}
+                          </span>
+                          <span>Lần dùng gần nhất: {formatSessionDate(session.lastUsedAt || session.createdAt)}</span>
+                          <span>Hết hạn: {formatSessionDate(session.expiresAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
