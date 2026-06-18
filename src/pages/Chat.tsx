@@ -66,6 +66,48 @@ import { stripHtml } from '../utils/text';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
 
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0: {
+    transcript: string;
+  };
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error: string;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 export const Chat = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -85,11 +127,15 @@ export const Chat = () => {
     selectConversation,
     loadMoreMessages,
     sendStompMessage,
+    sendTypingIndicator,
     connectWebSocket,
     disconnectWebSocket,
     replyTo,
     pinnedMessages,
     conversationSummaries,
+    typingUsersByConversation,
+    messageDrafts,
+    unreadMarkersByConversation,
     fetchPinnedMessages,
     setReplyTo,
     editMessage,
@@ -97,7 +143,10 @@ export const Chat = () => {
     deleteMessage,
     togglePinMessage,
     reactToMessage,
-    shareMessage
+    shareMessage,
+    clearMessageDraft,
+    reloadMessageDrafts,
+    clearUnreadMarker,
   } = useChatStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -144,6 +193,10 @@ export const Chat = () => {
   useEffect(() => {
     fetchStickers();
   }, [fetchStickers]);
+
+  useEffect(() => {
+    reloadMessageDrafts();
+  }, [user?.id, reloadMessageDrafts]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
 
@@ -185,6 +238,8 @@ export const Chat = () => {
   const [isRefreshingInviteCode, setIsRefreshingInviteCode] = useState(false);
   const [messagePriority, setMessagePriority] = useState<string | null>(null);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
+  const [isSpeechListening, setIsSpeechListening] = useState(false);
+  const [speechInputError, setSpeechInputError] = useState<string | null>(null);
 
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
@@ -221,6 +276,15 @@ export const Chat = () => {
   const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const quillEditorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const speechFinalTranscriptRef = useRef('');
+  const speechManuallyStoppedRef = useRef(false);
+  const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentAtRef = useRef(0);
+  const isTypingSentRef = useRef(false);
+  const typingConversationIdRef = useRef<string | null>(null);
+  const isRestoringDraftRef = useRef(false);
+  const lastRestoredDraftConversationRef = useRef<string | null>(null);
 
   const {
     isInviteMembersOpen: _, setIsInviteMembersOpen: __,
@@ -579,6 +643,12 @@ export const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
+  const scrollToUnreadMarker = (behavior: ScrollBehavior = 'smooth') => {
+    const markerId = activeConversation ? unreadMarkersByConversation[activeConversation.id]?.messageId : null;
+    if (!markerId) return;
+    document.getElementById(`message-${markerId}`)?.scrollIntoView({ behavior, block: 'center' });
+  };
+
   const getDistanceFromChatBottom = (container: HTMLDivElement) => {
     const normalDistance = container.scrollHeight - container.clientHeight - container.scrollTop;
     return Math.max(0, Math.min(Math.abs(container.scrollTop), normalDistance));
@@ -600,6 +670,10 @@ export const Chat = () => {
       setShowScrollToLatest(true);
     }
 
+    if (activeConversation?.id && distanceFromBottom < 80) {
+      clearUnreadMarker(activeConversation.id);
+    }
+
     lastScrollDistanceFromBottomRef.current = distanceFromBottom;
   };
 
@@ -615,6 +689,13 @@ export const Chat = () => {
       return () => clearTimeout(timer);
     }
   }, [activeConversation?.id]);
+
+  useEffect(() => {
+    const marker = activeConversation ? unreadMarkersByConversation[activeConversation.id] : null;
+    if (!marker) return;
+    const timer = window.setTimeout(() => scrollToUnreadMarker('auto'), 120);
+    return () => window.clearTimeout(timer);
+  }, [activeConversation?.id, unreadMarkersByConversation]);
 
   useEffect(() => {
     if (!selectedChatRequest) return;
@@ -791,8 +872,99 @@ export const Chat = () => {
     insertTextToInput(emoji);
   };
 
+  const stopSpeechRecognition = () => {
+    speechManuallyStoppedRef.current = true;
+    speechRecognitionRef.current?.stop();
+    setIsSpeechListening(false);
+  };
+
+  const handleToggleSpeechInput = () => {
+    if (!canSendInActiveConversation) return;
+
+    if (isSpeechListening) {
+      stopSpeechRecognition();
+      return;
+    }
+
+    const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionApi) {
+      setSpeechInputError('Trình duyệt hiện tại chưa hỗ trợ nhập bằng giọng nói.');
+      return;
+    }
+
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.abort();
+      speechRecognitionRef.current = null;
+    }
+
+    const recognition = new SpeechRecognitionApi();
+    speechFinalTranscriptRef.current = '';
+    speechManuallyStoppedRef.current = false;
+    recognition.lang = 'vi-VN';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setSpeechInputError(null);
+      setIsSpeechListening(true);
+      setIsEmojiStickerOpen(false);
+      quillRef.current?.focus();
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        }
+      }
+
+      const cleanTranscript = finalTranscript.replace(/\s+/g, ' ').trim();
+      if (!cleanTranscript) return;
+
+      const prefix = getCurrentInputMessage().trim() ? ' ' : '';
+      insertTextToInput(`${prefix}${cleanTranscript}`);
+      speechFinalTranscriptRef.current += `${prefix}${cleanTranscript}`;
+    };
+
+    recognition.onerror = (event) => {
+      setIsSpeechListening(false);
+      speechRecognitionRef.current = null;
+
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        setSpeechInputError('Vui lòng cấp quyền microphone để nhập bằng giọng nói.');
+      } else if (event.error === 'no-speech') {
+        setSpeechInputError('Chưa nghe thấy giọng nói. Hãy thử lại.');
+      } else if (event.error !== 'aborted') {
+        setSpeechInputError('Không thể nhận diện giọng nói lúc này.');
+      }
+    };
+
+    recognition.onend = () => {
+      setIsSpeechListening(false);
+      speechRecognitionRef.current = null;
+
+      if (!speechManuallyStoppedRef.current && !speechFinalTranscriptRef.current) {
+        setSpeechInputError((current) => current ?? 'Không nghe thấy nội dung nào.');
+      }
+    };
+
+    speechRecognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      speechRecognitionRef.current = null;
+      setIsSpeechListening(false);
+      setSpeechInputError('Không thể bắt đầu nhận diện giọng nói.');
+    }
+  };
+
   const handleSendSticker = (sticker: string) => {
     if (!canSendInActiveConversation) return;
+    sendTypingStopped();
     sendStompMessage(sticker, 'STICKER', replyTo?.id ?? undefined);
     if (replyTo) {
       setReplyTo(null);
@@ -801,12 +973,70 @@ export const Chat = () => {
   };
 
   const clearQuillInput = () => {
+    isRestoringDraftRef.current = true;
     const quill = quillRef.current;
     if (quill) {
       quill.setText('');
     }
     setInputMessage('');
+    if (activeConversation?.id) {
+      clearMessageDraft(activeConversation.id);
+    }
+    window.setTimeout(() => {
+      isRestoringDraftRef.current = false;
+    }, 0);
   };
+
+  const sendTypingStopped = () => {
+    if (typingStopTimeoutRef.current) {
+      clearTimeout(typingStopTimeoutRef.current);
+      typingStopTimeoutRef.current = null;
+    }
+
+    if (isTypingSentRef.current) {
+      sendTypingIndicator(false, typingConversationIdRef.current ?? undefined);
+      isTypingSentRef.current = false;
+      typingConversationIdRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    const hasTypedText = stripHtml(inputMessage).trim().length > 0;
+
+    if (!activeConversation || !canSendInActiveConversation || !hasTypedText) {
+      sendTypingStopped();
+      return;
+    }
+
+    const now = Date.now();
+    if (!isTypingSentRef.current || now - lastTypingSentAtRef.current > 1500) {
+      sendTypingIndicator(true, activeConversation.id);
+      isTypingSentRef.current = true;
+      typingConversationIdRef.current = activeConversation.id;
+      lastTypingSentAtRef.current = now;
+    }
+
+    if (typingStopTimeoutRef.current) {
+      clearTimeout(typingStopTimeoutRef.current);
+    }
+    typingStopTimeoutRef.current = setTimeout(() => {
+      sendTypingStopped();
+    }, 2500);
+  }, [inputMessage, activeConversation?.id, canSendInActiveConversation]);
+
+  useEffect(() => {
+    return () => {
+      sendTypingStopped();
+    };
+  }, [activeConversation?.id]);
+
+  useEffect(() => {
+    return () => {
+      speechManuallyStoppedRef.current = true;
+      speechRecognitionRef.current?.abort();
+      speechRecognitionRef.current = null;
+    };
+  }, [activeConversation?.id]);
 
   const focusQuill = () => {
     window.setTimeout(() => quillRef.current?.focus(), 0);
@@ -968,6 +1198,10 @@ export const Chat = () => {
       let html = quill.root.innerHTML;
       if (html === '<p><br></p>') html = '';
       setInputMessage(html);
+      const conversationId = useChatStore.getState().activeConversation?.id;
+      if (conversationId && !isRestoringDraftRef.current) {
+        useChatStore.getState().setMessageDraft(conversationId, html);
+      }
     });
     quill.on('editor-change', () => {
       const range = quill.getSelection();
@@ -986,6 +1220,32 @@ export const Chat = () => {
       editor.dataset.placeholder = messagePlaceholder;
     }
   }, [messagePlaceholder]);
+
+  useEffect(() => {
+    const quill = quillRef.current;
+    const conversationId = activeConversation?.id ?? null;
+    if (!quill || !conversationId) {
+      setInputMessage('');
+      lastRestoredDraftConversationRef.current = null;
+      return;
+    }
+
+    if (lastRestoredDraftConversationRef.current === conversationId) return;
+
+    const draft = messageDrafts[conversationId] ?? '';
+    isRestoringDraftRef.current = true;
+    quill.setContents([]);
+    if (draft) {
+      quill.clipboard.dangerouslyPasteHTML(draft);
+    }
+    quill.setSelection(Math.max(0, quill.getLength() - 1), 0);
+    setInputMessage(draft);
+    lastRestoredDraftConversationRef.current = conversationId;
+
+    window.setTimeout(() => {
+      isRestoringDraftRef.current = false;
+    }, 0);
+  }, [activeConversation?.id, messageDrafts]);
 
   const renderInlineFormatting = (text: string) => {
     const nodes: ReactNode[] = [];
@@ -1174,9 +1434,10 @@ export const Chat = () => {
           type: attachment.type,
           name: attachment.name,
           size: attachment.size,
-        }));
+      }));
       const caption = currentMessage.trim();
       const messageType = attachments.length > 1 ? 'ALBUM' : attachments[0]?.type ?? 'ALBUM';
+      sendTypingStopped();
       sendStompMessage(caption, messageType, replyTo?.id ?? undefined, attachments, messagePriority || undefined);
       resetUploadState();
       clearQuillInput();
@@ -1185,6 +1446,7 @@ export const Chat = () => {
       // Send text if typed without attachments
       const trimmedMessage = currentMessage.trim();
       const pastedMediaType = detectPastedMediaType(trimmedMessage);
+      sendTypingStopped();
       if (pastedMediaType) {
         sendStompMessage('', pastedMediaType, replyTo?.id ?? undefined, [{
           url: trimmedMessage,
@@ -1210,6 +1472,7 @@ export const Chat = () => {
     }
 
     sendStompMessage('👍', 'TEXT', replyTo?.id ?? undefined);
+    sendTypingStopped();
     if (replyTo) {
       setReplyTo(null);
     }
@@ -2047,6 +2310,8 @@ export const Chat = () => {
     memberCount: activeGroup?.members?.length || 0,
   } : activeFriend;
   const activeConversationSummary = activeConversation ? conversationSummaries[activeConversation.id] : null;
+  const activeTypingUsers = activeConversation ? typingUsersByConversation[activeConversation.id] ?? [] : [];
+  const activeUnreadMarker = activeConversation ? unreadMarkersByConversation[activeConversation.id] ?? null : null;
 
   return (
     <div className="h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
@@ -2128,6 +2393,8 @@ export const Chat = () => {
           conversations={conversations}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          messageDrafts={messageDrafts}
+          stripMessageMarkup={stripMessageMarkup}
         />
 
         {/* Voice Connected Panel */}
@@ -2206,6 +2473,14 @@ export const Chat = () => {
                   canPinMessage={canPinMessage}
                   togglePinMessage={togglePinMessage}
                   activeConversationSummary={activeConversationSummary}
+                  typingUsers={activeTypingUsers}
+                  unreadMarker={activeUnreadMarker}
+                  onDismissUnreadMarker={() => {
+                    if (activeConversation?.id) {
+                      clearUnreadMarker(activeConversation.id);
+                    }
+                  }}
+                  onJumpToUnreadMarker={scrollToUnreadMarker}
                   conversationInfoOffsetClass={conversationInfoOffsetClass}
                   messagesContainerRef={messagesContainerRef}
                   handleMessagesScroll={handleMessagesScroll}
@@ -2393,6 +2668,9 @@ export const Chat = () => {
                   setIsCreatePollOpen={setIsCreatePollOpen}
                   messagePriority={messagePriority}
                   setMessagePriority={setMessagePriority}
+                  isSpeechListening={isSpeechListening}
+                  speechInputError={speechInputError}
+                  handleToggleSpeechInput={handleToggleSpeechInput}
                 />
               </>
             )}

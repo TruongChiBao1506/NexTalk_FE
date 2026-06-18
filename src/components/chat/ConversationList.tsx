@@ -80,6 +80,8 @@ interface ConversationListProps {
   conversations: any;
   searchQuery: any;
   setSearchQuery: any;
+  messageDrafts?: Record<string, string>;
+  stripMessageMarkup?: (content: string) => string;
 }
 
 export const ConversationList = ({
@@ -129,7 +131,17 @@ export const ConversationList = ({
   conversations,
   searchQuery,
   setSearchQuery,
+  messageDrafts = {},
+  stripMessageMarkup,
 }: ConversationListProps) => {
+  const getDraftPreview = (conversationId?: string | null) => {
+    if (!conversationId) return '';
+    const draft = messageDrafts[conversationId];
+    if (!draft) return '';
+    const text = stripMessageMarkup ? stripMessageMarkup(draft) : draft.replace(/<[^>]*>/g, ' ');
+    return text.replace(/\s+/g, ' ').trim();
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
       {conversationTab === "requests" ? (
@@ -521,6 +533,7 @@ export const ConversationList = ({
             const c = item.conv;
             const friend = getFriendInfo(c);
             const lastMsg = lastMessages[c.id];
+            const draftPreview = getDraftPreview(c.id);
             const isSelected = activeConversation?.id === c.id;
             const unreadNotifs = notifications.filter(
               (n) =>
@@ -601,7 +614,12 @@ export const ConversationList = ({
                           : "text-gray-400 dark:text-zinc-500"
                       }`}
                     >
-                      {lastMsg ? (
+                      {draftPreview ? (
+                        <>
+                          <span className="font-bold text-rose-500 dark:text-rose-400">Bản nháp: </span>
+                          <span className="text-gray-600 dark:text-zinc-300">{draftPreview}</span>
+                        </>
+                      ) : lastMsg ? (
                         <>
                           {lastMsg.metadata?.priority === 'IMPORTANT' && (
                             <span className="text-rose-600 dark:text-rose-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
@@ -718,6 +736,7 @@ export const ConversationList = ({
           const lastMsg = groupConversationId
             ? lastMessages[groupConversationId]
             : undefined;
+          const draftPreview = getDraftPreview(groupConversationId);
           const unreadNotifs = notifications.filter(
             (n) =>
               n.referenceId === groupConversationId &&
@@ -800,7 +819,12 @@ export const ConversationList = ({
                           : "text-gray-400 dark:text-zinc-500"
                       }`}
                     >
-                      {lastMsg ? (
+                      {draftPreview ? (
+                        <>
+                          <span className="font-bold text-rose-500 dark:text-rose-400">Bản nháp: </span>
+                          <span className="text-gray-600 dark:text-zinc-300">{draftPreview}</span>
+                        </>
+                      ) : lastMsg ? (
                         <>
                           {lastMsg.metadata?.priority === 'IMPORTANT' && (
                             <span className="text-rose-600 dark:text-rose-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
@@ -974,6 +998,7 @@ export const ConversationList = ({
                     );
                     const channelUnreadCount = channelNotifs.length;
                     const channelHasUnread = channelUnreadCount > 0;
+                    const channelDraftPreview = getDraftPreview(ch.conversationId);
 
                     const isMemberOfChannel = conversations.some((c: any) => c.id === ch.conversationId);
                     const channelIsPrivate = Boolean(ch.isPrivate ?? (ch as any).private);
@@ -1024,6 +1049,11 @@ export const ConversationList = ({
                             {channelUnreadCount > 99
                               ? "99+"
                               : channelUnreadCount}
+                          </span>
+                        )}
+                        {!channelHasUnread && channelDraftPreview && (
+                          <span className="shrink-0 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-500 dark:bg-rose-500/10 dark:text-rose-300">
+                            Nháp
                           </span>
                         )}
                         {(g.ownerId === user?.id ||

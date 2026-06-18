@@ -8,7 +8,7 @@ import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
 import { useFriendStore } from './friendStore';
 import { useCallStore } from './callStore';
-import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType } from '../types/chat';
+import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType, TypingIndicatorEvent } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
 
 function isTokenExpired(token: string, offsetSeconds = 60): boolean {
@@ -29,6 +29,43 @@ const sortConversations = (conversations: ConversationResponse[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
+const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
+const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
+
+export interface TypingUser {
+  userId: string;
+  username: string;
+  updatedAt: string;
+}
+
+export interface UnreadMarker {
+  messageId: string;
+  count: number;
+}
+
+const getDraftStorageKey = () => {
+  const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+  return `${MESSAGE_DRAFTS_STORAGE_KEY}:${userId}`;
+};
+
+const loadMessageDrafts = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem(getDraftStorageKey()) ?? '{}');
+  } catch {
+    return {};
+  }
+};
+
+const saveMessageDrafts = (drafts: Record<string, string>) => {
+  if (typeof window === 'undefined') return;
+  const key = getDraftStorageKey();
+  if (Object.keys(drafts).length === 0) {
+    localStorage.removeItem(key);
+    return;
+  }
+  localStorage.setItem(key, JSON.stringify(drafts));
+};
 
 interface ChatState {
   conversations: ConversationResponse[];
@@ -49,17 +86,26 @@ interface ChatState {
   pinnedMessages: MessageResponse[];
   subscribedGroupVoiceIds: string[];
   conversationSummaries: Record<string, ConversationSummaryResponse>;
+  typingUsersByConversation: Record<string, TypingUser[]>;
+  messageDrafts: Record<string, string>;
+  unreadMarkersByConversation: Record<string, UnreadMarker>;
 
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
   sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => void;
+  sendTypingIndicator: (typing: boolean, conversationId?: string) => void;
+  setMessageDraft: (conversationId: string, content: string) => void;
+  clearMessageDraft: (conversationId: string) => void;
+  reloadMessageDrafts: () => void;
+  clearUnreadMarker: (conversationId: string) => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   subscribeToGroupVoice: (groupId: string) => void;
   addIncomingMessage: (message: MessageResponse) => void;
   handleStatusUpdate: (update: MessageStatusUpdateResponse) => void;
+  handleTypingIndicator: (event: TypingIndicatorEvent) => void;
   updateMemberPresence: (userId: string, status: string, lastSeen?: string) => void;
   setReplyTo: (message: MessageResponse | null) => void;
   editMessage: (messageId: string, content: string) => Promise<void>;
@@ -94,6 +140,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pinnedMessages: [],
   subscribedGroupVoiceIds: [],
   conversationSummaries: {},
+  typingUsersByConversation: {},
+  messageDrafts: loadMessageDrafts(),
+  unreadMarkersByConversation: {},
 
   fetchConversations: async () => {
     try {
@@ -160,13 +209,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         hasMoreMessages: true,
         replyTo: null,
         pinnedMessages: [],
+        typingUsersByConversation: {},
       });
       return;
     }
 
     // Mark any unread notifications for this conversation as read
     const notifications = useNotificationStore.getState().notifications;
-    const unreadForThisConv = notifications.filter(n => n.referenceId === conversationId && !n.read);
+    const unreadForThisConv = notifications.filter(n => n.referenceId === conversationId && !n.read && n.type === 'NEW_MESSAGE');
+    const unreadCountAtOpen = unreadForThisConv.length;
     for (const n of unreadForThisConv) {
       useNotificationStore.getState().markAsRead(n.id).catch(() => {});
     }
@@ -202,6 +253,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isLoading: cachedMessages.length === 0,
       replyTo: null,
       pinnedMessages: cachedPinnedMessages,
+      typingUsersByConversation: {
+        ...get().typingUsersByConversation,
+        [conversationId]: [],
+      },
     });
 
     try {
@@ -239,11 +294,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
               newHasMore = state.hasMoreMessages;
             }
 
+            const markerIndex = unreadCountAtOpen > 0
+              ? Math.min(unreadCountAtOpen, newMessages.length) - 1
+              : -1;
+            const unreadMarker = markerIndex >= 0 && newMessages[markerIndex]
+              ? { messageId: newMessages[markerIndex].id, count: unreadCountAtOpen }
+              : undefined;
+
             return {
               messages: newMessages,
               hasMoreMessages: newHasMore,
               isLoading: false,
               lastMessages: updatedLastMessages,
+              unreadMarkersByConversation: unreadMarker
+                ? {
+                    ...state.unreadMarkersByConversation,
+                    [conversationId]: unreadMarker,
+                  }
+                : state.unreadMarkersByConversation,
             };
           });
         }
@@ -303,6 +371,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
     stompClient.publish({
       destination: '/app/chat.send',
       body: JSON.stringify(messageRequest),
+    });
+  },
+
+  sendTypingIndicator: (typing: boolean, conversationId?: string) => {
+    const { stompClient, activeConversation } = get();
+    const targetConversationId = conversationId ?? activeConversation?.id;
+    if (!stompClient || !stompClient.connected || !targetConversationId) {
+      return;
+    }
+
+    stompClient.publish({
+      destination: '/app/chat.typing',
+      body: JSON.stringify({
+        conversationId: targetConversationId,
+        typing,
+      }),
+    });
+  },
+
+  setMessageDraft: (conversationId: string, content: string) => {
+    const normalizedContent = content === '<p><br></p>' ? '' : content;
+    set((state) => {
+      const nextDrafts = { ...state.messageDrafts };
+      if (normalizedContent.trim()) {
+        nextDrafts[conversationId] = normalizedContent;
+      } else {
+        delete nextDrafts[conversationId];
+      }
+      saveMessageDrafts(nextDrafts);
+      return { messageDrafts: nextDrafts };
+    });
+  },
+
+  clearMessageDraft: (conversationId: string) => {
+    set((state) => {
+      if (!state.messageDrafts[conversationId]) return state;
+      const nextDrafts = { ...state.messageDrafts };
+      delete nextDrafts[conversationId];
+      saveMessageDrafts(nextDrafts);
+      return { messageDrafts: nextDrafts };
+    });
+  },
+
+  reloadMessageDrafts: () => {
+    set({ messageDrafts: loadMessageDrafts() });
+  },
+
+  clearUnreadMarker: (conversationId: string) => {
+    set((state) => {
+      if (!state.unreadMarkersByConversation[conversationId]) return state;
+      const nextMarkers = { ...state.unreadMarkersByConversation };
+      delete nextMarkers[conversationId];
+      return { unreadMarkersByConversation: nextMarkers };
     });
   },
 
@@ -398,6 +519,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const body = JSON.parse(message.body);
           if (body.type === 'STATUS_UPDATE') {
             get().handleStatusUpdate(body);
+          } else if (body.type === 'TYPING') {
+            get().handleTypingIndicator(body);
           } else if (body.type === 'CONVERSATION_SUMMARY') {
             get().setConversationSummary(body);
           } else {
@@ -497,7 +620,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { stompClient } = get();
     if (stompClient) {
       stompClient.deactivate();
-      set({ stompClient: null, isConnected: false, isConnecting: false, subscribedGroupVoiceIds: [] });
+      Object.values(typingIndicatorTimeouts).forEach(clearTimeout);
+      Object.keys(typingIndicatorTimeouts).forEach((key) => delete typingIndicatorTimeouts[key]);
+      set({ stompClient: null, isConnected: false, isConnecting: false, subscribedGroupVoiceIds: [], typingUsersByConversation: {} });
       console.info('[STOMP] Deactivated.');
     }
   },
@@ -665,6 +790,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [update.conversationId]: { ...lastMsg, statuses },
         },
       }));
+    }
+  },
+
+  handleTypingIndicator: (event: TypingIndicatorEvent) => {
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser?.id === event.userId) return;
+
+    const timeoutKey = `${event.conversationId}:${event.userId}`;
+    if (typingIndicatorTimeouts[timeoutKey]) {
+      clearTimeout(typingIndicatorTimeouts[timeoutKey]);
+      delete typingIndicatorTimeouts[timeoutKey];
+    }
+
+    set((state) => {
+      const existingUsers = state.typingUsersByConversation[event.conversationId] ?? [];
+      const nextUsers = event.typing
+        ? [
+            ...existingUsers.filter((user) => user.userId !== event.userId),
+            {
+              userId: event.userId,
+              username: event.username,
+              updatedAt: event.updatedAt,
+            },
+          ]
+        : existingUsers.filter((user) => user.userId !== event.userId);
+
+      return {
+        typingUsersByConversation: {
+          ...state.typingUsersByConversation,
+          [event.conversationId]: nextUsers,
+        },
+      };
+    });
+
+    if (event.typing) {
+      typingIndicatorTimeouts[timeoutKey] = setTimeout(() => {
+        set((state) => {
+          const existingUsers = state.typingUsersByConversation[event.conversationId] ?? [];
+          return {
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [event.conversationId]: existingUsers.filter((user) => user.userId !== event.userId),
+            },
+          };
+        });
+        delete typingIndicatorTimeouts[timeoutKey];
+      }, 4000);
     }
   },
 

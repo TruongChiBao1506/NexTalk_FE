@@ -35,13 +35,18 @@ import {
   FileQuestion,
   Cloud,
   Folder,
-  BellRing
+  BellRing,
+  BarChart3,
+  Link,
+  Sticker,
+  MessageSquare
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
 import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { getMessagePreviewData } from '../../utils/messagePreview';
 
 interface MessageListProps {
   pinnedMessages: any[];
@@ -49,6 +54,10 @@ interface MessageListProps {
   canPinMessage: (msg: any) => boolean;
   togglePinMessage: (id: string, isPinned: boolean) => void;
   activeConversationSummary: any;
+  typingUsers: any[];
+  unreadMarker: { messageId: string; count: number } | null;
+  onDismissUnreadMarker: () => void;
+  onJumpToUnreadMarker: (behavior?: ScrollBehavior) => void;
   conversationInfoOffsetClass: string;
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
   handleMessagesScroll: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -113,6 +122,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   canPinMessage,
   togglePinMessage,
   activeConversationSummary,
+  typingUsers,
+  unreadMarker,
+  onDismissUnreadMarker,
+  onJumpToUnreadMarker,
   conversationInfoOffsetClass,
   messagesContainerRef,
   handleMessagesScroll,
@@ -175,6 +188,40 @@ export const MessageList: React.FC<MessageListProps> = ({
     type: 'recall' | 'delete' | null;
     messageId: string | null;
   }>({ isOpen: false, type: null, messageId: null });
+
+  const getReplyPreviewIcon = (kind: ReturnType<typeof getMessagePreviewData>['kind']) => {
+    if (kind === 'IMAGE' || kind === 'ALBUM') return Image;
+    if (kind === 'VIDEO') return Video;
+    if (kind === 'FILE') return FileText;
+    if (kind === 'LINK') return Link;
+    if (kind === 'POLL') return BarChart3;
+    if (kind === 'STICKER') return Sticker;
+    return MessageSquare;
+  };
+
+  const renderReplyPreviewContent = (message: any) => {
+    const preview = getMessagePreviewData(message);
+    const ReplyIcon = getReplyPreviewIcon(preview.kind);
+
+    return (
+      <>
+        <span className="shrink-0 font-bold text-indigo-600 dark:text-indigo-400">
+          @{message?.senderUsername ?? 'tin nhắn cũ'}
+        </span>
+        {preview.thumbnailUrl && (preview.kind === 'IMAGE' || preview.kind === 'STICKER' || preview.kind === 'ALBUM') ? (
+          <img src={preview.thumbnailUrl} alt={preview.label} className="h-7 w-7 shrink-0 rounded-md object-cover ring-1 ring-gray-200 dark:ring-zinc-700" />
+        ) : (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/70 text-indigo-600 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:text-indigo-300 dark:ring-zinc-700">
+            <ReplyIcon className="h-3.5 w-3.5" />
+          </span>
+        )}
+        <span className="min-w-0">
+          <span className="mr-1 font-bold text-gray-500 dark:text-zinc-400">{preview.label}</span>
+          <span className="truncate">{preview.fileName || preview.text}</span>
+        </span>
+      </>
+    );
+  };
 
   return (
     <>
@@ -272,6 +319,23 @@ export const MessageList: React.FC<MessageListProps> = ({
       >
         <div ref={messagesEndRef} />
 
+        {typingUsers.length > 0 && (
+          <div className="flex items-end gap-2 px-3 py-1.5 shrink-0">
+            <div className="rounded-2xl rounded-bl-none border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-discord-mid dark:text-zinc-300">
+              <span>
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].username} đang nhập`
+                  : `${typingUsers.slice(0, 2).map((typingUser: any) => typingUser.username).join(', ')}${typingUsers.length > 2 ? ` và ${typingUsers.length - 2} người khác` : ''} đang nhập`}
+              </span>
+              <span className="ml-1 inline-flex translate-y-0.5 items-center gap-0.5">
+                <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:-0.2s]" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:-0.1s]" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-current" />
+              </span>
+            </div>
+          </div>
+        )}
+
         {visibleMessages.map((msg: any, index: number) => {
           const isMe = msg.senderId === user?.id;
           const nextMsg = visibleMessages[index + 1];
@@ -305,9 +369,11 @@ export const MessageList: React.FC<MessageListProps> = ({
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
 
+          const isUnreadMarkerTarget = unreadMarker?.messageId === msg.id;
+
           return (
+            <React.Fragment key={msg.id}>
             <div
-              key={msg.id}
               id={`message-${msg.id}`}
               onMouseEnter={() => setHoveredMessageId(msg.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -594,12 +660,15 @@ export const MessageList: React.FC<MessageListProps> = ({
                         className="flex w-full bg-gray-100 dark:bg-zinc-800/80 rounded-lg border-l-[3px] border-indigo-400 dark:border-indigo-500 overflow-hidden hover:brightness-95 transition cursor-pointer"
                         onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
                       >
-                        <div className="px-3 py-1.5 flex items-center gap-1.5 overflow-hidden w-full">
+                        <div className="px-3 py-2 flex items-center gap-2 overflow-hidden w-full">
                           <CornerUpLeft className="w-3.5 h-3.5 text-gray-500 dark:text-zinc-400 shrink-0" />
-                          <span className="text-[12.5px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                          <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-2 min-w-0">
+                            {renderReplyPreviewContent(parentMessage)}
+                          </span>
+                          <span className="hidden">
                             @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
                           </span>
-                          <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-1.5 min-w-0">
+                          <span className="hidden">
                             {parentMessage ? (
                               parentMessage.isRecalled ? (
                                 <span className="truncate">Tin nhắn đã bị thu hồi</span>
@@ -1023,6 +1092,22 @@ export const MessageList: React.FC<MessageListProps> = ({
                 </>
               )}
             </div>
+            {isUnreadMarkerTarget && (
+              <div className="flex items-center gap-3 py-1.5 shrink-0 select-none">
+                <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
+                <button
+                  type="button"
+                  onClick={onDismissUnreadMarker}
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-sky-700 shadow-sm transition hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/20"
+                  title="Ẩn dấu tin nhắn mới"
+                >
+                  <span>{unreadMarker.count > 1 ? `${unreadMarker.count} tin nhắn mới` : 'Tin nhắn mới'}</span>
+                  <X className="h-3 w-3" />
+                </button>
+                <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
+              </div>
+            )}
+            </React.Fragment>
           );
         })}
 
@@ -1045,6 +1130,18 @@ export const MessageList: React.FC<MessageListProps> = ({
         >
           <ArrowDown className="h-4 w-4" />
           <span>Cuộn về tin nhắn mới nhất</span>
+        </button>
+      )}
+
+      {unreadMarker && (
+        <button
+          type="button"
+          onClick={() => onJumpToUnreadMarker('smooth')}
+          className={`absolute bottom-40 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-100 bg-white/95 px-4 py-2 text-sm font-bold text-sky-600 shadow-lg shadow-sky-950/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-sky-50 active:translate-y-0 dark:border-sky-500/20 dark:bg-zinc-900/95 dark:text-sky-300 dark:hover:bg-zinc-800 ${conversationInfoOffsetClass}`}
+          title="Nhảy tới tin nhắn mới"
+        >
+          <ArrowDown className="h-4 w-4" />
+          <span>{unreadMarker.count > 1 ? `${unreadMarker.count} tin nhắn mới` : 'Tin nhắn mới'}</span>
         </button>
       )}
 

@@ -48,6 +48,15 @@ export interface MessageStatusUpdateResponse {
   updatedAt: string;
 }
 
+export interface TypingIndicatorEvent {
+  type: 'TYPING';
+  conversationId: string;
+  userId: string;
+  username: string;
+  typing: boolean;
+  updatedAt: string;
+}
+
 export interface MessageReaction {
   userId: string;
   username: string;
