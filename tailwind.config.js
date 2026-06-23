@@ -9,21 +9,20 @@ export default {
     extend: {
       colors: {
         discord: {
-          dark: '#313338',
-          mid: '#2b2d31',
-          black: '#1e1f22',
+          dark: '#202638',
+          mid: '#171c2b',
+          black: '#0e1320',
           light: '#f2f3f5',
-          blurple: '#5865f2',
+          blurple: '#6d72ff',
           green: '#248046',
           yellow: '#f0b232',
           red: '#da373c',
-          text: '#dbdee1',
-          muted: '#949ba4'
+          text: '#e9ecf5',
+          muted: '#9da7bb'
         }
       }
     },
   },
   plugins: [],
 }
-
 

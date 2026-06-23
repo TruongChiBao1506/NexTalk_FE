@@ -299,8 +299,8 @@ export const Friends = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto max-w-4xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
+      <main className="flex-1 overflow-y-auto max-w-6xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
           <div>
             <h2 className="text-2xl font-bold m-0 text-left text-gray-900 dark:text-white">Bạn bè</h2>
             <p className="text-sm text-gray-500 dark:text-discord-muted mt-1 text-left">
@@ -308,10 +308,10 @@ export const Friends = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap bg-gray-200 dark:bg-discord-dark/50 p-1.5 rounded-xl border border-gray-300/40 dark:border-zinc-850/60 self-start sm:self-auto">
+          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl border border-gray-300/40 bg-gray-200 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:border-zinc-850/60 dark:bg-discord-dark/50 self-start xl:self-auto">
             <button
               onClick={() => setActiveTab('friends')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
+              className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
                 activeTab === 'friends'
                   ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
@@ -321,7 +321,7 @@ export const Friends = () => {
             </button>
             <button
               onClick={() => setActiveTab('groups')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
+              className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
                 activeTab === 'groups'
                   ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
@@ -331,7 +331,7 @@ export const Friends = () => {
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
+              className={`relative shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
                 activeTab === 'pending'
                   ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
@@ -346,7 +346,7 @@ export const Friends = () => {
             </button>
             <button
               onClick={() => setActiveTab('group_invitations')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
+              className={`relative shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
                 activeTab === 'group_invitations'
                   ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
@@ -356,21 +356,6 @@ export const Friends = () => {
               {pendingInvitations.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
                   {pendingInvitations.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('chat_requests')}
-              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
-                activeTab === 'chat_requests'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Tin nhắn chờ
-              {totalChatRequests > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
-                  {totalChatRequests > 99 ? '99+' : totalChatRequests}
                 </span>
               )}
             </button>

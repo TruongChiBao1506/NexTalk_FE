@@ -195,7 +195,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }, [stickerPacks, activePackId]);
 
   return (
-    <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+    <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-mid dark:border-t dark:border-zinc-800/80 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
       {/* Reply Preview */}
       {replyTo && (
         <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />

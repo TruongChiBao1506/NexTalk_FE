@@ -73,7 +73,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   };
 
   return (
-    <div className="w-80 h-full border-l border-gray-200 dark:border-discord-gray-600 bg-white dark:bg-discord-dark-secondary flex flex-col z-30 animate-in slide-in-from-right duration-200 shrink-0">
+    <div className="w-80 h-full border-l border-gray-200 dark:border-zinc-800 bg-white dark:bg-discord-mid flex flex-col z-30 animate-in slide-in-from-right duration-200 shrink-0">
       {/* Header */}
       <div className="h-12 border-b border-gray-200 dark:border-discord-gray-600 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-2 text-gray-700 dark:text-discord-gray-200 font-semibold text-sm">

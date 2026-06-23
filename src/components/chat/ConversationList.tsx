@@ -573,7 +573,7 @@ export const ConversationList = ({
                     </div>
                   )}
                   <span
-                    className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e1e2e] ${
+                    className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-discord-mid ${
                       friend.status === "ONLINE"
                         ? "bg-emerald-500"
                         : friend.status === "AWAY"
@@ -778,7 +778,7 @@ export const ConversationList = ({
                     </div>
                   )}
                   {/* Group badge */}
-                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-[#1e1e2e] rounded-full flex items-center justify-center shadow-sm">
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-discord-mid rounded-full flex items-center justify-center shadow-sm">
                     <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
                   </div>
                   {g.pendingApprovalCount > 0 && g.ownerId === user?.id && (

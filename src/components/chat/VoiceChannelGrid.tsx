@@ -147,7 +147,7 @@ export const VoiceChannelGrid = () => {
   };
 
   return (
-    <div className="flex-1 w-full bg-[#f3f4f6] dark:bg-[#2b2d31] p-6 flex flex-col overflow-hidden">
+    <div className="flex-1 w-full bg-[#f3f4f6] dark:bg-discord-dark p-6 flex flex-col overflow-hidden">
       {activeFocusedTile ? (
         <div className="flex flex-col h-full gap-4 min-h-0">
           {/* Stage Area */}
@@ -189,4 +189,3 @@ export const VoiceChannelGrid = () => {
     </div>
   );
 };
-

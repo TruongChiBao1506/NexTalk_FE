@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import Friends from './pages/Friends';
 import JoinGroup from './pages/JoinGroup';
 import AdminStickers from './pages/AdminStickers';
+import Home from './pages/Home';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
@@ -108,6 +109,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route element={<PublicRoute />}>
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />

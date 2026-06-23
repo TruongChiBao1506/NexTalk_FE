@@ -471,7 +471,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   {msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
                     renderReminderSystemMessage(msg)
                   ) : isCallLog ? (
-                    <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
+                    <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-indigo-500/20 dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20">
                       <button
                         type="button"
                         onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}

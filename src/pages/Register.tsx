@@ -83,7 +83,7 @@ export const Register = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gradient-animate-light dark:bg-gradient-animate">
+    <div className="relative h-full min-h-screen w-full overflow-x-hidden overflow-y-auto bg-gradient-animate-light px-4 py-10 dark:bg-gradient-animate">
       
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
@@ -94,7 +94,7 @@ export const Register = () => {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md z-10">
+      <div className="relative z-10 mx-auto w-full max-w-md">
         
         {/* Brand logo / header */}
         <div className="flex flex-col items-center mb-6">

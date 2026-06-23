@@ -2537,7 +2537,7 @@ export const Chat = () => {
   const activeUnreadMarker = activeConversation ? unreadMarkersByConversation[activeConversation.id] ?? null : null;
 
   return (
-    <div className="h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="nextalk-chat-shell h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
 
       {/* Column 1: Sidebar Navigation */}
       <SidebarNavigation
@@ -2547,7 +2547,7 @@ export const Chat = () => {
       />
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
-      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-[#1e1e2e] flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
+      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-discord-mid flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
         <SidebarHeader

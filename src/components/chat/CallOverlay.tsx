@@ -99,7 +99,7 @@ const VideoTile = ({
   onTogglePin?: () => void;
   compact?: boolean;
 }) => (
-  <div className={`group relative h-full overflow-hidden rounded-2xl border bg-white ${
+  <div className={`nextalk-call-tile group relative h-full overflow-hidden rounded-2xl border bg-white ${
     tile.isSpeaking ? 'border-emerald-400 shadow-lg shadow-emerald-500/20' : 'border-slate-200'
   }`}>
     {tile.videoTrack ? (
@@ -132,7 +132,7 @@ const VideoTile = ({
 );
 
 const VoiceTile = ({ tile }: { tile: Tile }) => (
-  <div className="flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+  <div className="nextalk-call-tile flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
     <div className={`relative rounded-full ${tile.isSpeaking ? 'ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-white animate-pulse' : ''}`}>
       <Avatar tile={tile} />
       {tile.isMuted && (
@@ -332,9 +332,9 @@ export const CallOverlay = () => {
   );
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
+    <div className="nextalk-call-overlay fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
       {callState !== 'connected' && (
-        <div className="pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-slate-200 bg-white/95 p-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in">
+        <div className="nextalk-call-card pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-slate-200 bg-white/95 p-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in">
           <div className="relative mb-7">
             <div className="absolute inset-0 rounded-full bg-indigo-600/30 animate-ping" style={{ animationDuration: '3s' }} />
             <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
@@ -370,7 +370,7 @@ export const CallOverlay = () => {
       )}
 
       {callState === 'connected' && (
-        <div className={`pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/95 text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl ${
+        <div className={`nextalk-call-card pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/95 text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl ${
           callType === 'video'
             ? 'h-[min(720px,calc(100vh-3rem))] w-[min(980px,calc(100vw-2rem))]'
             : 'w-[min(620px,calc(100vw-2rem))]'
@@ -380,7 +380,7 @@ export const CallOverlay = () => {
               {callNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className="max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-white/85 px-3 py-1.5 text-center text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200 backdrop-blur"
+                  className="nextalk-call-notice max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-white/85 px-3 py-1.5 text-center text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200 backdrop-blur"
                 >
                   {notice.message}
                 </div>
@@ -388,7 +388,7 @@ export const CallOverlay = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div className="nextalk-call-header flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div className="min-w-0">
               <p className="m-0 truncate text-sm font-bold">{displayName}</p>
               <p className="m-0 text-xs text-slate-500">{subtitle}</p>
@@ -398,7 +398,7 @@ export const CallOverlay = () => {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden bg-slate-50 p-3">
+          <div className="nextalk-call-canvas min-h-0 flex-1 overflow-hidden bg-slate-50 p-3">
             {callType === 'video' ? (
               !isGroupCall && oneOnOneTile ? (
                 <VideoTile tile={oneOnOneTile} />
@@ -475,7 +475,7 @@ export const CallOverlay = () => {
             </div>
           )}
 
-          <div className="z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-slate-200 px-4 py-4">
+          <div className="nextalk-call-controls z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-slate-200 px-4 py-4">
             <button
               type="button"
               onClick={toggleMic}

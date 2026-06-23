@@ -66,7 +66,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   );
 
   return (
-    <header className="min-h-14 bg-gray-150 dark:bg-discord-dark border-b border-gray-300 dark:border-zinc-900/50 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
+    <header className="min-h-14 bg-gray-150 dark:bg-discord-mid border-b border-gray-300 dark:border-zinc-800/80 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
       <div className="flex w-full min-w-0 items-center gap-2 text-left md:w-auto md:gap-3">
         {/* Mobile Back Button */}
         <button
