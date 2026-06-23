@@ -16,6 +16,7 @@ export const useChatModals = () => {
     description: string;
     confirmLabel: string;
     variant?: 'danger' | 'primary';
+    showCancel?: boolean;
     onConfirm: () => void | Promise<void>;
   } | null>(null);
 

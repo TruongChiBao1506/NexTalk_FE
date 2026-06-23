@@ -5,7 +5,7 @@ export interface ChatRequestResponse {
   sender: User;
   receiver: User;
   message: string;
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';
   conversationId?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -14,4 +14,5 @@ export interface ChatRequestResponse {
 export interface CreateChatRequestPayload {
   receiverId: string;
   message: string;
+  sharedMessageId?: string;
 }

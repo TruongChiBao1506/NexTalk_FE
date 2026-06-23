@@ -32,3 +32,17 @@ export interface FriendSuggestionResponse {
   mutualFriendsCount: number;
   isRequestSent: boolean;
 }
+
+export type FriendRelationStatus =
+  | 'SELF'
+  | 'NONE'
+  | 'FRIENDS'
+  | 'OUTGOING_PENDING'
+  | 'INCOMING_PENDING'
+  | 'REJECTED'
+  | 'BLOCKED';
+
+export interface FriendRelationStatusResponse {
+  userId: string;
+  status: FriendRelationStatus;
+}

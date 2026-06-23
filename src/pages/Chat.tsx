@@ -10,9 +10,9 @@ import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { useGroupStore } from '../store/groupStore';
 import { useFriendStore } from '../store/friendStore';
+import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
-import { chatRequestService } from '../services/chatRequestService';
 import { messageService } from '../services/messageService';
 import { blockService } from '../services/blockService';
 import { groupService } from '../services/groupService';
@@ -56,6 +56,7 @@ import { PinSetupModal } from '../components/chat/PinSetupModal';
 import { MediaViewerModal } from '../components/chat/MediaViewerModal';
 import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
+import CreateChannelModal from '../components/chat/CreateChannelModal';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
@@ -163,6 +164,12 @@ export const Chat = () => {
     reloadMessageDrafts,
     clearUnreadMarker,
   } = useChatStore();
+  const {
+    incoming: incomingChatRequests,
+    isLoadingIncoming: isLoadingChatRequests,
+    fetchIncoming: fetchIncomingChatRequests,
+    createRequest: createChatRequest,
+  } = useChatRequestStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
@@ -176,24 +183,6 @@ export const Chat = () => {
 
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
-
-
-
-  const fetchIncomingChatRequests = async () => {
-    setIsLoadingChatRequests(true);
-    try {
-      const response = await chatRequestService.getIncoming();
-      if (response.success && response.data) {
-        setIncomingChatRequests(response.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch chat requests:', err);
-    } finally {
-      setIsLoadingChatRequests(false);
-    }
-  };
-
-
 
   const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, pendingInvitations, fetchPendingInvitations } = useGroupStore();
   const { fetchPacks: fetchStickers } = useStickerStore();
@@ -214,6 +203,7 @@ export const Chat = () => {
   }, [user?.id, reloadMessageDrafts]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
+  const [createChannelGroupId, setCreateChannelGroupId] = useState<string | null>(null);
 
   const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -233,9 +223,7 @@ export const Chat = () => {
     ?? null;
 
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
-  const [incomingChatRequests, setIncomingChatRequests] = useState<ChatRequestResponse[]>([]);
   const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
-  const [isLoadingChatRequests, setIsLoadingChatRequests] = useState(false);
   const [isSendingBlockedChatRequest, setIsSendingBlockedChatRequest] = useState(false);
   const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [sentFriendRequestIds, setSentFriendRequestIds] = useState<string[]>([]);
@@ -316,6 +304,17 @@ export const Chat = () => {
     confirmDialog, setConfirmDialog,
   } = useChatModals();
 
+  const showAlertDialog = (description: string, title = 'Thông báo', variant: 'primary' | 'danger' = 'primary') => {
+    setConfirmDialog({
+      title,
+      description,
+      confirmLabel: 'OK',
+      variant,
+      showCancel: false,
+      onConfirm: () => setConfirmDialog(null),
+    });
+  };
+
   const {
     conversationActionId, setConversationActionId,
     openConversationMenuId, setOpenConversationMenuId,
@@ -336,6 +335,7 @@ export const Chat = () => {
     fetchIncomingChatRequests,
     setSelectedChatRequest,
     setConversationTab,
+    showAlertDialog,
   });
 
   const {
@@ -361,6 +361,7 @@ export const Chat = () => {
     selectConversation,
     editMessage,
     shareMessage,
+    showAlertDialog,
   });
 
   const {
@@ -586,7 +587,7 @@ export const Chat = () => {
     const maxSizeMB = 50; 
 
     if (file.size > maxSizeMB * 1024 * 1024) {
-      window.alert(`Dung lượng ${type === 'IMAGE' ? 'ảnh' : type === 'VIDEO' ? 'video' : 'tệp tin'} "${file.name}" vượt quá giới hạn cho phép là ${maxSizeMB}MB.`);
+      showAlertDialog(`Dung lượng ${type === 'IMAGE' ? 'ảnh' : type === 'VIDEO' ? 'video' : 'tệp tin'} "${file.name}" vượt quá giới hạn cho phép là ${maxSizeMB}MB.`, 'Thông báo', 'danger');
       return;
     }
 
@@ -626,11 +627,11 @@ export const Chat = () => {
         );
       } else {
         removePendingAttachment(id);
-        alert('Failed to upload file: ' + response.message);
+        showAlertDialog('Failed to upload file: ' + response.message, 'Thông báo', 'danger');
       }
     } catch (err: any) {
       removePendingAttachment(id);
-      alert('Error uploading file: ' + (err.response?.data?.message || err.message));
+      showAlertDialog('Error uploading file: ' + (err.response?.data?.message || err.message), 'Thông báo', 'danger');
     }
   };
 
@@ -657,7 +658,7 @@ export const Chat = () => {
   const handleTakeScreenshot = async () => {
     if (!canSendInActiveConversation || isTakingScreenshot) return;
     if (!navigator.mediaDevices?.getDisplayMedia) {
-      window.alert('Trình duyệt hiện tại chưa hỗ trợ chụp màn hình.');
+      showAlertDialog('Trình duyệt hiện tại chưa hỗ trợ chụp màn hình.', 'Thông báo', 'danger');
       return;
     }
 
@@ -709,7 +710,7 @@ export const Chat = () => {
       await addUploadedFile(file);
     } catch (err: any) {
       if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
-        window.alert(err?.message || 'Không thể chụp màn hình.');
+        showAlertDialog(err?.message || 'Không thể chụp màn hình.', 'Thông báo', 'danger');
       }
     } finally {
       stream?.getTracks().forEach((track) => track.stop());
@@ -777,7 +778,7 @@ export const Chat = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
     };
-  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchNotifications, fetchPending, fetchPendingInvitations]);
+  }, [connectWebSocket, fetchConversations, fetchFriends, fetchGroups, fetchIncomingChatRequests, fetchNotifications, fetchPending, fetchPendingInvitations]);
 
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
@@ -1630,7 +1631,13 @@ export const Chat = () => {
     const receiverId = getActivePrivateFriendId();
     const message = getCurrentInputMessage().trim();
     if (activePrivateChatBlocked) {
-      window.alert(activePrivateChatBlockedByMe ? 'Bạn cần bỏ chặn người này trước khi nhắn tin.' : 'Bạn không thể nhắn tin vì người này đã chặn bạn.');
+      showAlertDialog(
+        activePrivateChatBlockedByMe
+          ? 'B?n c?n b? ch?n ng??i n?y tr??c khi nh?n tin.'
+          : 'Bạn không thể nhắn tin vì người này đã chặn bạn.',
+        'Không thể nhắn tin',
+        'danger'
+      );
       return;
     }
     if (!receiverId || !message || isSendingBlockedChatRequest) {
@@ -1639,18 +1646,18 @@ export const Chat = () => {
 
     setIsSendingBlockedChatRequest(true);
     try {
-      const response = await chatRequestService.create({ receiverId, message });
-      if (response.success) {
+      const created = await createChatRequest({ receiverId, message });
+      if (created) {
         clearQuillInput();
         resetUploadState();
         if (replyTo) {
           setReplyTo(null);
         }
       } else {
-        alert(response.message || 'Không thể gửi tin nhắn chờ');
+        showAlertDialog('Không thể gửi tin nhắn chờ', 'Tin nhắn chờ', 'danger');
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể gửi tin nhắn chờ');
+      showAlertDialog(err.response?.data?.message || 'Không thể gửi tin nhắn chờ', 'Tin nhắn chờ', 'danger');
     } finally {
       setIsSendingBlockedChatRequest(false);
     }
@@ -1676,7 +1683,7 @@ export const Chat = () => {
     const file = event.target.files?.[0];
     if (!file || !activeGroup || !currentUserIsGroupOwner || isUpdatingGroupAvatar) return;
     if (!file.type.startsWith('image/')) {
-      window.alert('Vui lòng chọn một tệp hình ảnh.');
+      showAlertDialog('Vui lòng chọn một tệp hình ảnh.', 'Thông báo', 'danger');
       event.target.value = '';
       return;
     }
@@ -1693,7 +1700,7 @@ export const Chat = () => {
         throw new Error(uploadResponse.message || 'Upload anh that bai.');
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật ảnh nhóm.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Không thể cập nhật ảnh nhóm.', 'Thông báo', 'danger');
     } finally {
       setIsUpdatingGroupAvatar(false);
       event.target.value = '';
@@ -1713,10 +1720,10 @@ export const Chat = () => {
       if (updatedGroup) {
         setIsEditingGroupName(false);
       } else {
-        window.alert('Không thể đổi tên nhóm. Vui lòng thử lại.');
+        showAlertDialog('Không thể đổi tên nhóm. Vui lòng thử lại.', 'Thông báo', 'danger');
       }
     } catch (err: any) {
-      window.alert(err?.response?.data?.message || err?.message || 'Không thể đổi tên nhóm.');
+      showAlertDialog(err?.response?.data?.message || err?.message || 'Không thể đổi tên nhóm.', 'Thông báo', 'danger');
     } finally {
       setIsRenamingGroup(false);
     }
@@ -1786,17 +1793,17 @@ export const Chat = () => {
 
     setProfileChatActionId(searchProfileUser.id);
     try {
-      const response = await chatRequestService.create({
+      const created = await createChatRequest({
         receiverId: searchProfileUser.id,
         message: trimmedMessage,
       });
-      if (response.success) {
+      if (created) {
         setSentChatRequestIds((prev) => prev.includes(searchProfileUser.id) ? prev : [...prev, searchProfileUser.id]);
       } else {
-        window.alert(response.message || 'Không thể gửi tin nhắn chờ.');
+        showAlertDialog('Không thể gửi tin nhắn chờ.', 'Tin nhắn chờ', 'danger');
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn chờ.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn chờ.', 'Tin nhắn chờ', 'danger');
     } finally {
       setProfileChatActionId(null);
     }
@@ -1868,7 +1875,7 @@ export const Chat = () => {
             }
           }
         } catch (err: any) {
-          window.alert(err.response?.data?.message || err.message || 'KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i cháº·n.');
+          showAlertDialog(err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái chặn.', 'Thông báo', 'danger');
         } finally {
           setBlockActionLoading(false);
           setConfirmDialog(null);
@@ -1898,7 +1905,7 @@ export const Chat = () => {
         }
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái chặn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái chặn.', 'Thông báo', 'danger');
     } finally {
       setBlockActionLoading(false);
     }
@@ -2246,12 +2253,12 @@ export const Chat = () => {
     try {
       const updatedGroup = await updateGroup(activeGroup.id, { requiresApproval: !activeGroup.requiresApproval });
       if (!updatedGroup) {
-        window.alert('Không thể thay đổi cài đặt nhóm. Vui lòng thử lại.');
+        showAlertDialog('Không thể thay đổi cài đặt nhóm. Vui lòng thử lại.', 'Thông báo', 'danger');
       } else {
         await fetchGroups();
       }
     } catch (err: any) {
-      window.alert(err.message || 'Lỗi khi cập nhật nhóm');
+      showAlertDialog(err.message || 'Lỗi khi cập nhật nhóm', 'Thông báo', 'danger');
     } finally {
       setIsTogglingApproval(false);
     }
@@ -2265,10 +2272,10 @@ export const Chat = () => {
       if (response.success && response.data) {
         await fetchGroups();
       } else {
-        window.alert('Không thể làm mới liên kết. Vui lòng thử lại.');
+        showAlertDialog('Không thể làm mới liên kết. Vui lòng thử lại.', 'Thông báo', 'danger');
       }
     } catch (err: any) {
-      window.alert(err.message || 'Lỗi khi làm mới liên kết');
+      showAlertDialog(err.message || 'Lỗi khi làm mới liên kết', 'Thông báo', 'danger');
     } finally {
       setIsRefreshingInviteCode(false);
     }
@@ -2278,7 +2285,7 @@ export const Chat = () => {
     if (!activeConversation || activeConversation.type !== 'GROUP') return;
     const options = data.options.map((option) => option.trim()).filter(Boolean);
     if (!data.question.trim() || options.length < 2) {
-      window.alert('Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn.');
+      showAlertDialog('Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn.', 'Thông báo', 'danger');
       return;
     }
 
@@ -2298,7 +2305,7 @@ export const Chat = () => {
         setIsCreatePollOpen(false);
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể tạo bình chọn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Không thể tạo bình chọn.', 'Thông báo', 'danger');
     } finally {
       setPollActionMessageId(null);
     }
@@ -2584,6 +2591,7 @@ export const Chat = () => {
           user={user}
           notifications={notifications}
           setChannelSettingsData={setChannelSettingsData}
+          setCreateChannelGroupId={setCreateChannelGroupId}
           handleDeleteConversation={handleDeleteConversation}
           conversationActionId={conversationActionId}
           handleStartChatFromSearch={handleStartChatFromSearch}
@@ -2797,7 +2805,7 @@ export const Chat = () => {
                           </div>
 
                           <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
-                            {selectedChatRequest.message}
+                            {stripHtml(selectedChatRequest.message)}
                           </div>
 
                           <div className="mt-3 flex flex-wrap gap-2">
@@ -2989,7 +2997,7 @@ export const Chat = () => {
                     </div>
 
                     <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-800 dark:bg-zinc-900/60 dark:text-zinc-100">
-                      {selectedChatRequest.message}
+                      {stripHtml(selectedChatRequest.message)}
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
@@ -3126,6 +3134,13 @@ export const Chat = () => {
         />
       )}
 
+      {createChannelGroupId && (
+        <CreateChannelModal
+          groupId={createChannelGroupId}
+          onClose={() => setCreateChannelGroupId(null)}
+        />
+      )}
+
       {isProfileModalOpen && activeConversation && (activeFriend || isGroupConversation) && (
         <ProfileModal
           setIsProfileModalOpen={setIsProfileModalOpen}
@@ -3233,6 +3248,7 @@ export const Chat = () => {
         confirmLabel={confirmDialog?.confirmLabel}
         variant={confirmDialog?.variant}
         isLoading={profileActionLoading || blockActionLoading || Boolean(groupMemberActionId)}
+        showCancel={confirmDialog?.showCancel}
         onCancel={() => {
           if (!profileActionLoading && !blockActionLoading && !groupMemberActionId) {
             setConfirmDialog(null);

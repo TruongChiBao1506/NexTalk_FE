@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import { blockService } from '../services/blockService';
-import { chatRequestService } from '../services/chatRequestService';
+import { useChatRequestStore } from '../store/chatRequestStore';
 import { conversationService } from '../services/conversationService';
 import type { ChatRequestResponse } from '../types/chatRequest';
 
@@ -15,6 +14,7 @@ interface UseConversationActionsProps {
   fetchIncomingChatRequests: () => Promise<void>;
   setSelectedChatRequest: (req: ChatRequestResponse | null) => void;
   setConversationTab: (tab: 'chats' | 'requests') => void;
+  showAlertDialog: (description: string, title?: string, variant?: 'primary' | 'danger') => void;
 }
 
 export const useConversationActions = ({
@@ -26,6 +26,7 @@ export const useConversationActions = ({
   fetchIncomingChatRequests,
   setSelectedChatRequest,
   setConversationTab,
+  showAlertDialog,
 }: UseConversationActionsProps) => {
   const { user } = useAuthStore();
   const {
@@ -35,6 +36,12 @@ export const useConversationActions = ({
     deleteConversation,
     selectConversation,
   } = useChatStore();
+  const {
+    acceptRequest: acceptChatRequest,
+    rejectRequest: rejectChatRequest,
+    blockRequestSender,
+    reportRequestSender,
+  } = useChatRequestStore();
 
   const [conversationActionId, setConversationActionId] = useState<string | null>(null);
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
@@ -67,7 +74,7 @@ export const useConversationActions = ({
     try {
       const ok = await togglePinConversation(conversationId, Boolean(pinned));
       if (!ok) {
-        window.alert('Không thể cập nhật trạng thái ghim hội thoại.');
+        showAlertDialog('Không thể cập nhật trạng thái ghim hội thoại.', 'Không thể cập nhật', 'danger');
       }
     } finally {
       setConversationActionId(null);
@@ -87,7 +94,7 @@ export const useConversationActions = ({
         setIsPinnedPanelOpen(false);
         setIsSearchPanelOpen(false);
       } else {
-        window.alert('Không thể xóa hội thoại.');
+        showAlertDialog('Không thể xóa hội thoại.', 'Không thể xóa', 'danger');
       }
     } finally {
       setConversationActionId(null);
@@ -106,10 +113,10 @@ export const useConversationActions = ({
           conversations: state.conversations.map((c) => c.id === response.data.id ? response.data : c)
         }));
       } else {
-        window.alert('Lỗi cập nhật thời gian tự hủy tin nhắn.');
+        showAlertDialog('Lỗi cập nhật thời gian tự hủy tin nhắn.', 'Không thể cập nhật', 'danger');
       }
     } catch (err) {
-      window.alert('Lỗi cập nhật thời gian tự hủy tin nhắn.');
+      showAlertDialog('Lỗi cập nhật thời gian tự hủy tin nhắn.', 'Không thể cập nhật', 'danger');
     } finally {
       setConversationActionId(null);
     }
@@ -118,13 +125,13 @@ export const useConversationActions = ({
   const handleAcceptChatRequest = async (requestId: string) => {
     setChatRequestActionId(requestId);
     try {
-      const response = await chatRequestService.accept(requestId);
-      if (response.success && response.data?.conversationId) {
+      const accepted = await acceptChatRequest(requestId);
+      if (accepted?.conversationId) {
         setSelectedChatRequest(null);
         await fetchIncomingChatRequests();
         await fetchConversations();
         setConversationTab('chats');
-        await selectConversation(response.data.conversationId);
+        await selectConversation(accepted.conversationId);
       }
     } catch (err) {
       console.error('Failed to accept chat request:', err);
@@ -136,9 +143,11 @@ export const useConversationActions = ({
   const handleRejectChatRequest = async (requestId: string) => {
     setChatRequestActionId(requestId);
     try {
-      await chatRequestService.reject(requestId);
-      setSelectedChatRequest(null);
-      await fetchIncomingChatRequests();
+      const rejected = await rejectChatRequest(requestId);
+      if (rejected) {
+        setSelectedChatRequest(null);
+        await fetchIncomingChatRequests();
+      }
     } catch (err) {
       console.error('Failed to reject chat request:', err);
     } finally {
@@ -151,10 +160,11 @@ export const useConversationActions = ({
     if (!confirm) return;
     setChatRequestActionId(request.id);
     try {
-      await blockService.blockUser(request.sender.id);
-      await chatRequestService.reject(request.id);
-      setSelectedChatRequest(null);
-      await fetchIncomingChatRequests();
+      const blocked = await blockRequestSender(request);
+      if (blocked) {
+        setSelectedChatRequest(null);
+        await fetchIncomingChatRequests();
+      }
     } catch (err) {
       console.error('Failed to block chat request:', err);
     } finally {
@@ -167,11 +177,12 @@ export const useConversationActions = ({
     if (!confirm) return;
     setChatRequestActionId(request.id);
     try {
-      await blockService.blockUser(request.sender.id);
-      await chatRequestService.reject(request.id);
-      setSelectedChatRequest(null);
-      await fetchIncomingChatRequests();
-      window.alert('Đã báo cáo và chặn người dùng.');
+      const reported = await reportRequestSender(request);
+      if (reported) {
+        setSelectedChatRequest(null);
+        await fetchIncomingChatRequests();
+        showAlertDialog('Đã báo cáo và chặn người dùng.', 'Đã báo cáo', 'primary');
+      }
     } catch (err) {
       console.error('Failed to report chat request:', err);
     } finally {

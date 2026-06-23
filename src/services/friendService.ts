@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { FriendResponse, FriendshipAcceptResponse, FriendSuggestionResponse } from '../types/friend';
+import type { FriendRelationStatusResponse, FriendResponse, FriendshipAcceptResponse, FriendSuggestionResponse } from '../types/friend';
 
 export const friendService = {
   async sendRequest(receiverId: string): Promise<ApiResponse<void>> {
@@ -39,6 +39,11 @@ export const friendService = {
 
   async getPending(): Promise<ApiResponse<FriendResponse[]>> {
     const response = await apiClient.get<ApiResponse<FriendResponse[]>>('/friends/pending');
+    return response.data;
+  },
+
+  async getRelationStatus(userId: string): Promise<ApiResponse<FriendRelationStatusResponse>> {
+    const response = await apiClient.get<ApiResponse<FriendRelationStatusResponse>>(`/friends/${userId}/status`);
     return response.data;
   },
 

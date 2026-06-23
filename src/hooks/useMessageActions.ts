@@ -9,9 +9,12 @@ interface UseMessageActionsProps {
   selectConversation: (id: string) => Promise<void>;
   editMessage: (id: string, content: string) => Promise<void>;
   shareMessage: (messageId: string, targetIds: string[]) => Promise<boolean>;
+  showAlertDialog: (description: string, title?: string, variant?: 'primary' | 'danger') => void;
 }
 
 import { conversationService } from '../services/conversationService';
+import { chatRequestService } from '../services/chatRequestService';
+import { stripHtml } from '../utils/text';
 
 export const useMessageActions = ({
   sharingMessage,
@@ -19,6 +22,7 @@ export const useMessageActions = ({
   selectConversation,
   editMessage,
   shareMessage,
+  showAlertDialog,
 }: UseMessageActionsProps) => {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInputText, setEditInputText] = useState('');
@@ -65,11 +69,25 @@ export const useMessageActions = ({
     }, 450);
   };
 
-  const handleShareMessage = async (targetConversationIds: string[]) => {
+  const handleShareMessage = async (targetConversationIds: string[], strangerUserIds: string[] = []) => {
     if (!sharingMessage) return false;
     setIsSharingMessage(true);
     try {
-      const ok = await shareMessage(sharingMessage.id, targetConversationIds);
+      const results = await Promise.allSettled([
+        ...(targetConversationIds.length > 0
+          ? [shareMessage(sharingMessage.id, targetConversationIds)]
+          : []),
+        ...strangerUserIds.map((receiverId) =>
+          chatRequestService.create({
+            receiverId,
+            message: stripHtml(sharingMessage.content) || 'Tin nhắn được chia sẻ',
+            sharedMessageId: sharingMessage.id,
+          }).then((response) => response.success),
+        ),
+      ]);
+      const ok = results.length > 0 && results.every(
+        (result) => result.status === 'fulfilled' && result.value,
+      );
       if (ok) {
         setSharingMessage(null);
       }
@@ -89,10 +107,10 @@ export const useMessageActions = ({
         const { setConversationSummary } = useChatStore.getState();
         setConversationSummary(response.data);
       } else {
-        window.alert('Không thể tóm tắt hội thoại.');
+        showAlertDialog('Kh?ng th? t?m t?t h?i tho?i.', 'Kh?ng th? t?m t?t', 'danger');
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể tóm tắt hội thoại.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Kh?ng th? t?m t?t h?i tho?i.', 'Kh?ng th? t?m t?t', 'danger');
     } finally {
       setIsSummarizingConversation(false);
     }
@@ -106,7 +124,7 @@ export const useMessageActions = ({
         updateMessageInChat(response.data);
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể cập nhật bình chọn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Kh?ng th? c?p nh?t b?nh ch?n.', 'B?nh ch?n', 'danger');
     } finally {
       setPollActionMessageId(null);
     }
@@ -123,7 +141,7 @@ export const useMessageActions = ({
         setPollNewOptionText((values) => ({ ...values, [messageId]: '' }));
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể thêm lựa chọn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Kh?ng th? th?m l?a ch?n.', 'B?nh ch?n', 'danger');
     } finally {
       setPollActionMessageId(null);
     }
@@ -137,7 +155,7 @@ export const useMessageActions = ({
         updateMessageInChat(response.data);
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể khóa bình chọn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Kh?ng th? kh?a b?nh ch?n.', 'B?nh ch?n', 'danger');
     } finally {
       setPollActionMessageId(null);
     }
@@ -152,7 +170,7 @@ export const useMessageActions = ({
         updateMessageInChat(response.data);
       }
     } catch (err: any) {
-      window.alert(err.response?.data?.message || err.message || 'Không thể xóa bình chọn.');
+      showAlertDialog(err.response?.data?.message || err.message || 'Kh?ng th? x?a b?nh ch?n.', 'B?nh ch?n', 'danger');
     } finally {
       setPollActionMessageId(null);
     }

@@ -27,4 +27,9 @@ export const chatRequestService = {
     const response = await apiClient.post<ApiResponse<ChatRequestResponse>>(`/chat-requests/${id}/reject`);
     return response.data;
   },
+
+  async cancel(id: string): Promise<ApiResponse<ChatRequestResponse>> {
+    const response = await apiClient.delete<ApiResponse<ChatRequestResponse>>(`/chat-requests/${id}`);
+    return response.data;
+  },
 };

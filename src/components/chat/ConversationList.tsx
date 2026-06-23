@@ -55,6 +55,7 @@ interface ConversationListProps {
   user: any;
   notifications: any;
   setChannelSettingsData: any;
+  setCreateChannelGroupId: any;
   handleDeleteConversation: any;
   conversationActionId: any;
   handleStartChatFromSearch: any;
@@ -106,6 +107,7 @@ export const ConversationList = ({
   user,
   notifications,
   setChannelSettingsData,
+  setCreateChannelGroupId,
   handleDeleteConversation,
   conversationActionId,
   handleStartChatFromSearch,
@@ -205,7 +207,7 @@ export const ConversationList = ({
                       </span>
                     </div>
                     <p className="text-[12px] text-gray-500 dark:text-zinc-400 truncate mt-0.5">
-                      {request.message}
+                      {stripMessageMarkup ? stripMessageMarkup(request.message) : request.message.replace(/<[^>]*>/g, ' ')}
                     </p>
                     <p className="mt-2 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300">
                       Mở trong khung chat
@@ -873,6 +875,7 @@ export const ConversationList = ({
                             className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
+                              setCreateChannelGroupId(g.id);
                             }}
                             title="Tạo kênh mới"
                           >

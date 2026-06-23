@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'danger' | 'primary';
   isLoading?: boolean;
+  showCancel?: boolean;
   icon?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
@@ -22,6 +23,7 @@ export const ConfirmDialog = ({
   cancelLabel = 'Hủy',
   variant = 'danger',
   isLoading = false,
+  showCancel = true,
   icon,
   onConfirm,
   onCancel,
@@ -65,14 +67,16 @@ export const ConfirmDialog = ({
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isLoading}
-            className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-          >
-            {cancelLabel}
-          </button>
+          {showCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isLoading}
+              className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              {cancelLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}

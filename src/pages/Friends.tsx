@@ -4,12 +4,15 @@ import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Lo
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
+import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
+import { ChatRequestsTab } from '../components/friends/ChatRequestsTab';
+import type { ChatRequestResponse } from '../types/chatRequest';
 
 type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations' | 'chat_requests';
 
@@ -20,6 +23,7 @@ export const Friends = () => {
     friends,
     pending,
     suggestions,
+    relationStatuses,
     isLoading: isStoreLoading,
     error: storeError,
     fetchFriends,
@@ -30,6 +34,7 @@ export const Friends = () => {
     removeFriend,
     sendFriendRequest,
     cancelFriendRequest,
+    fetchRelationStatuses,
   } = useFriendStore();
   const {
     groups,
@@ -41,24 +46,49 @@ export const Friends = () => {
     acceptInvitation,
     rejectInvitation,
   } = useGroupStore();
+  const {
+    incoming: incomingChatRequests,
+    outgoing: outgoingChatRequests,
+    isLoadingIncoming: isLoadingIncomingChatRequests,
+    isLoadingOutgoing: isLoadingOutgoingChatRequests,
+    error: chatRequestError,
+    fetchAll: fetchChatRequests,
+    acceptRequest: acceptChatRequest,
+    rejectRequest: rejectChatRequest,
+    cancelRequest: cancelChatRequest,
+    blockRequestSender,
+    reportRequestSender,
+  } = useChatRequestStore();
 
   const { getOrCreatePrivateConversation, fetchConversations, selectConversation } = useChatStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>('friends');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [removeFriendConfirm, setRemoveFriendConfirm] = useState<{ id: string; username: string } | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; description: string; variant?: 'primary' | 'danger' } | null>(null);
 
   useEffect(() => {
     fetchConversations();
     fetchPending();
     fetchPendingInvitations();
     fetchSuggestions();
+    fetchChatRequests();
     if (activeTab === 'friends') {
       fetchFriends();
     } else if (activeTab === 'groups') {
       fetchGroups();
     }
-  }, [activeTab, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations, fetchSuggestions]);
+  }, [activeTab, fetchChatRequests, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations, fetchSuggestions]);
+
+  const chatRequestPeerIdsKey = [
+    ...incomingChatRequests.map((request) => request.sender.id),
+    ...outgoingChatRequests.map((request) => request.receiver.id),
+  ].sort().join('|');
+
+  useEffect(() => {
+    if (!chatRequestPeerIdsKey) return;
+    fetchRelationStatuses(chatRequestPeerIdsKey.split('|'));
+  }, [chatRequestPeerIdsKey, fetchRelationStatuses]);
 
   const handleAccept = async (senderId: string) => {
     setActionLoadingId(senderId);
@@ -75,6 +105,89 @@ export const Friends = () => {
     setActionLoadingId(senderId);
     await rejectRequest(senderId);
     setActionLoadingId(null);
+  };
+
+  const getChatRequestPeer = (request: ChatRequestResponse, direction: 'incoming' | 'outgoing') =>
+    direction === 'incoming' ? request.sender : request.receiver;
+
+  const handleAcceptChatRequest = async (request: ChatRequestResponse) => {
+    setActionLoadingId(request.id);
+    const accepted = await acceptChatRequest(request.id);
+    if (accepted?.conversationId) {
+      await fetchConversations();
+      await selectConversation(accepted.conversationId);
+      setActionLoadingId(null);
+      navigate('/chat');
+      return;
+    }
+    setActionLoadingId(null);
+  };
+
+  const handleRejectChatRequest = async (request: ChatRequestResponse) => {
+    setActionLoadingId(request.id);
+    await rejectChatRequest(request.id);
+    setActionLoadingId(null);
+  };
+
+  const handleCancelChatRequest = async (request: ChatRequestResponse) => {
+    const confirmed = window.confirm(`Hủy tin nhắn chờ đã gửi cho ${request.receiver.username}?`);
+    if (!confirmed) return;
+    setActionLoadingId(request.id);
+    await cancelChatRequest(request.id);
+    setActionLoadingId(null);
+  };
+
+  const handleBlockChatRequest = async (request: ChatRequestResponse) => {
+    const confirmed = window.confirm(`Chặn tin nhắn từ ${request.sender.username}?`);
+    if (!confirmed) return;
+    setActionLoadingId(request.id);
+    await blockRequestSender(request);
+    setActionLoadingId(null);
+  };
+
+  const handleReportChatRequest = async (request: ChatRequestResponse) => {
+    const confirmed = window.confirm(`Báo xấu tin nhắn từ ${request.sender.username}? Người này sẽ bị chặn sau khi báo xấu.`);
+    if (!confirmed) return;
+    setActionLoadingId(request.id);
+    const reported = await reportRequestSender(request);
+    setActionLoadingId(null);
+    if (reported) {
+      setAlertDialog({
+        title: 'Đã báo xấu',
+        description: 'Đã báo xấu và chặn người dùng.',
+        variant: 'primary',
+      });
+    }
+  };
+
+  const handleAddChatRequestPeer = async (request: ChatRequestResponse, direction: 'incoming' | 'outgoing') => {
+    const peer = getChatRequestPeer(request, direction);
+    setActionLoadingId(`friend-${request.id}`);
+    await sendFriendRequest(peer.id);
+    setActionLoadingId(null);
+  };
+
+  const handleAcceptFriendFromChatRequest = async (request: ChatRequestResponse, direction: 'incoming' | 'outgoing') => {
+    const peer = getChatRequestPeer(request, direction);
+    setActionLoadingId(`friend-${request.id}`);
+    const conversationId = await acceptRequest(peer.id);
+    setActionLoadingId(null);
+    if (conversationId) {
+      await fetchConversations();
+    }
+  };
+
+  const handleOpenAcceptedChatRequest = async (request: ChatRequestResponse, direction: 'incoming' | 'outgoing') => {
+    const peer = getChatRequestPeer(request, direction);
+    setActionLoadingId(request.id);
+    if (request.conversationId) {
+      await fetchConversations();
+      await selectConversation(request.conversationId);
+    } else {
+      await getOrCreatePrivateConversation(peer.id);
+    }
+    setActionLoadingId(null);
+    navigate('/chat');
   };
 
   const handleSendSuggestionRequest = async (userId: string) => {
@@ -140,6 +253,9 @@ export const Friends = () => {
       setIsLoggingOut(false);
     }
   };
+
+  const totalChatRequests = incomingChatRequests.length + outgoingChatRequests.length;
+  const isChatRequestLoading = isLoadingIncomingChatRequests || isLoadingOutgoingChatRequests;
 
   return (
     <div className="h-dvh w-screen overflow-hidden bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
@@ -243,18 +359,33 @@ export const Friends = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('chat_requests')}
+              className={`py-1.5 px-3 rounded-lg text-xs font-bold relative transition-all duration-200 ${
+                activeTab === 'chat_requests'
+                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Tin nhắn chờ
+              {totalChatRequests > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {totalChatRequests > 99 ? '99+' : totalChatRequests}
+                </span>
+              )}
+            </button>
           </div>
         </header>
 
-        {(storeError || groupError) && (
+        {(storeError || groupError || chatRequestError) && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm text-left flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{storeError || groupError}</span>
+            <span>{storeError || groupError || chatRequestError}</span>
           </div>
         )}
 
         <div className="flex-1 w-full">
-          {(isStoreLoading || isGroupLoading) && friends.length === 0 && pending.length === 0 && groups.length === 0 ? (
+          {(isStoreLoading || isGroupLoading || isChatRequestLoading) && friends.length === 0 && pending.length === 0 && groups.length === 0 && totalChatRequests === 0 ? (
             <div className="flex flex-col items-center py-16 space-y-4">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-600 dark:text-discord-blurple" />
               <p className="text-sm text-gray-500 dark:text-discord-muted">Đang tải kết nối...</p>
@@ -562,11 +693,21 @@ export const Friends = () => {
               )}
             </div>
           ) : (
-            <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-              <p className="text-gray-500 dark:text-discord-muted m-0">
-                Tính năng tin nhắn chờ đang được phát triển.
-              </p>
-            </div>
+            <ChatRequestsTab
+              incoming={incomingChatRequests}
+              outgoing={outgoingChatRequests}
+              isLoading={isChatRequestLoading}
+              actionLoadingId={actionLoadingId}
+              relationStatuses={relationStatuses}
+              onAccept={handleAcceptChatRequest}
+              onReject={handleRejectChatRequest}
+              onCancel={handleCancelChatRequest}
+              onBlock={handleBlockChatRequest}
+              onReport={handleReportChatRequest}
+              onAddFriend={handleAddChatRequestPeer}
+              onAcceptFriend={handleAcceptFriendFromChatRequest}
+              onOpenChat={handleOpenAcceptedChatRequest}
+            />
           )}
         </div>
       </main>
@@ -587,6 +728,16 @@ export const Friends = () => {
             handleRemoveConfirmed(removeFriendConfirm.id);
           }
         }}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(alertDialog)}
+        title={alertDialog?.title ?? ''}
+        description={alertDialog?.description ?? ''}
+        confirmLabel="OK"
+        variant={alertDialog?.variant ?? 'primary'}
+        showCancel={false}
+        onCancel={() => setAlertDialog(null)}
+        onConfirm={() => setAlertDialog(null)}
       />
       <MobileBottomNav />
     </div>
