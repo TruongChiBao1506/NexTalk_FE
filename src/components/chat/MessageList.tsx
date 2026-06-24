@@ -549,7 +549,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         <span className="font-semibold">
                           {isMe ? 'Bạn' : msg.senderUsername}
                         </span>{' '}
-                        {msg.content}
+                        {stripMessageMarkup(msg.content)}
                       </span>
                     </div>
                   )}
