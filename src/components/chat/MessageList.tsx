@@ -39,7 +39,8 @@ import {
   BarChart3,
   Link,
   Sticker,
-  MessageSquare
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
