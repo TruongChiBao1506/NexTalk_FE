@@ -34,7 +34,8 @@ import {
   BellRing,
   Clock,
   Mic,
-  MicOff
+  MicOff,
+  Square
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
@@ -125,6 +126,12 @@ interface MessageInputProps {
   isSpeechListening: boolean;
   speechInputError: string | null;
   handleToggleSpeechInput: () => void;
+  isRecordingVoice: boolean;
+  isUploadingVoice: boolean;
+  voiceRecordingSeconds: number;
+  startVoiceRecording: () => void;
+  stopVoiceRecording: () => void;
+  cancelVoiceRecording: () => void;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -172,6 +179,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   isSpeechListening,
   speechInputError,
   handleToggleSpeechInput,
+  isRecordingVoice,
+  isUploadingVoice,
+  voiceRecordingSeconds,
+  startVoiceRecording,
+  stopVoiceRecording,
+  cancelVoiceRecording,
 }) => {
   const { packs: stickerPacks, isLoading: isStickersLoading } = useStickerStore();
   const [activePackId, setActivePackId] = React.useState<string | null>(null);
@@ -187,6 +200,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const formatVoiceDuration = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
 
   React.useEffect(() => {
     if (stickerPacks.length > 0 && !activePackId) {
@@ -519,6 +538,40 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         )}
 
+        {(isRecordingVoice || isUploadingVoice) && (
+          <div className="flex items-center justify-between gap-3 border-b border-rose-100 bg-rose-50 px-3 py-2 text-sm dark:border-rose-500/20 dark:bg-rose-500/10">
+            <div className="flex min-w-0 items-center gap-2 font-semibold text-rose-600 dark:text-rose-300">
+              {isUploadingVoice ? (
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              ) : (
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              )}
+              <span className="truncate">
+                {isUploadingVoice ? 'Đang gửi tin nhắn thoại...' : `Đang ghi âm ${formatVoiceDuration(voiceRecordingSeconds)}`}
+              </span>
+            </div>
+            {!isUploadingVoice && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={cancelVoiceRecording}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-600 transition hover:bg-white/80 dark:text-zinc-300 dark:hover:bg-zinc-900/50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={stopVoiceRecording}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700"
+                >
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                  Gửi
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {isFormattingOpen && (
           <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200/80 dark:border-zinc-800/80 bg-white dark:bg-discord-mid overflow-x-auto">
             <button type="button" onMouseDown={(e) => { e.preventDefault(); applyInlineFormat('**', '**', 'đậm'); }} className={`p-1.5 rounded transition ${activeFormats.bold ? 'bg-indigo-100 text-indigo-600 dark:bg-discord-blurple/30 dark:text-indigo-400' : 'text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800'}`} title="Đậm">
@@ -733,6 +786,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0 pb-1">
+            <button
+              type="button"
+              disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
+              onClick={startVoiceRecording}
+              className="p-1.5 rounded-lg text-gray-500 transition hover:bg-gray-200/60 hover:text-rose-600 disabled:opacity-45 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-rose-300"
+              title="Ghi tin nhắn thoại"
+            >
+              {isUploadingVoice ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
+            </button>
+
             {/* Emoji smile face */}
             <button
               type="button"
@@ -756,7 +819,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={handleSendThumbsUp}
-                disabled={!canSendInActiveConversation}
+                disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
                 className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-450 rounded-lg hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:bg-transparent transition active:scale-90"
                 title="Send Like"
               >
@@ -768,7 +831,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 onClick={!canSendInActiveConversation ? handleSendBlockedChatRequest : undefined}
                 disabled={
                   canSendInActiveConversation
-                    ? pendingAttachments.some((attachment) => attachment.isUploading)
+                    ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
                     : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
                 }
                 className="p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"

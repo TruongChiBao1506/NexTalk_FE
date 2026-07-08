@@ -8,6 +8,12 @@ interface MessageReactionsProps {
   isMe?: boolean;
 }
 
+interface ReactionGroup {
+  emoji: string;
+  users: MessageReaction[];
+  reactedByCurrentUser: boolean;
+}
+
 export const MessageReactions: React.FC<MessageReactionsProps> = ({
   reactions,
   currentUserId,
@@ -16,69 +22,63 @@ export const MessageReactions: React.FC<MessageReactionsProps> = ({
 }) => {
   if (!reactions || reactions.length === 0) return null;
 
-  // Extract all unique emojis reacted to the message
-  const uniqueEmojis = Array.from(new Set(reactions.map((r) => r.emoji)));
+  const groups = reactions.reduce<ReactionGroup[]>((acc, reaction) => {
+    const existing = acc.find((group) => group.emoji === reaction.emoji);
+    if (existing) {
+      existing.users.push(reaction);
+      existing.reactedByCurrentUser = existing.reactedByCurrentUser || reaction.userId === currentUserId;
+      return acc;
+    }
 
-  // Identify the most recently added reaction emoji (last in array)
-  const mostRecentReaction = reactions[reactions.length - 1];
-  const mostRecentEmoji = mostRecentReaction ? mostRecentReaction.emoji : '👍';
+    acc.push({
+      emoji: reaction.emoji,
+      users: [reaction],
+      reactedByCurrentUser: reaction.userId === currentUserId,
+    });
+    return acc;
+  }, []);
 
-  // Check if current user has reacted with the most recent emoji type
-  const hasReactedMostRecent = reactions.some(
-    (r) => r.userId === currentUserId && r.emoji === mostRecentEmoji
-  );
-
-  // Generate tooltip text with distinct usernames, prioritizing "Bạn" first if current user reacted
-  const distinctUsers = Array.from(
-    new Set(reactions.map((r) => (r.userId === currentUserId ? 'Bạn' : r.username)))
-  );
-  const sortedUsers = distinctUsers.includes('Bạn')
-    ? ['Bạn', ...distinctUsers.filter((u) => u !== 'Bạn')]
-    : distinctUsers;
-  const tooltipText = sortedUsers.join(', ');
+  const getUserLabel = (reaction: MessageReaction) =>
+    reaction.userId === currentUserId ? 'Bạn' : reaction.username;
 
   return (
-    <div className="flex items-center gap-1 select-none">
-      {/* Left Pill: Emojis Summary & Total Count */}
-      <button
-        onClick={() => onReactToggle(mostRecentEmoji)}
-        className="group relative flex items-center px-2.5 py-0.5 rounded-full text-xs border bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700/80 hover:bg-gray-50 dark:hover:bg-zinc-750 text-gray-700 dark:text-zinc-300 shadow-sm transition-all duration-150"
-      >
-        <div className="flex items-center space-x-0.5">
-          {uniqueEmojis.map((emoji) => (
-            <span key={emoji} className="text-sm leading-none">{emoji}</span>
-          ))}
-        </div>
-        <span className="font-semibold text-[10px] ml-1.5">{reactions.length}</span>
+    <div className={`flex max-w-[min(72vw,360px)] flex-wrap items-center gap-1 select-none ${isMe ? 'justify-end' : 'justify-start'}`}>
+      {groups.map((group) => {
+        const sortedUsers = [...group.users].sort((a, b) => {
+          if (a.userId === currentUserId) return -1;
+          if (b.userId === currentUserId) return 1;
+          return a.username.localeCompare(b.username);
+        });
+        const tooltipText = sortedUsers.map(getUserLabel).join(', ');
 
-        {/* Custom Tooltip - Displayed Below */}
-        <div className={`absolute top-full mt-2.5 hidden group-hover:flex flex-col items-center z-50 pointer-events-none w-max max-w-[220px] ${
-          isMe 
-            ? 'right-0 origin-top-right' 
-            : 'left-0 origin-top-left'
-        }`}>
-          {/* Arrow pointing UP */}
-          <div className={`w-2 h-2 bg-gray-950/90 dark:bg-zinc-900/95 border-l border-t border-gray-800 dark:border-zinc-800/80 rotate-45 -mb-1 z-10 ${
-            isMe ? 'mr-3.5 self-end' : 'ml-3.5 self-start'
-          }`} />
-          <div className="bg-gray-950/90 dark:bg-zinc-900/95 text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-lg border border-gray-800 dark:border-zinc-800/80 whitespace-normal break-words leading-tight text-center">
-            {tooltipText}
-          </div>
-        </div>
-      </button>
+        return (
+          <button
+            key={group.emoji}
+            type="button"
+            onClick={() => onReactToggle(group.emoji)}
+            className={`group relative inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs font-semibold shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 ${
+              group.reactedByCurrentUser
+                ? 'border-indigo-300 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 dark:border-indigo-500/60 dark:bg-indigo-500/20 dark:text-indigo-100 dark:ring-indigo-400/25'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
+            }`}
+            title={tooltipText}
+          >
+            <span className="text-sm leading-none">{group.emoji}</span>
+            <span className="min-w-2 text-[10px] leading-none">{group.users.length}</span>
 
-      {/* Right Pill: Most Recent Reaction Toggle Button */}
-      <button
-        onClick={() => onReactToggle(mostRecentEmoji)}
-        className={`flex items-center justify-center w-[26px] h-[26px] rounded-full border shadow-sm transition-all duration-150 active:scale-90 ${
-          hasReactedMostRecent
-            ? 'bg-blue-50 dark:bg-indigo-950/45 border-blue-300 dark:border-indigo-800/80 text-blue-600 dark:text-indigo-305'
-            : 'bg-white dark:bg-zinc-800 border-gray-250 dark:border-zinc-700/80 hover:bg-gray-50 dark:hover:bg-zinc-750 text-gray-700 dark:text-zinc-350'
-        }`}
-        title={`Bày tỏ cảm xúc bằng ${mostRecentEmoji}`}
-      >
-        <span className="text-sm leading-none">{mostRecentEmoji}</span>
-      </button>
+            <span
+              className={`pointer-events-none absolute top-full mt-2 hidden w-max max-w-[230px] flex-col rounded-lg border border-gray-800 bg-gray-950/95 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-white shadow-xl group-hover:flex group-focus-visible:flex dark:border-zinc-800 dark:bg-zinc-950/95 ${
+                isMe ? 'right-0 text-right' : 'left-0 text-left'
+              }`}
+            >
+              <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200">
+                {group.emoji} {group.users.length}
+              </span>
+              <span className="whitespace-normal break-words">{tooltipText}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 class AudioSynth {
   private audioCtx: AudioContext | null = null;
   private intervalId: any = null;
+  private lastMessageNotificationAt = 0;
 
   private initCtx() {
     if (!this.audioCtx) {
@@ -96,6 +97,38 @@ class AudioSynth {
 
     osc.start();
     osc.stop(this.audioCtx.currentTime + 0.35);
+  }
+
+  playMessageNotification() {
+    const now = Date.now();
+    if (now - this.lastMessageNotificationAt < 600) return;
+    this.lastMessageNotificationAt = now;
+
+    this.initCtx();
+    if (!this.audioCtx) return;
+
+    const playTone = (frequency: number, startOffset: number, duration: number, volume: number) => {
+      if (!this.audioCtx) return;
+
+      const startAt = this.audioCtx.currentTime + startOffset;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(frequency, startAt);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+
+      osc.start(startAt);
+      osc.stop(startAt + duration + 0.03);
+    };
+
+    playTone(880, 0, 0.16, 0.09);
+    playTone(1175, 0.11, 0.18, 0.075);
   }
 
   playUserJoin() {

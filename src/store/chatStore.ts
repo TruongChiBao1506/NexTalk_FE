@@ -10,6 +10,7 @@ import { useFriendStore } from './friendStore';
 import { useCallStore } from './callStore';
 import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType, TypingIndicatorEvent } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
+import { audioSynth } from '../utils/audioSynth';
 
 function isTokenExpired(token: string, offsetSeconds = 60): boolean {
   try {
@@ -65,6 +66,15 @@ const saveMessageDrafts = (drafts: Record<string, string>) => {
     return;
   }
   localStorage.setItem(key, JSON.stringify(drafts));
+};
+
+const shouldPlayIncomingMessageSound = (message: MessageResponse) => {
+  const currentUserId = useAuthStore.getState().user?.id;
+  if (!currentUserId) return false;
+  if (!message?.id || !message.conversationId) return false;
+  if (message.senderId === currentUserId) return false;
+  if (message.messageType === 'SYSTEM') return false;
+  return true;
 };
 
 interface ChatState {
@@ -528,6 +538,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           } else if (body.type === 'CONVERSATION_SUMMARY') {
             get().setConversationSummary(body);
           } else {
+            if (shouldPlayIncomingMessageSound(body)) {
+              audioSynth.playMessageNotification();
+            }
             get().addIncomingMessage(body);
           }
         } catch (e) {
@@ -969,7 +982,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   reactToMessage: async (messageId, emoji) => {
     try {
-      await messageService.reactToMessage(messageId, emoji);
+      const response = await messageService.reactToMessage(messageId, emoji);
+      if (response.success && response.data) {
+        const updatedMessage = response.data;
+        set((state) => ({
+          messages: state.messages.map((message) =>
+            message.id === updatedMessage.id ? updatedMessage : message
+          ),
+          pinnedMessages: state.pinnedMessages.map((message) =>
+            message.id === updatedMessage.id ? updatedMessage : message
+          ),
+          lastMessages: state.lastMessages[updatedMessage.conversationId]?.id === updatedMessage.id
+            ? { ...state.lastMessages, [updatedMessage.conversationId]: updatedMessage }
+            : state.lastMessages,
+          messagesCache: Object.fromEntries(
+            Object.entries(state.messagesCache).map(([conversationId, messages]) => [
+              conversationId,
+              messages.map((message) => message.id === updatedMessage.id ? updatedMessage : message),
+            ])
+          ),
+          pinnedMessagesCache: Object.fromEntries(
+            Object.entries(state.pinnedMessagesCache).map(([conversationId, messages]) => [
+              conversationId,
+              messages.map((message) => message.id === updatedMessage.id ? updatedMessage : message),
+            ])
+          ),
+        }));
+      }
     } catch (err) {
       console.error('Failed to react to message:', err);
     }

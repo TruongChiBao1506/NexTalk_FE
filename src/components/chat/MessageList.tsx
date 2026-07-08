@@ -199,6 +199,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   const getReplyPreviewIcon = (kind: ReturnType<typeof getMessagePreviewData>['kind']) => {
     if (kind === 'IMAGE' || kind === 'ALBUM') return Image;
     if (kind === 'VIDEO') return Video;
+    if (kind === 'AUDIO') return Mic;
     if (kind === 'FILE') return FileText;
     if (kind === 'LINK') return Link;
     if (kind === 'POLL') return BarChart3;
@@ -227,6 +228,84 @@ export const MessageList: React.FC<MessageListProps> = ({
           <span className="truncate">{preview.fileName || preview.text}</span>
         </span>
       </>
+    );
+  };
+
+  const isAudioFileName = (value?: string | null) => {
+    if (!value) return false;
+    return /\.(webm|mp3|wav|ogg|oga|m4a|aac)$/i.test(value.split('?')[0]);
+  };
+
+  const isAudioMessage = (message: any) => {
+    const attachment = message?.attachments?.[0];
+    return message?.messageType === 'AUDIO'
+      || attachment?.type === 'AUDIO'
+      || isAudioFileName(attachment?.name)
+      || isAudioFileName(attachment?.url)
+      || isAudioFileName(message?.content);
+  };
+
+  const getLinkPreview = (message: any) => {
+    const preview = message?.metadata?.linkPreview;
+    if (!preview || !preview.url || (!preview.title && !preview.description && !preview.image)) {
+      return null;
+    }
+    return preview;
+  };
+
+  const getLinkHost = (url: string) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+
+  const renderLinkPreviewCard = (message: any, isMine: boolean) => {
+    const preview = getLinkPreview(message);
+    if (!preview) return null;
+
+    return (
+      <button
+        type="button"
+        onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
+        className={`mt-3 block w-full max-w-[330px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${
+          isMine
+            ? 'bg-white/12 ring-1 ring-white/18'
+            : 'bg-gray-50 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
+        }`}
+      >
+        {preview.image && (
+          <img
+            src={preview.image}
+            alt={preview.title || preview.siteName || 'Link preview'}
+            className="h-36 w-full object-cover"
+            loading="lazy"
+          />
+        )}
+        <div className="space-y-1 p-3">
+          <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${
+            isMine ? 'text-indigo-100' : 'text-indigo-600 dark:text-indigo-300'
+          }`}>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{preview.siteName || getLinkHost(preview.url)}</span>
+          </div>
+          {preview.title && (
+            <p className={`m-0 line-clamp-2 text-sm font-bold leading-snug ${
+              isMine ? 'text-white' : 'text-gray-950 dark:text-white'
+            }`}>
+              {preview.title}
+            </p>
+          )}
+          {preview.description && (
+            <p className={`m-0 line-clamp-2 text-xs leading-relaxed ${
+              isMine ? 'text-indigo-50/90' : 'text-gray-600 dark:text-zinc-300'
+            }`}>
+              {preview.description}
+            </p>
+          )}
+        </div>
+      </button>
     );
   };
 
@@ -913,6 +992,45 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 } else {
                                   const fileUrl = attachment.url;
                                   const fileName = attachment.name || getFileName(attachment.url);
+                                  if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
+                                    return (
+                                      <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
+                                        isMe
+                                          ? 'bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
+                                          : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
+                                      }`}>
+                                        <div className="hidden">
+                                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                            isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                          }`}>
+                                            <Mic className="h-4.5 w-4.5" />
+                                          </span>
+                                          <div className="min-w-0 flex-1 text-left">
+                                            <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
+                                            {attachment.size != null && attachment.size > 0 && (
+                                              <p className={`m-0 text-[11px] ${isMe ? 'text-indigo-100' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                                {formatFileSize(attachment.size)}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
+                                            className={`rounded-lg p-2 transition ${isMe ? 'text-white hover:bg-white/15' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                            title="Tải xuống"
+                                          >
+                                            <Download className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                        <audio
+                                          controls
+                                          preload="metadata"
+                                          src={fileUrl}
+                                          className="block h-9 w-full"
+                                        />
+                                      </div>
+                                    );
+                                  }
                                   const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
 
                                   return (
@@ -1005,6 +1123,57 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 {renderFormattedMessage(msg.content)}
                               </div>
                             )}
+                          </div>
+                        ) : isAudioMessage(msg) ? (
+                          <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
+                            isMe
+                              ? 'bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
+                          }`}>
+                            {renderPriorityBadge()}
+                            {(() => {
+                              const attachment = msg.attachments?.[0];
+                              const audioUrl = attachment?.url || msg.content;
+                              const audioName = attachment?.name || 'Tin nhắn thoại';
+                              return (
+                                <>
+                                  <div className="hidden">
+                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                      isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                    }`}>
+                                      <Mic className="h-4.5 w-4.5" />
+                                    </span>
+                                    <div className="min-w-0 flex-1 text-left">
+                                      <p className="m-0 truncate text-[13px] font-bold">{audioName}</p>
+                                      {attachment?.size != null && attachment.size > 0 && (
+                                        <p className={`m-0 text-[11px] ${isMe ? 'text-indigo-100' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                          {formatFileSize(attachment.size)}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadFile(audioUrl, audioName)}
+                                      className={`rounded-lg p-2 transition ${isMe ? 'text-white hover:bg-white/15' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                      title="Tải xuống"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                  <audio
+                                    controls
+                                    preload="metadata"
+                                    src={audioUrl}
+                                    className="block h-9 w-full"
+                                  />
+                                  {msg.content && (
+                                    <div className="px-1 text-sm">
+                                      {renderFormattedMessage(msg.content)}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : msg.messageType === 'FILE' ? (
                           <div className="flex flex-col gap-1 w-full max-w-sm">
@@ -1114,6 +1283,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             {renderPriorityBadge()}
                             <div className="m-0">
                               {renderFormattedMessage(msg.content)}
+                              {renderLinkPreviewCard(msg, isMe)}
                               {msg.isEdited && (
                                 <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
                                   (đã chỉnh sửa)
@@ -1135,7 +1305,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                         {/* Reactions list */}
                         {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
-                          <div className="absolute -bottom-2 right-9 z-10">
+                          <div className={`mt-1 max-w-[min(72vw,360px)] ${isMe ? 'self-end pr-1' : 'self-start pl-1'}`}>
                             <MessageReactions
                               reactions={msg.reactions}
                               currentUserId={user?.id ?? ''}
@@ -1147,9 +1317,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                       </div>
 
                       {/* Status block */}
-                      <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${
-                        msg.reactions && msg.reactions.length > 0 ? 'pt-2.5' : ''
-                      } ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                         {msg.isPinned && (
                           <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
                         )}

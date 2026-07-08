@@ -2,7 +2,7 @@ import type { MessageResponse, PollMetadata } from '../types/chat';
 
 const urlPattern = /https?:\/\/[^\s<>"']+/gi;
 
-export type MessagePreviewKind = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'RECALLED';
+export type MessagePreviewKind = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'RECALLED';
 
 export interface MessagePreviewData {
   kind: MessagePreviewKind;
@@ -20,6 +20,11 @@ export const stripMessageHtml = (content?: string | null) => {
 };
 
 const getFirstUrl = (content?: string | null) => stripMessageHtml(content).match(urlPattern)?.[0] ?? '';
+
+const isAudioFileName = (value?: string | null) => {
+  if (!value) return false;
+  return /\.(webm|mp3|wav|ogg|oga|m4a|aac)$/i.test(value.split('?')[0]);
+};
 
 const getPollQuestion = (message: MessageResponse) => {
   const metadata = message.metadata as PollMetadata | undefined;
@@ -108,6 +113,22 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
         label: 'Video',
         text: text || firstAttachment.name || 'Video',
         thumbnailUrl: firstAttachment.url,
+      };
+    }
+
+    if (
+      firstAttachment.type === 'AUDIO'
+      || message.messageType === 'AUDIO'
+      || isAudioFileName(firstAttachment.name)
+      || isAudioFileName(firstAttachment.url)
+    ) {
+      return {
+        kind: 'AUDIO',
+        label: 'Tin nhắn thoại',
+        text: text || firstAttachment.name || 'Tin nhắn thoại',
+        fileName: firstAttachment.name || 'Tin nhắn thoại',
+        fileSize: firstAttachment.size,
+        url: firstAttachment.url,
       };
     }
 

@@ -268,7 +268,7 @@ export const Chat = () => {
   type PendingAttachment = {
     id: string;
     url: string | null;
-    type: 'IMAGE' | 'VIDEO' | 'FILE';
+    type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
     name: string;
     size?: number;
     previewUrl: string | null;
@@ -277,12 +277,19 @@ export const Chat = () => {
   };
 
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const quillEditorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceRecorderRef = useRef<MediaRecorder | null>(null);
+  const voiceRecorderStreamRef = useRef<MediaStream | null>(null);
+  const voiceRecorderChunksRef = useRef<BlobPart[]>([]);
+  const voiceRecordingStartedAtRef = useRef(0);
   const speechFinalTranscriptRef = useRef('');
   const speechManuallyStoppedRef = useRef(false);
   const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -555,14 +562,17 @@ export const Chat = () => {
     });
   };
 
-  const getFileMessageType = (file: File): 'IMAGE' | 'VIDEO' | 'FILE' => {
+  const getFileMessageType = (file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' => {
     const fileName = file.name.toLowerCase();
     const isImage = file.type.startsWith('image/') ||
       ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif'].some(ext => fileName.endsWith(ext));
     const isVideo = file.type.startsWith('video/') ||
       ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'].some(ext => fileName.endsWith(ext));
+    const isAudio = file.type.startsWith('audio/') ||
+      ['.mp3', '.wav', '.ogg', '.oga', '.m4a', '.aac', '.webm'].some(ext => fileName.endsWith(ext));
     if (isImage) return 'IMAGE';
     if (isVideo) return 'VIDEO';
+    if (isAudio) return 'AUDIO';
     return 'FILE';
   };
 
@@ -654,6 +664,132 @@ export const Chat = () => {
       fileInputRef.current.value = '';
     }
   };
+
+  const stopVoiceRecorderStream = () => {
+    voiceRecorderStreamRef.current?.getTracks().forEach((track) => track.stop());
+    voiceRecorderStreamRef.current = null;
+  };
+
+  const cancelVoiceRecording = () => {
+    voiceRecorderChunksRef.current = [];
+    if (voiceRecorderRef.current && voiceRecorderRef.current.state !== 'inactive') {
+      voiceRecorderRef.current.ondataavailable = null;
+      voiceRecorderRef.current.onstop = null;
+      voiceRecorderRef.current.stop();
+    }
+    voiceRecorderRef.current = null;
+    stopVoiceRecorderStream();
+    setIsRecordingVoice(false);
+    setVoiceRecordingSeconds(0);
+  };
+
+  const startVoiceRecording = async () => {
+    if (!canSendInActiveConversation || isRecordingVoice || isUploadingVoice) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      showAlertDialog('Trình duyệt hiện tại chưa hỗ trợ ghi âm.', 'Thông báo', 'danger');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+      const recorder = preferredMimeType
+        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+        : new MediaRecorder(stream);
+
+      voiceRecorderChunksRef.current = [];
+      voiceRecorderStreamRef.current = stream;
+      voiceRecorderRef.current = recorder;
+      voiceRecordingStartedAtRef.current = Date.now();
+      setVoiceRecordingSeconds(0);
+      setIsRecordingVoice(true);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          voiceRecorderChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const chunks = voiceRecorderChunksRef.current;
+        voiceRecorderChunksRef.current = [];
+        voiceRecorderRef.current = null;
+        stopVoiceRecorderStream();
+        setIsRecordingVoice(false);
+        setVoiceRecordingSeconds(0);
+
+        if (chunks.length === 0) return;
+
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        if (audioBlob.size < 1024) {
+          showAlertDialog('Bản ghi âm quá ngắn hoặc không có âm thanh.', 'Thông báo', 'danger');
+          return;
+        }
+
+        const extension = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
+        const audioFile = new File([audioBlob], `voice-message-${Date.now()}.${extension}`, {
+          type: audioBlob.type || 'audio/webm',
+        });
+
+        setIsUploadingVoice(true);
+        try {
+          const response = await fileService.uploadFile(audioFile);
+          if (response.success && response.data?.url) {
+            sendTypingStopped();
+            sendStompMessage('', 'AUDIO', replyTo?.id ?? undefined, [{
+              url: response.data.url,
+              type: 'AUDIO',
+              name: audioFile.name,
+              size: audioFile.size,
+            }], undefined);
+            if (replyTo) {
+              setReplyTo(null);
+            }
+            setIsEmojiStickerOpen(false);
+          } else {
+            showAlertDialog(response.message || 'Không thể tải bản ghi âm lên.', 'Thông báo', 'danger');
+          }
+        } catch (err: any) {
+          showAlertDialog(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn thoại.', 'Thông báo', 'danger');
+        } finally {
+          setIsUploadingVoice(false);
+        }
+      };
+
+      recorder.start();
+    } catch (err: any) {
+      stopVoiceRecorderStream();
+      setIsRecordingVoice(false);
+      setVoiceRecordingSeconds(0);
+      const message = err?.name === 'NotAllowedError'
+        ? 'Bạn cần cấp quyền micro để ghi tin nhắn thoại.'
+        : 'Không thể bắt đầu ghi âm.';
+      showAlertDialog(message, 'Thông báo', 'danger');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (!voiceRecorderRef.current || voiceRecorderRef.current.state === 'inactive') return;
+    voiceRecorderRef.current.stop();
+  };
+
+  useEffect(() => {
+    if (!isRecordingVoice) return;
+    const interval = window.setInterval(() => {
+      setVoiceRecordingSeconds(Math.floor((Date.now() - voiceRecordingStartedAtRef.current) / 1000));
+    }, 250);
+    return () => window.clearInterval(interval);
+  }, [isRecordingVoice]);
+
+  useEffect(() => {
+    return () => {
+      cancelVoiceRecording();
+    };
+  }, []);
 
   const handleTakeScreenshot = async () => {
     if (!canSendInActiveConversation || isTakingScreenshot) return;
@@ -2038,17 +2174,22 @@ export const Chat = () => {
   };
 
   const messageHasSharedLink = (message: MessageResponse) => /https?:\/\/\S+/i.test(message.content);
+  const isAudioFileName = (value?: string | null) => Boolean(value && /\.(webm|mp3|wav|ogg|oga|m4a|aac)$/i.test(value.split('?')[0]));
   const messageHasSearchableAttachment = (message: MessageResponse) =>
-    Boolean(message.attachments?.length) || ['IMAGE', 'VIDEO', 'FILE', 'ALBUM'].includes(message.messageType);
+    Boolean(message.attachments?.length) || ['IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'ALBUM'].includes(message.messageType);
 
   const getSearchMessagePreview = (message: MessageResponse) => {
     if (message.attachments?.length) {
       const first = message.attachments[0];
+      if (first.type === 'AUDIO' || isAudioFileName(first.name) || isAudioFileName(first.url)) {
+        return 'Tin nhắn thoại';
+      }
       const label = first.type === 'IMAGE' ? 'Hình ảnh' : first.type === 'VIDEO' ? 'Video' : (first.name || getFileName(first.url));
       return message.attachments.length > 1 ? `${message.attachments.length} tệp đã chia sẻ` : label;
     }
     if (message.messageType === 'IMAGE') return 'Hình ảnh đã chia sẻ';
     if (message.messageType === 'VIDEO') return 'Video đã chia sẻ';
+    if (message.messageType === 'AUDIO') return 'Tin nhắn thoại';
     if (message.messageType === 'FILE') return getFileName(message.content);
     return stripMessageMarkup(message.content);
   };
@@ -2898,6 +3039,12 @@ export const Chat = () => {
                   isSpeechListening={isSpeechListening}
                   speechInputError={speechInputError}
                   handleToggleSpeechInput={handleToggleSpeechInput}
+                  isRecordingVoice={isRecordingVoice}
+                  isUploadingVoice={isUploadingVoice}
+                  voiceRecordingSeconds={voiceRecordingSeconds}
+                  startVoiceRecording={startVoiceRecording}
+                  stopVoiceRecording={stopVoiceRecording}
+                  cancelVoiceRecording={cancelVoiceRecording}
                 />
               </>
             )}

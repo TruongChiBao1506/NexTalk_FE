@@ -23,11 +23,11 @@ export interface MessageRequest {
   parentId?: string;
 }
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER';
 
 export interface MessageAttachment {
   url: string;
-  type: 'IMAGE' | 'VIDEO' | 'FILE';
+  type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
   name?: string | null;
   size?: number | null;
 }
@@ -112,6 +112,21 @@ export interface PollMetadata {
   options?: PollOption[];
 }
 
+export interface LinkPreviewMetadata {
+  url?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+}
+
+export type MessageMetadata = Record<string, any>
+  & Partial<CallHistoryMetadata>
+  & Partial<PollMetadata>
+  & {
+    linkPreview?: LinkPreviewMetadata;
+  };
+
 export interface MessageResponse {
   id: string;
   conversationId: string;
@@ -132,7 +147,7 @@ export interface MessageResponse {
   pinnedAt?: string | null;
   expiresAt?: string | null;
   reactions?: MessageReaction[];
-  metadata?: CallHistoryMetadata | PollMetadata | Record<string, unknown>;
+  metadata?: MessageMetadata;
 }
 
 export interface ConversationSummaryResponse {
