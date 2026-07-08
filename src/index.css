@@ -118,6 +118,21 @@
   box-shadow: 10px 0 30px rgba(3, 7, 18, 0.12);
 }
 
+.nextalk-themed-bubble {
+  background-color: var(--theme-color, #4f46e5) !important;
+  border-color: var(--theme-color, #4f46e5) !important;
+  color: #ffffff !important;
+}
+
+.nextalk-theme-bg {
+  background-color: var(--theme-color, #4f46e5) !important;
+  color: #ffffff !important;
+}
+
+.nextalk-theme-bg:hover {
+  filter: brightness(0.94);
+}
+
 /* Call overlays are self-contained surfaces and must not fall back to light
    utility colours when they open above a dark conversation. */
 .dark .nextalk-call-card {

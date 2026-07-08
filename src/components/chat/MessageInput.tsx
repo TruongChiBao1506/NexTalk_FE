@@ -834,7 +834,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
                     : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
                 }
-                className="p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"
+                className="nextalk-theme-bg p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"
                 title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
               >
                 {isSendingBlockedChatRequest ? (

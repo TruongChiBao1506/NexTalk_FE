@@ -945,7 +945,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : msg.attachments && msg.attachments.length > 0 ? (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
                             isMe
-                              ? 'bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
+                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
                               : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                           }`}>
                             {renderPriorityBadge()}
@@ -996,7 +996,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     return (
                                       <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
                                         isMe
-                                          ? 'bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
+                                          ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
                                           : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
                                       }`}>
                                         <div className="hidden">
@@ -1037,7 +1037,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
                                       <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${
                                         isMe
-                                          ? 'bg-indigo-500/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
+                                          ? 'nextalk-themed-bubble bg-indigo-500/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
                                           : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                                       }`}>
                                         <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
@@ -1119,7 +1119,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               );
                             })()}
                             {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
-                              <div className={`px-3 py-2 text-sm ${isMe ? 'bg-indigo-500/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
+                              <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble bg-indigo-500/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
                                 {renderFormattedMessage(msg.content)}
                               </div>
                             )}
@@ -1127,7 +1127,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : isAudioMessage(msg) ? (
                           <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
                             isMe
-                              ? 'bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
+                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
                               : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
                           }`}>
                             {renderPriorityBadge()}
@@ -1277,7 +1277,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
                             isMe
-                              ? 'bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
+                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
                               : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
                           }`}>
                             {renderPriorityBadge()}
