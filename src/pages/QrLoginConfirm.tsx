@@ -17,13 +17,13 @@ export const QrLoginConfirm = () => {
   const confirmLogin = async () => {
     if (!isAuthenticated) {
       setStatus('error');
-      setMessage('Ban can dang nhap tren thiet bi nay truoc khi xac nhan ma QR.');
+      setMessage('Bạn cần đăng nhập trên thiết bị này trước khi xác nhận mã QR.');
       return;
     }
 
     if (!qrToken) {
       setStatus('error');
-      setMessage('Khong tim thay ma QR trong duong dan.');
+      setMessage('Không tìm thấy mã QR trong đường dẫn.');
       return;
     }
 
@@ -33,15 +33,15 @@ export const QrLoginConfirm = () => {
       const response = await authService.confirmQrLogin(qrToken);
       if (response.success) {
         setStatus('success');
-        setMessage('Da xac nhan dang nhap tren thiet bi khac.');
+        setMessage('Đã xác nhận đăng nhập trên thiết bị khác.');
       } else {
         setStatus('error');
-        setMessage(response.message || 'Khong the xac nhan ma QR.');
+        setMessage(response.message || 'Không thể xác nhận mã QR.');
       }
     } catch (err: any) {
       console.error(err);
       setStatus('error');
-      setMessage(err.response?.data?.message || 'Ma QR khong hop le hoac da het han.');
+      setMessage(err.response?.data?.message || 'Mã QR không hợp lệ hoặc đã hết hạn.');
     }
   };
 
@@ -57,7 +57,7 @@ export const QrLoginConfirm = () => {
             <img src={logo} alt="NexTalk Logo" className="h-full w-full rounded-2xl border border-gray-200/50 object-cover drop-shadow-xl dark:border-zinc-700/50" />
           </div>
           <h1 className="m-0 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Xac nhan dang nhap
+            Xác nhận đăng nhập
           </h1>
         </div>
 
@@ -66,24 +66,24 @@ export const QrLoginConfirm = () => {
             <div className="space-y-5 py-5">
               <Monitor className="mx-auto h-16 w-16 text-indigo-600 dark:text-discord-blurple" />
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Can dang nhap truoc</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cần đăng nhập trước</h2>
                 <p className="text-sm text-gray-600 dark:text-discord-text/90">
-                  Hay dang nhap NexTalk tren dien thoai nay, sau do quet lai ma QR tren may tinh.
+                  Hãy đăng nhập NexTalk trên điện thoại này, sau đó quét lại mã QR trên máy tính.
                 </p>
               </div>
               <Link to="/login" className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-700 dark:bg-discord-blurple">
-                Dang nhap
+                Đăng nhập
               </Link>
             </div>
           ) : status === 'success' ? (
             <div className="space-y-5 py-5">
               <CheckCircle2 className="mx-auto h-16 w-16 text-emerald-500" />
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Da xac nhan</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Đã xác nhận</h2>
                 <p className="text-sm text-gray-600 dark:text-discord-text/90">{message}</p>
               </div>
               <Link to="/chat" className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-700 dark:bg-discord-blurple">
-                Quay lai chat
+                Quay lại chat
               </Link>
             </div>
           ) : (
@@ -96,10 +96,10 @@ export const QrLoginConfirm = () => {
 
               <div className="space-y-2">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Dang nhap tren thiet bi khac?
+                  Đăng nhập trên thiết bị khác?
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-discord-text/90">
-                  Ban dang dang nhap voi tai khoan {user?.username || user?.email}. Chi xac nhan neu ma QR do chinh ban quet.
+                  Bạn đang đăng nhập với tài khoản {user?.username || user?.email}. Chỉ xác nhận nếu mã QR do chính bạn quét.
                 </p>
                 {message && <p className="text-sm text-rose-500">{message}</p>}
               </div>
@@ -111,11 +111,11 @@ export const QrLoginConfirm = () => {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-medium text-white shadow-md shadow-indigo-600/10 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-discord-blurple"
               >
                 {status === 'loading' && <Loader2 className="h-5 w-5 animate-spin" />}
-                Xac nhan dang nhap
+                Xác nhận đăng nhập
               </button>
 
               <Link to="/chat" className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-white dark:border-zinc-800 dark:bg-discord-black/40 dark:text-discord-text">
-                Huy
+                Hủy
               </Link>
             </div>
           )}

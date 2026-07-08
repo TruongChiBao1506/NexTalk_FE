@@ -21,7 +21,7 @@ const QrLoginPanel = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [statusText, setStatusText] = useState('Dang tao ma QR...');
+  const [statusText, setStatusText] = useState('Đang tạo mã QR...');
   const [isLoading, setIsLoading] = useState(false);
 
   const qrUrl = useMemo(() => {
@@ -31,20 +31,20 @@ const QrLoginPanel = () => {
 
   const startQrSession = async () => {
     setIsLoading(true);
-    setStatusText('Dang tao ma QR...');
+    setStatusText('Đang tạo mã QR...');
     try {
       const response = await authService.initQrLogin();
       if (response.success && response.data) {
         setSessionId(response.data.sessionId);
         setQrToken(response.data.qrToken);
         setExpiresAt(response.data.expiresAt);
-        setStatusText('Dung dien thoai da dang nhap de quet ma nay.');
+        setStatusText('Dùng điện thoại đã đăng nhập để quét mã này.');
       } else {
-        setStatusText(response.message || 'Khong tao duoc ma QR.');
+        setStatusText(response.message || 'Không tạo được mã QR.');
       }
     } catch (err: any) {
       console.error(err);
-      setStatusText(err.response?.data?.message || 'Khong tao duoc ma QR.');
+      setStatusText(err.response?.data?.message || 'Không tạo được mã QR.');
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +64,7 @@ const QrLoginPanel = () => {
 
       if (new Date(expiresAt).getTime() <= Date.now()) {
         stopped = true;
-        setStatusText('Ma QR da het han. Tao ma moi de tiep tuc.');
+        setStatusText('Mã QR đã hết hạn. Tạo mã mới để tiếp tục.');
         return;
       }
 
@@ -72,7 +72,7 @@ const QrLoginPanel = () => {
         const response = await authService.getQrLoginStatus(sessionId);
         const data = response.data;
         if (!response.success || !data) {
-          setStatusText(response.message || 'Khong kiem tra duoc trang thai QR.');
+          setStatusText(response.message || 'Không kiểm tra được trạng thái QR.');
           return;
         }
 
@@ -84,11 +84,11 @@ const QrLoginPanel = () => {
 
         if (data.status === 'EXPIRED' || data.status === 'CONSUMED') {
           stopped = true;
-          setStatusText('Ma QR da het han. Tao ma moi de tiep tuc.');
+          setStatusText('Mã QR đã hết hạn. Tạo mã mới để tiếp tục.');
         }
       } catch (err: any) {
         console.error(err);
-        setStatusText(err.response?.data?.message || 'Dang cho xac nhan tu thiet bi khac...');
+        setStatusText(err.response?.data?.message || 'Đang chờ xác nhận từ thiết bị khác...');
       }
     };
 
@@ -122,7 +122,7 @@ const QrLoginPanel = () => {
         className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white/70 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-white disabled:opacity-50 dark:border-zinc-800 dark:bg-discord-black/40 dark:text-discord-text dark:hover:bg-zinc-900"
       >
         {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        Tao ma moi
+        Tạo mã mới
       </button>
     </div>
   );
@@ -234,7 +234,7 @@ export const Login = () => {
                   : 'text-gray-500 hover:text-gray-800 dark:text-discord-muted dark:hover:text-white'
               }`}
             >
-              Mat khau
+              Mật khẩu
             </button>
             <button
               type="button"
@@ -246,7 +246,7 @@ export const Login = () => {
               }`}
             >
               <QrCode className="h-4 w-4" />
-              Ma QR
+              Mã QR
             </button>
           </div>
 
