@@ -1,10 +1,12 @@
+import { ScanQrCode } from 'lucide-react';
 import type { User as AuthUser } from '../../types/auth';
 
 interface SidebarFooterProps {
   user: AuthUser | null;
+  onOpenQrScanner?: () => void;
 }
 
-export const SidebarFooter = ({ user }: SidebarFooterProps) => {
+export const SidebarFooter = ({ user, onOpenQrScanner }: SidebarFooterProps) => {
   if (!user) return null;
 
   return (
@@ -23,6 +25,17 @@ export const SidebarFooter = ({ user }: SidebarFooterProps) => {
         <h5 className="text-[13px] font-bold truncate text-gray-900 dark:text-white m-0">{user.username}</h5>
         <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate mt-0.5">{user.email}</p>
       </div>
+      {onOpenQrScanner && (
+        <button
+          type="button"
+          onClick={onOpenQrScanner}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition hover:bg-white hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-indigo-300"
+          title="Quét mã QR đăng nhập"
+          aria-label="Quét mã QR đăng nhập"
+        >
+          <ScanQrCode className="h-4.5 w-4.5" />
+        </button>
+      )}
     </div>
   );
 };

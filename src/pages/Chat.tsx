@@ -64,6 +64,7 @@ import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
 import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
+import { QrScannerModal } from '../components/chat/QrScannerModal';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
@@ -83,6 +84,12 @@ type MessageReminder = {
   fired?: boolean;
   deletedAt?: string;
   status?: 'PENDING' | 'FIRED' | 'DELETED';
+};
+
+type PendingAiReply = {
+  id: string;
+  conversationId: string;
+  createdAt: string;
 };
 
 type SpeechRecognitionResultLike = {
@@ -259,6 +266,8 @@ export const Chat = () => {
   const [reminderTargetMessage, setReminderTargetMessage] = useState<MessageResponse | null>(null);
   const [messageReminders, setMessageReminders] = useState<MessageReminder[]>([]);
   const [triggeredReminder, setTriggeredReminder] = useState<MessageReminder | null>(null);
+  const [pendingAiReplies, setPendingAiReplies] = useState<PendingAiReply[]>([]);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
 
   const [inputMessage, setInputMessage] = useState('');
@@ -561,6 +570,32 @@ export const Chat = () => {
       createReminderFromAiMessage(message).catch(() => {});
     });
   }, [messages, lastMessages, user?.id]);
+
+  useEffect(() => {
+    const aiReplies = messages.filter((message) => (
+      message.messageType === 'SYSTEM' && message.metadata?.systemType === 'AI_BOT_REPLY'
+    ));
+
+    if (aiReplies.length === 0) return;
+    setPendingAiReplies((current) => current.filter((pending) => {
+      const pendingTime = new Date(pending.createdAt).getTime();
+      return !aiReplies.some((reply) => (
+        reply.conversationId === pending.conversationId
+        && new Date(reply.createdAt).getTime() >= pendingTime
+      ));
+    }));
+  }, [messages]);
+
+  useEffect(() => {
+    if (pendingAiReplies.length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      const cutoff = Date.now() - 90_000;
+      setPendingAiReplies((current) => current.filter((pending) => new Date(pending.createdAt).getTime() > cutoff));
+    }, 10_000);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingAiReplies]);
 
   const handleDeleteMessageReminder = async (reminderId: string) => {
     const response = await reminderService.deleteReminder(reminderId);
@@ -1828,6 +1863,29 @@ export const Chat = () => {
     }
   };
 
+  const isAiBotMentionMessage = (content: string) => {
+    if (!content) return false;
+    if (/data-id=["']bot["']/i.test(content)) return true;
+
+    const plainText = stripHtml(content)
+      .replace(/\s+/g, ' ')
+      .trim();
+    return /(^|\s)@(bot|nextalk\s+ai|meta\s+ai)\b/i.test(plainText);
+  };
+
+  const addPendingAiReply = (conversationId?: string | null) => {
+    if (!conversationId) return;
+
+    setPendingAiReplies((current) => [
+      ...current,
+      {
+        id: `ai-pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        conversationId,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  };
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1870,6 +1928,9 @@ export const Chat = () => {
         }]);
       } else {
         sendStompMessage(trimmedMessage, 'TEXT', replyTo?.id ?? undefined, undefined, messagePriority || undefined);
+        if (isAiBotMentionMessage(trimmedMessage)) {
+          addPendingAiReply(activeConversation?.id);
+        }
       }
       clearQuillInput();
       setMessagePriority(null);
@@ -2779,9 +2840,28 @@ export const Chat = () => {
       })
     : [];
 
+  const activeAiPendingSystemMessages = activeConversation
+    ? pendingAiReplies
+      .filter((pending) => pending.conversationId === activeConversation.id)
+      .map((pending) => ({
+        id: pending.id,
+        conversationId: pending.conversationId,
+        senderId: 'system',
+        senderUsername: 'NexTalk AI',
+        content: 'NexTalk AI đang trả lời...',
+        messageType: 'SYSTEM' as const,
+        createdAt: pending.createdAt,
+        metadata: {
+          systemType: 'AI_BOT_PENDING',
+          botName: 'NexTalk AI',
+        },
+      }))
+    : [];
+
   const visibleMessages = [
     ...messages.filter((message) => !isMessageExpired(message)),
     ...activeReminderSystemMessages,
+    ...activeAiPendingSystemMessages,
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getSenderAvatar = (msg: MessageResponse): string | null => {
@@ -2899,7 +2979,7 @@ export const Chat = () => {
         <VoiceConnectedPanel />
 
         {/* User Card */}
-        <SidebarFooter user={user} />
+        <SidebarFooter user={user} onOpenQrScanner={() => setIsQrScannerOpen(true)} />
       </section>
 
       {/* Column 3: Chat Window */}
@@ -3572,6 +3652,11 @@ export const Chat = () => {
       />
 
       <CallOverlay />
+
+      <QrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+      />
 
       {!activeConversation && !selectedChatRequest && <MobileBottomNav />}
     </div>

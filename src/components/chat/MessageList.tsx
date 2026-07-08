@@ -549,7 +549,20 @@ export const MessageList: React.FC<MessageListProps> = ({
 
               {msg.messageType === 'SYSTEM' ? (
                 <div className="flex justify-center py-1.5 select-none">
-                  {msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
+                  {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
+                    <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/60 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                      <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                          <Sparkles className="h-4 w-4" />
+                        </span>
+                        <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+                        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                        <span>Đang suy nghĩ và chuẩn bị câu trả lời...</span>
+                      </div>
+                    </div>
+                  ) : msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
                     <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/60 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
                       <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
