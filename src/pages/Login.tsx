@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { KeyRound, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { KeyRound, Mail, Eye, EyeOff, Loader2, QrCode, RefreshCw } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { QRCodeSVG } from 'qrcode.react';
 import { loginSchema } from '../types/authRequests';
 import type { LoginRequest } from '../types/authRequests';
 import { authService } from '../services/authService';
@@ -12,6 +13,121 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
 import logo from '../assets/logo_notext.png';
 
+const POLL_INTERVAL_MS = 2000;
+
+const QrLoginPanel = () => {
+  const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState('Dang tao ma QR...');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const qrUrl = useMemo(() => {
+    if (!qrToken) return '';
+    return `${window.location.origin}/qr-login/confirm?token=${encodeURIComponent(qrToken)}`;
+  }, [qrToken]);
+
+  const startQrSession = async () => {
+    setIsLoading(true);
+    setStatusText('Dang tao ma QR...');
+    try {
+      const response = await authService.initQrLogin();
+      if (response.success && response.data) {
+        setSessionId(response.data.sessionId);
+        setQrToken(response.data.qrToken);
+        setExpiresAt(response.data.expiresAt);
+        setStatusText('Dung dien thoai da dang nhap de quet ma nay.');
+      } else {
+        setStatusText(response.message || 'Khong tao duoc ma QR.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setStatusText(err.response?.data?.message || 'Khong tao duoc ma QR.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    startQrSession();
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId || !expiresAt) return;
+
+    let stopped = false;
+
+    const poll = async () => {
+      if (stopped || document.visibilityState !== 'visible') return;
+
+      if (new Date(expiresAt).getTime() <= Date.now()) {
+        stopped = true;
+        setStatusText('Ma QR da het han. Tao ma moi de tiep tuc.');
+        return;
+      }
+
+      try {
+        const response = await authService.getQrLoginStatus(sessionId);
+        const data = response.data;
+        if (!response.success || !data) {
+          setStatusText(response.message || 'Khong kiem tra duoc trang thai QR.');
+          return;
+        }
+
+        if (data.status === 'CONFIRMED' && data.login) {
+          login(data.login.user, data.login.accessToken, data.login.refreshToken);
+          navigate('/chat');
+          return;
+        }
+
+        if (data.status === 'EXPIRED' || data.status === 'CONSUMED') {
+          stopped = true;
+          setStatusText('Ma QR da het han. Tao ma moi de tiep tuc.');
+        }
+      } catch (err: any) {
+        console.error(err);
+        setStatusText(err.response?.data?.message || 'Dang cho xac nhan tu thiet bi khac...');
+      }
+    };
+
+    const interval = window.setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [expiresAt, login, navigate, sessionId]);
+
+  return (
+    <div className="space-y-4 text-center">
+      <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+        {qrUrl && !isLoading ? (
+          <QRCodeSVG value={qrUrl} size={196} level="M" includeMargin />
+        ) : (
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        )}
+      </div>
+
+      <p className="text-sm text-gray-600 dark:text-discord-text/90">
+        {statusText}
+      </p>
+
+      <button
+        type="button"
+        onClick={startQrSession}
+        disabled={isLoading}
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white/70 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-white disabled:opacity-50 dark:border-zinc-800 dark:bg-discord-black/40 dark:text-discord-text dark:hover:bg-zinc-900"
+      >
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        Tao ma moi
+      </button>
+    </div>
+  );
+};
+
 export const Login = () => {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
@@ -19,6 +135,7 @@ export const Login = () => {
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginMode, setLoginMode] = useState<'password' | 'qr'>('password');
 
   const {
     register,
@@ -107,6 +224,35 @@ export const Login = () => {
 
         {/* Form Container */}
         <div className="glass rounded-3xl p-8 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
+          <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-gray-100/80 p-1 dark:bg-discord-black/40">
+            <button
+              type="button"
+              onClick={() => setLoginMode('password')}
+              className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                loginMode === 'password'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-discord-blurple'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-discord-muted dark:hover:text-white'
+              }`}
+            >
+              Mat khau
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMode('qr')}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition ${
+                loginMode === 'qr'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-discord-blurple'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-discord-muted dark:hover:text-white'
+              }`}
+            >
+              <QrCode className="h-4 w-4" />
+              Ma QR
+            </button>
+          </div>
+
+          {loginMode === 'qr' ? (
+            <QrLoginPanel />
+          ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {apiError && (
               <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-sm text-left">
@@ -222,6 +368,7 @@ export const Login = () => {
               />
             </div>
           </form>
+          )}
 
           {/* Form Footer */}
           <div className="mt-6 pt-5 border-t border-gray-150 dark:border-zinc-800/60 text-center">

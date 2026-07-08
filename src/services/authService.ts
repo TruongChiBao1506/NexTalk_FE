@@ -1,5 +1,11 @@
 import { apiClient } from '../api/apiClient';
-import type { ApiResponse, LoginResponseData, RegisterResponseData } from '../types/auth';
+import type {
+  ApiResponse,
+  LoginResponseData,
+  QrLoginInitResponseData,
+  QrLoginStatusResponseData,
+  RegisterResponseData
+} from '../types/auth';
 import type { LoginRequest, RegisterRequest } from '../types/authRequests';
 
 export interface SessionResponse {
@@ -49,6 +55,21 @@ export const authService = {
 
   async googleLogin(idToken: string): Promise<ApiResponse<LoginResponseData>> {
     const response = await apiClient.post<ApiResponse<LoginResponseData>>('/auth/google-login', { idToken });
+    return response.data;
+  },
+
+  async initQrLogin(): Promise<ApiResponse<QrLoginInitResponseData>> {
+    const response = await apiClient.post<ApiResponse<QrLoginInitResponseData>>('/auth/qr/init');
+    return response.data;
+  },
+
+  async getQrLoginStatus(sessionId: string): Promise<ApiResponse<QrLoginStatusResponseData>> {
+    const response = await apiClient.get<ApiResponse<QrLoginStatusResponseData>>(`/auth/qr/status/${sessionId}`);
+    return response.data;
+  },
+
+  async confirmQrLogin(qrToken: string): Promise<ApiResponse<QrLoginStatusResponseData>> {
+    const response = await apiClient.post<ApiResponse<QrLoginStatusResponseData>>('/auth/qr/confirm', { qrToken });
     return response.data;
   },
 

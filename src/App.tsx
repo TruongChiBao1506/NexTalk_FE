@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ResetPassword from './pages/ResetPassword';
+import QrLoginConfirm from './pages/QrLoginConfirm';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
 import Friends from './pages/Friends';
@@ -115,6 +116,8 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
+
+          <Route path="/qr-login/confirm" element={<QrLoginConfirm />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
