@@ -13,14 +13,14 @@ export const SidebarTabs = ({
 }: SidebarTabsProps) => {
   return (
     <div className="px-3 pb-2 shrink-0">
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 dark:bg-zinc-800/70 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/55 p-1 ring-1 ring-indigo-100/80 dark:bg-zinc-900/55 dark:ring-zinc-800">
         <button
           type="button"
           onClick={() => setConversationTab('chats')}
           className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
             conversationTab === 'chats'
-              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-white'
-              : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
+              : 'text-slate-500 hover:text-slate-950 dark:text-zinc-400 dark:hover:text-white'
           }`}
         >
           Trò chuyện
@@ -33,8 +33,8 @@ export const SidebarTabs = ({
           }}
           className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
             conversationTab === 'requests'
-              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-white'
-              : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
+              : 'text-slate-500 hover:text-slate-950 dark:text-zinc-400 dark:hover:text-white'
           }`}
         >
           Tin nhắn chờ

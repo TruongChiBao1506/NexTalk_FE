@@ -214,7 +214,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }, [stickerPacks, activePackId]);
 
   return (
-    <form onSubmit={handleSendMessage} className={`p-4 bg-gray-100 dark:bg-discord-mid dark:border-t dark:border-zinc-800/80 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+    <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
       {/* Reply Preview */}
       {replyTo && (
         <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
@@ -249,7 +249,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Attachment Preview Panel */}
       {pendingAttachments.length > 0 && (
-        <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 p-3 border-b-0 animate-fadeIn ${
+        <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 p-3 border-b-0 animate-fadeIn shadow-sm ${
           replyTo ? 'border-t-0' : 'rounded-t-2xl'
         }`}>
           <div className="flex items-center justify-between mb-3">
@@ -334,12 +334,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {/* Toolbar & Input Box Container */}
-      <div className={`bg-white dark:bg-discord-mid border border-gray-300 dark:border-zinc-900/60 flex flex-col ${
+      <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 flex flex-col shadow-[0_18px_42px_rgba(78,91,151,0.13)] dark:shadow-black/20 ${
         (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
-      } focus-within:border-indigo-600 dark:focus-within:border-discord-blurple focus-within:ring-1 focus-within:ring-indigo-600 dark:focus-within:ring-discord-blurple transition-all`}>
+      } focus-within:border-indigo-500 dark:focus-within:border-discord-blurple focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-discord-blurple/30 transition-all`}>
         
         {/* Top Toolbar Row */}
-        <div className={`flex items-center justify-between px-3 py-1.5 border-b border-gray-200/80 dark:border-zinc-800/80 bg-gray-50/50 dark:bg-zinc-900/10 ${
+        <div className={`flex items-center justify-between px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/10 ${
           (pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[15px]'
         }`}>
           <div className="flex items-center gap-0.5">

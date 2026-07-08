@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X } from 'lucide-react';
+import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
@@ -12,6 +12,7 @@ import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import { ChatRequestsTab } from '../components/friends/ChatRequestsTab';
+import { CardListSkeleton } from '../components/common/Skeleton';
 import type { ChatRequestResponse } from '../types/chatRequest';
 
 type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations' | 'chat_requests';
@@ -258,11 +259,11 @@ export const Friends = () => {
   const isChatRequestLoading = isLoadingIncomingChatRequests || isLoadingOutgoingChatRequests;
 
   return (
-    <div className="h-dvh w-screen overflow-hidden bg-gray-100 dark:bg-discord-black flex text-gray-900 dark:text-discord-text transition-colors duration-300">
-      <aside className="hidden md:flex w-16 md:w-20 bg-gray-200 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
+    <div className="nextalk-friends-shell h-dvh w-screen overflow-hidden flex text-slate-900 dark:text-discord-text transition-colors duration-300">
+      <aside className="hidden md:flex w-16 md:w-20 flex-col items-center py-4 border-r shrink-0">
         <div
           onClick={() => navigate('/chat')}
-          className="w-12 h-12 rounded-2xl bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-6 cursor-pointer hover:bg-indigo-650 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300 shadow-md"
+          className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-6 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white transition-all duration-300 shadow-sm"
           title="Chat Home"
         >
           <MessageSquare className="w-6 h-6" />
@@ -271,8 +272,8 @@ export const Friends = () => {
           onClick={() => setActiveTab('friends')}
           className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 cursor-pointer transition-all duration-300 ${
             activeTab !== 'pending'
-              ? 'bg-indigo-600 dark:bg-discord-blurple text-white'
-              : 'bg-gray-300 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white'
+              ? 'bg-indigo-600 dark:bg-discord-blurple text-white shadow-sm'
+              : 'bg-white/55 dark:bg-zinc-900/60 text-slate-600 dark:text-zinc-300 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white'
           }`}
           title="Friends List"
         >
@@ -280,7 +281,7 @@ export const Friends = () => {
         </div>
         <div
           onClick={() => navigate('/profile')}
-          className="w-12 h-12 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+          className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white transition-all duration-300"
           title="Hồ sơ"
         >
           <CircleUserRound className="w-5 h-5" />
@@ -291,7 +292,7 @@ export const Friends = () => {
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-450 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white hover:rounded-xl transition-all duration-300 disabled:opacity-50"
+            className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white transition-all duration-300 disabled:opacity-50"
             title="Log Out"
           >
             <LogOut className="w-5 h-5" />
@@ -299,8 +300,8 @@ export const Friends = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto max-w-6xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-gray-250 dark:border-zinc-800 gap-4">
+      <main className="flex-1 overflow-y-auto max-w-7xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-indigo-100 dark:border-zinc-800 gap-4">
           <div>
             <h2 className="text-2xl font-bold m-0 text-left text-gray-900 dark:text-white">Bạn bè</h2>
             <p className="text-sm text-gray-500 dark:text-discord-muted mt-1 text-left">
@@ -308,7 +309,7 @@ export const Friends = () => {
             </p>
           </div>
 
-          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl border border-gray-300/40 bg-gray-200 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:border-zinc-850/60 dark:bg-discord-dark/50 self-start xl:self-auto">
+          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl border border-indigo-100 bg-white/65 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:border-zinc-850/60 dark:bg-discord-dark/50 self-start xl:self-auto shadow-sm">
             <button
               onClick={() => setActiveTab('friends')}
               className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
@@ -371,10 +372,7 @@ export const Friends = () => {
 
         <div className="flex-1 w-full">
           {(isStoreLoading || isGroupLoading || isChatRequestLoading) && friends.length === 0 && pending.length === 0 && groups.length === 0 && totalChatRequests === 0 ? (
-            <div className="flex flex-col items-center py-16 space-y-4">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-600 dark:text-discord-blurple" />
-              <p className="text-sm text-gray-500 dark:text-discord-muted">Đang tải kết nối...</p>
-            </div>
+            <CardListSkeleton count={6} />
           ) : activeTab === 'friends' ? (
             <div className="space-y-3">
               {friends.length === 0 ? (
@@ -389,11 +387,11 @@ export const Friends = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {friends.map((friend) => (
                     <div
                       key={friend.id}
-                      className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4 transition-all duration-200 hover:shadow-md"
+                      className="nextalk-soft-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     >
                       <div className="relative shrink-0">
                         {friend.avatarUrl ? (
@@ -432,7 +430,7 @@ export const Friends = () => {
                         <button
                           onClick={() => handleStartChat(friend.id)}
                           disabled={actionLoadingId === friend.id}
-                          className="p-2 rounded-xl text-indigo-600 dark:text-discord-blurple hover:bg-indigo-600/10 dark:hover:bg-discord-blurple/10 active:scale-95 transition-all duration-200"
+                          className="p-2 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-discord-blurple hover:bg-indigo-600 hover:text-white active:scale-95 transition-all duration-200"
                           title="Nhắn tin"
                         >
                           <MessageSquare className="w-5 h-5" />
@@ -469,11 +467,11 @@ export const Friends = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {groups.map((group) => (
                     <div
                       key={group.id}
-                      className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4 transition-all duration-200 hover:shadow-md"
+                      className="nextalk-soft-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     >
                       <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
                         {group.name?.charAt(0)?.toUpperCase() ?? '#'}
@@ -489,7 +487,7 @@ export const Friends = () => {
                       <button
                         onClick={() => handleOpenGroupChat(group.id, group.channels?.[0]?.conversationId ?? null)}
                         disabled={!group.channels || group.channels.length === 0 || actionLoadingId === group.id}
-                        className="p-2 rounded-xl text-indigo-600 dark:text-discord-blurple hover:bg-indigo-600/10 dark:hover:bg-discord-blurple/10 active:scale-95 transition-all duration-200 disabled:opacity-45"
+                        className="p-2 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-discord-blurple hover:bg-indigo-600 hover:text-white active:scale-95 transition-all duration-200 disabled:opacity-45"
                         title="Nhắn tin nhóm"
                       >
                         {actionLoadingId === group.id ? (
@@ -695,6 +693,37 @@ export const Friends = () => {
             />
           )}
         </div>
+
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+          <div className="relative overflow-hidden rounded-3xl bg-indigo-600 p-6 text-left text-white shadow-[0_22px_50px_rgba(79,70,229,0.22)]">
+            <div className="relative z-10 max-w-sm">
+              <h3 className="m-0 text-xl font-black">Sẵn sàng kết nối?</h3>
+              <p className="mt-2 text-sm font-medium text-indigo-50">
+                Bắt đầu cuộc trò chuyện mới với bạn bè của bạn ngay hôm nay.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/chat')}
+                className="mt-5 rounded-xl bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50"
+              >
+                Nhắn tin ngay
+              </button>
+            </div>
+            <MessageSquare className="absolute -bottom-7 right-8 h-28 w-28 rotate-12 text-white/12" />
+          </div>
+
+          <div className="nextalk-soft-card flex items-center gap-4 rounded-3xl bg-[#dfeaff] p-6 text-left dark:bg-indigo-500/10">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200">
+              <Sparkles className="h-7 w-7" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="m-0 text-xl font-black text-slate-950 dark:text-white">NexTalk AI</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
+                Gợi ý người bạn có cùng sở thích và giúp bạn bắt đầu cuộc trò chuyện tự nhiên hơn.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
       <ConfirmDialog
         isOpen={Boolean(removeFriendConfirm)}

@@ -32,6 +32,7 @@
   BellRing,
 } from "lucide-react";
 import React from "react";
+import { ChatListSkeleton } from "../common/Skeleton";
 
 interface ConversationListProps {
   conversationTab: any;
@@ -145,12 +146,10 @@ export const ConversationList = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto px-2 pb-3">
       {conversationTab === "requests" ? (
         isLoadingChatRequests ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-7 h-7 animate-spin text-indigo-600 dark:text-discord-blurple" />
-          </div>
+          <ChatListSkeleton count={4} />
         ) : incomingChatRequests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
             <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -553,10 +552,10 @@ export const ConversationList = ({
                   setOpenConversationMenuId(null);
                   selectConversation(c.id);
                 }}
-                className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                className={`group relative mb-1.5 flex items-center gap-3 rounded-2xl px-3 py-3 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? "bg-blue-50 dark:bg-indigo-900/20"
-                    : "hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                    ? "bg-white shadow-sm ring-1 ring-indigo-100 dark:bg-indigo-900/20 dark:ring-indigo-500/20"
+                    : "hover:bg-white/70 hover:shadow-sm dark:hover:bg-zinc-800/50"
                 }`}
               >
                 {/* Avatar with status dot */}
@@ -568,7 +567,7 @@ export const ConversationList = ({
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-lg">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-white font-bold flex items-center justify-center text-lg">
                       {friend.username.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -758,10 +757,10 @@ export const ConversationList = ({
                   handleOpenGroup(g);
                   toggleGroupExpand(g.id, e);
                 }}
-                className={`group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors duration-150 ${
+                className={`group relative mb-1.5 flex items-center gap-3 rounded-2xl px-3 py-3 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? "bg-blue-50 dark:bg-indigo-900/20"
-                    : "hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                    ? "bg-white shadow-sm ring-1 ring-indigo-100 dark:bg-indigo-900/20 dark:ring-indigo-500/20"
+                    : "hover:bg-white/70 hover:shadow-sm dark:hover:bg-zinc-800/50"
                 }`}
               >
                 {/* Group Avatar */}
@@ -773,7 +772,7 @@ export const ConversationList = ({
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-lg">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white font-bold flex items-center justify-center text-lg">
                       {g.name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -991,7 +990,7 @@ export const ConversationList = ({
 
               {/* Render channels if expanded */}
               {isGroupExpanded && g.channels && g.channels.length > 0 && (
-                <div className="flex flex-col ml-14 mr-3 my-1 gap-0.5 border-l-2 border-gray-100 dark:border-zinc-800/50 pl-2">
+                <div className="flex flex-col ml-14 mr-3 my-1 gap-0.5 border-l-2 border-indigo-100 dark:border-zinc-800/50 pl-2">
                   {g.channels.map((ch) => {
                     const isChannelSelected =
                       activeConversation?.id === ch.conversationId;
@@ -1026,8 +1025,8 @@ export const ConversationList = ({
                             : "cursor-pointer"
                         } ${
                           isChannelSelected
-                            ? "bg-indigo-50/80 dark:bg-indigo-500/15"
-                            : "hover:bg-gray-100/80 dark:hover:bg-zinc-800/60"
+                            ? "bg-indigo-100/80 dark:bg-indigo-500/15"
+                            : "hover:bg-white/75 dark:hover:bg-zinc-800/60"
                         }`}
                       >
                         <div className="relative">

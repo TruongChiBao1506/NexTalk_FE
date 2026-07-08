@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:mojibake": "node scripts/check-mojibake.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

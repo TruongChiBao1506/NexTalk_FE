@@ -1,4 +1,4 @@
-import { MessageSquare, User, CircleUserRound, LogOut } from 'lucide-react';
+import { User, CircleUserRound, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
 
@@ -16,14 +16,14 @@ export const SidebarNavigation = ({
   const navigate = useNavigate();
 
   return (
-    <aside className="hidden md:flex w-16 md:w-18 bg-gray-250 dark:bg-zinc-950 flex-col items-center py-4 border-r border-gray-300 dark:border-zinc-900/50 shrink-0">
-      <div className="w-11 h-11 rounded-2xl bg-indigo-650 dark:bg-discord-blurple flex items-center justify-center text-white mb-6 shadow-md transition-all duration-300">
-        <MessageSquare className="w-5 h-5" />
+    <aside className="hidden md:flex w-16 md:w-18 flex-col items-center py-4 border-r shrink-0">
+      <div className="w-11 h-11 rounded-2xl bg-white/75 dark:bg-zinc-900/70 flex items-center justify-center text-indigo-600 dark:text-indigo-300 mb-6 shadow-sm ring-1 ring-indigo-100 dark:ring-zinc-800 transition-all duration-300">
+        <span className="text-sm font-black">N</span>
       </div>
 
       <div
         onClick={() => navigate('/friends')}
-        className="relative w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+        className="relative w-11 h-11 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-3 cursor-pointer hover:bg-indigo-600 hover:text-white dark:hover:bg-discord-blurple transition-all duration-300"
         title="Friends List"
       >
         <User className="w-5 h-5" />
@@ -36,7 +36,7 @@ export const SidebarNavigation = ({
 
       <div
         onClick={() => navigate('/profile')}
-        className="w-11 h-11 rounded-full bg-gray-300 dark:bg-zinc-800 flex items-center justify-center text-gray-650 dark:text-zinc-400 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white hover:rounded-xl transition-all duration-300"
+        className="w-11 h-11 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-3 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white transition-all duration-300"
         title="Hồ sơ"
       >
         <CircleUserRound className="w-5 h-5" />
@@ -47,7 +47,7 @@ export const SidebarNavigation = ({
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="w-11 h-11 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-450 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white hover:rounded-xl transition-all duration-300 disabled:opacity-50"
+          className="w-11 h-11 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white transition-all duration-300 disabled:opacity-50"
           title="Log Out"
         >
           <LogOut className="w-5 h-5" />

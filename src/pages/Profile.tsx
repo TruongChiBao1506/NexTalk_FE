@@ -12,6 +12,7 @@ import MobileBottomNav from '../components/common/MobileBottomNav';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { userService } from '../services/userService';
 import { useChatStore } from '../store/chatStore';
+import { ProfileSkeleton } from '../components/common/Skeleton';
 
 export const Profile = () => {
   const navigate = useNavigate();
@@ -121,10 +122,7 @@ export const Profile = () => {
         <div className="glass rounded-3xl p-5 sm:p-6 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
 
           {isLoading && !profile ? (
-            <div className="flex flex-col items-center py-16 space-y-4">
-              <Loader2 className="w-12 h-12 animate-spin text-indigo-600 dark:text-discord-blurple" />
-              <p className="text-sm text-gray-500 dark:text-discord-muted">Loading your profile...</p>
-            </div>
+            <ProfileSkeleton />
           ) : error ? (
             <div className="text-center py-12 space-y-4">
               <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-450 text-sm max-w-sm mx-auto">

@@ -66,12 +66,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   );
 
   return (
-    <header className="min-h-14 bg-gray-150 dark:bg-discord-mid border-b border-gray-300 dark:border-zinc-800/80 flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
+    <header className="min-h-14 border-b flex flex-col md:flex-row md:items-center gap-2 px-3 py-2 md:px-4 md:py-0 md:justify-between shrink-0">
       <div className="flex w-full min-w-0 items-center gap-2 text-left md:w-auto md:gap-3">
         {/* Mobile Back Button */}
         <button
           onClick={() => selectConversation(null)}
-          className="md:hidden p-2 rounded-xl bg-gray-200/65 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white transition active:scale-95 shrink-0"
+          className="md:hidden p-2 rounded-xl bg-indigo-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-white transition active:scale-95 shrink-0"
           title="Back to conversations list"
         >
           <ArrowLeft className="w-4.5 h-4.5" />
@@ -79,21 +79,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <button
           type="button"
           onClick={() => setIsProfileModalOpen(true)}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 md:flex-none"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-indigo-50/80 dark:hover:bg-zinc-800/60 md:flex-none"
           title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
         >
           {isGroupConversation ? (
             activeGroup?.avatarUrl ? (
               <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="w-9 h-9 rounded-xl object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
             ) : (
-              <div className="w-9 h-9 rounded-xl bg-indigo-600/80 dark:bg-discord-blurple/80 text-white font-bold flex items-center justify-center text-sm shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-sm">
                 {(activeGroup?.name || activeFriend?.username || '?').charAt(0).toUpperCase()}
               </div>
             )
           ) : activeFriend?.avatarUrl ? (
             <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-semibold flex items-center justify-center text-xs shrink-0">
+            <div className="w-9 h-9 rounded-full bg-indigo-600 dark:bg-discord-blurple text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-sm">
               {(activeFriend?.username ?? '?').charAt(0).toUpperCase()}
             </div>
           )}
@@ -137,7 +137,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <button
             onClick={() => initiateCall(activeConversation.id, 'voice', activeCallTarget)}
             title={isGroupConversation ? 'Cuộc gọi thoại khẩn cấp (Toàn nhóm)' : 'Cuộc gọi thoại'}
-            className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+            className="nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer"
           >
             <Phone className="w-4 h-4" />
           </button>
@@ -148,7 +148,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <button
             onClick={() => initiateCall(activeConversation.id, 'video', activeCallTarget)}
             title={isGroupConversation ? 'Cuộc gọi video nhóm (Khẩn cấp)' : 'Cuộc gọi video'}
-            className="shrink-0 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+            className="nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer"
           >
             <Video className="w-4 h-4" />
           </button>
@@ -159,7 +159,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             onClick={handleSummarizeConversation}
             disabled={isSummarizingConversation}
             title="Tóm tắt cuộc trò chuyện"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
           >
             {isSummarizingConversation ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -179,7 +179,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsConversationInfoOpen(false);
             }}
             title="Tìm kiếm tin nhắn"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+            className={`nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer ${isSearchPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-800' : ''
               }`}
           >
             <Search className="w-4 h-4" />
@@ -190,7 +190,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <button
             onClick={() => setIsInviteMembersOpen(true)}
             title="Mời bạn vào nhóm"
-            className="shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+            className="nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
           </button>
@@ -210,7 +210,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsConversationInfoOpen(false);
             }}
             title="Tin nhắn đã ghim"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+            className={`nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer ${isPinnedPanelOpen ? 'text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-800' : ''
               }`}
           >
             <Pin className="w-4 h-4" />
@@ -225,7 +225,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               setIsPinnedPanelOpen(false);
             }}
             title="Thông tin hội thoại"
-            className={`shrink-0 p-2 rounded-lg hover:bg-gray-200/80 dark:hover:bg-zinc-800 text-gray-550 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-gray-200 dark:bg-zinc-800' : ''
+            className={`nextalk-icon-button shrink-0 p-2 rounded-xl transition cursor-pointer ${isConversationInfoOpen ? 'text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-800' : ''
               }`}
           >
             <Info className="w-4 h-4" />

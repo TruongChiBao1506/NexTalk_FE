@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Search, ExternalLink, Loader2 } from 'lucide-react';
 import { messageService } from '../../services/messageService';
 import type { MessageResponse } from '../../types/chat';
+import { SearchResultSkeleton } from '../common/Skeleton';
 
 interface SearchPanelProps {
   isOpen: boolean;
@@ -141,9 +142,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       {/* Results */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {isLoading ? (
-          <div className="flex justify-center items-center h-32 text-gray-450 dark:text-discord-gray-400">
-            <Loader2 className="w-6 h-6 animate-spin text-discord-blurple" />
-          </div>
+          <SearchResultSkeleton count={4} />
         ) : !searched ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-450 dark:text-discord-gray-400 space-y-2">
             <div className="p-3 bg-gray-100 dark:bg-discord-dark-tertiary rounded-full">

@@ -2889,7 +2889,7 @@ export const Chat = () => {
 
   return (
     <div 
-      className="nextalk-chat-shell h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300"
+      className="nextalk-chat-shell h-dvh w-screen flex overflow-hidden text-slate-900 dark:text-discord-text transition-colors duration-300"
       style={activeConversation?.themeColor ? { '--theme-color': activeConversation.themeColor } as React.CSSProperties : {}}
     >
 
@@ -2901,7 +2901,7 @@ export const Chat = () => {
       />
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
-      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white dark:bg-discord-mid flex-col border-r border-gray-200 dark:border-zinc-800/60 shrink-0 pb-16 md:pb-0`}>
+      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col border-r shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
         <SidebarHeader
@@ -2984,7 +2984,7 @@ export const Chat = () => {
 
       {/* Column 3: Chat Window */}
       <main 
-        className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}
+        className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col overflow-hidden relative`}
       >
         {activeConversation && (activeFriend || isGroupConversation) ? (
           <>
@@ -3048,7 +3048,7 @@ export const Chat = () => {
             ) : (
               <>
                 <div
-                  className="min-h-0 flex-1 overflow-hidden bg-cover bg-center flex flex-col"
+                  className="min-h-0 flex-1 overflow-hidden bg-cover bg-center flex flex-col bg-[#f8faff] dark:bg-discord-dark"
                   style={activeConversation?.wallpaperUrl ? { backgroundImage: `url(${activeConversation.wallpaperUrl})` } : {}}
                 >
                   <MessageList

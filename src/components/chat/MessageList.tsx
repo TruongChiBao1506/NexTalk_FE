@@ -49,6 +49,7 @@ import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { getMessagePreviewData } from '../../utils/messagePreview';
+import { Skeleton } from '../common/Skeleton';
 
 interface MessageListProps {
   pinnedMessages: any[];
@@ -232,6 +233,71 @@ export const MessageList: React.FC<MessageListProps> = ({
     );
   };
 
+  const renderReplyPreviewCard = (message: any) => {
+    const preview = getMessagePreviewData(message);
+    const ReplyIcon = getReplyPreviewIcon(preview.kind);
+    const previewText = preview.fileName || preview.text;
+
+    return (
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        {preview.thumbnailUrl && (preview.kind === 'IMAGE' || preview.kind === 'STICKER' || preview.kind === 'ALBUM') ? (
+          <img src={preview.thumbnailUrl} alt={preview.label} className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-indigo-100 dark:ring-zinc-700" />
+        ) : (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 ring-1 ring-indigo-100 dark:bg-zinc-900/70 dark:text-indigo-300 dark:ring-zinc-700">
+            <ReplyIcon className="h-4 w-4" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[12px] font-black text-indigo-600 dark:text-indigo-300">
+              @{message?.senderUsername ?? 'tin nhắn cũ'}
+            </span>
+            <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-zinc-600" />
+            <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-zinc-500">
+              {preview.label}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-[12.5px] font-medium text-slate-600 dark:text-zinc-300">
+            {previewText}
+          </span>
+        </span>
+      </div>
+    );
+  };
+
+  const renderInlineReplyPreview = (message: any, isOwnMessage: boolean) => {
+    const preview = getMessagePreviewData(message);
+    const previewText = preview.fileName || preview.text;
+
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (message?.id) {
+            handleJumpToMessage(message.id);
+          }
+        }}
+        className={`mb-2 block w-full overflow-hidden rounded-lg text-left transition hover:brightness-[0.98] ${
+          isOwnMessage
+            ? 'bg-blue-200/55 text-slate-700 dark:bg-indigo-900/35 dark:text-zinc-100'
+            : 'bg-indigo-50 text-slate-700 dark:bg-indigo-500/10 dark:text-zinc-100'
+        }`}
+      >
+        <span className="flex min-w-0 border-l-4 border-blue-500 px-3 py-2 dark:border-indigo-400">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-black text-slate-700 dark:text-zinc-100">
+              {message?.senderUsername ?? 'Tin nhắn cũ'}
+            </span>
+            <span className="mt-1 block truncate text-[13px] font-medium text-slate-600 dark:text-zinc-300">
+              {previewText}
+            </span>
+          </span>
+        </span>
+      </button>
+    );
+  };
+
   const isAudioFileName = (value?: string | null) => {
     if (!value) return false;
     return /\.(webm|mp3|wav|ogg|oga|m4a|aac)$/i.test(value.split('?')[0]);
@@ -272,7 +338,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
         className={`mt-3 block w-full max-w-[330px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${
           isMine
-            ? 'bg-white/12 ring-1 ring-white/18'
+            ? 'bg-white/92 ring-1 ring-blue-200/90 shadow-sm dark:bg-zinc-900/80 dark:ring-indigo-500/25'
             : 'bg-gray-50 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
         }`}
       >
@@ -286,21 +352,21 @@ export const MessageList: React.FC<MessageListProps> = ({
         )}
         <div className="space-y-1 p-3">
           <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${
-            isMine ? 'text-indigo-100' : 'text-indigo-600 dark:text-indigo-300'
+            isMine ? 'text-indigo-600 dark:text-indigo-300' : 'text-indigo-600 dark:text-indigo-300'
           }`}>
             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{preview.siteName || getLinkHost(preview.url)}</span>
           </div>
           {preview.title && (
             <p className={`m-0 line-clamp-2 text-sm font-bold leading-snug ${
-              isMine ? 'text-white' : 'text-gray-950 dark:text-white'
+              isMine ? 'text-slate-900 dark:text-white' : 'text-gray-950 dark:text-white'
             }`}>
               {preview.title}
             </p>
           )}
           {preview.description && (
             <p className={`m-0 line-clamp-2 text-xs leading-relaxed ${
-              isMine ? 'text-indigo-50/90' : 'text-gray-600 dark:text-zinc-300'
+              isMine ? 'text-slate-600 dark:text-zinc-300' : 'text-gray-600 dark:text-zinc-300'
             }`}>
               {preview.description}
             </p>
@@ -377,11 +443,16 @@ export const MessageList: React.FC<MessageListProps> = ({
     <>
       {/* Pinned Messages Banner */}
       {pinnedMessages && pinnedMessages.length > 0 && (() => {
-        const latestPinned = [...pinnedMessages].sort(
+        const latestPinned = { ...[...pinnedMessages].sort(
           (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
-        )[0];
+        )[0] };
+        const latestPinnedPreview = getMessagePreviewData(latestPinned);
+        const latestPinnedText = latestPinnedPreview.fileName || latestPinnedPreview.text;
+        if (!latestPinned.isRecalled) {
+          latestPinned.content = latestPinnedText;
+        }
         return (
-          <div className={`bg-white dark:bg-discord-dark border-b border-gray-200 dark:border-zinc-800/60 px-3 py-2 flex items-center gap-3 shrink-0 select-none group transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+          <div className={`bg-white/88 dark:bg-discord-dark border-b border-indigo-100 dark:border-zinc-800/60 px-3 py-2 flex items-center gap-3 shrink-0 select-none group transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
             {/* Left accent bar */}
             <div className="w-0.5 h-8 rounded-full bg-indigo-500 dark:bg-discord-blurple shrink-0" />
 
@@ -441,7 +512,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       })()}
 
       {activeConversationSummary && (
-        <div className={`border-b border-indigo-100 bg-indigo-50/80 px-4 py-3 text-left dark:border-indigo-500/20 dark:bg-indigo-500/10 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+        <div className={`m-4 mb-0 rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 text-left shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-lg bg-white p-1.5 text-indigo-600 shadow-sm dark:bg-zinc-900/80 dark:text-indigo-300">
               <Sparkles className="h-4 w-4" />
@@ -500,9 +571,9 @@ export const MessageList: React.FC<MessageListProps> = ({
             if (!msg.metadata?.priority) return null;
             const isImportant = msg.metadata.priority === 'IMPORTANT';
             
-            const textColor = isImportant 
-              ? (isMe ? 'text-rose-200 dark:text-rose-300' : 'text-rose-600 dark:text-rose-500')
-              : (isMe ? 'text-amber-200 dark:text-amber-300' : 'text-amber-600 dark:text-amber-500');
+            const textColor = isImportant
+              ? 'text-rose-600 dark:text-rose-300'
+              : 'text-amber-600 dark:text-amber-300';
 
             return (
               <div className="flex mb-1 shrink-0">
@@ -531,16 +602,16 @@ export const MessageList: React.FC<MessageListProps> = ({
               id={`message-${msg.id}`}
               onMouseEnter={() => setHoveredMessageId(msg.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
-              className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-lg transition-colors ${
+              className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${
                 isMentionedCurrentUser
                   ? 'bg-amber-50/80 ring-1 ring-amber-200 hover:bg-amber-50 dark:bg-amber-500/10 dark:ring-amber-500/30 dark:hover:bg-amber-500/15'
-                  : 'hover:bg-gray-150/20 dark:hover:bg-zinc-800/10'
+                  : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
               }`}
             >
               {showDivider && (
                 <div className="flex items-center justify-center my-4 shrink-0 select-none">
                   <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
-                  <span className="px-3 text-[10px] font-bold text-gray-500 dark:text-discord-muted bg-gray-100 dark:bg-discord-dark uppercase tracking-wider">
+                  <span className="px-3 text-[10px] font-bold text-slate-500 dark:text-discord-muted bg-[#f8faff] dark:bg-discord-dark uppercase tracking-wider">
                     {formatDividerDate(msg.createdAt)}
                   </span>
                   <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
@@ -550,7 +621,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               {msg.messageType === 'SYSTEM' ? (
                 <div className="flex justify-center py-1.5 select-none">
                   {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
-                    <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/60 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                    <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
                       <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
                           <Sparkles className="h-4 w-4" />
@@ -563,7 +634,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                       </div>
                     </div>
                   ) : msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
-                    <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/60 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                    <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
                       <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
                           <Sparkles className="h-4 w-4" />
@@ -839,17 +910,18 @@ export const MessageList: React.FC<MessageListProps> = ({
               ) : (
                 <>
                   {/* Quoted Message / Reply Preview */}
-                  {msg.parentId && (
-                    <div className={`flex mb-1 max-w-[min(85vw,26rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
+                  {false && msg.parentId && (
+                    <div className={`flex mb-1.5 max-w-[min(85vw,27rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
                       <div 
-                        className="flex w-full bg-gray-100 dark:bg-zinc-800/80 rounded-lg border-l-[3px] border-indigo-400 dark:border-indigo-500 overflow-hidden hover:brightness-95 transition cursor-pointer"
+                        className={`group/reply flex w-full overflow-hidden rounded-2xl border bg-white/82 shadow-sm ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:bg-zinc-900/78 dark:ring-zinc-800/70 ${isMe ? 'border-indigo-200/80 dark:border-indigo-500/25' : 'border-slate-200/80 dark:border-zinc-800'} cursor-pointer`}
                         onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
                       >
-                        <div className="px-3 py-2 flex items-center gap-2 overflow-hidden w-full">
-                          <CornerUpLeft className="w-3.5 h-3.5 text-gray-500 dark:text-zinc-400 shrink-0" />
-                          <span className="text-[12.5px] text-gray-700 dark:text-zinc-300 flex items-center gap-2 min-w-0">
-                            {renderReplyPreviewContent(parentMessage)}
+                        <div className="w-1.5 shrink-0 bg-indigo-500/85 dark:bg-indigo-400" />
+                        <div className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 transition group-hover/reply:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <CornerUpLeft className="h-3.5 w-3.5" />
                           </span>
+                          {renderReplyPreviewCard(parentMessage)}
                           <span className="hidden">
                             @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
                           </span>
@@ -963,7 +1035,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
                             isMe
                               ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
-                              : 'bg-gray-200/50 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-gray-300/20 dark:border-zinc-850/30'
+                              : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
                           }`}>
                             {renderPriorityBadge()}
                             <span>Tin nhắn đã bị thu hồi</span>
@@ -971,8 +1043,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : msg.attachments && msg.attachments.length > 0 ? (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
                             isMe
-                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                              ? 'nextalk-themed-bubble rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
                           }`}>
                             {renderPriorityBadge()}
                             <div className={`grid gap-1.5 ${
@@ -1022,8 +1094,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     return (
                                       <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
                                         isMe
-                                          ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
-                                          : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
+                                          ? 'nextalk-themed-bubble rounded-tr-none'
+                                          : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
                                       }`}>
                                         <div className="hidden">
                                           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
@@ -1034,7 +1106,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                           <div className="min-w-0 flex-1 text-left">
                                             <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
                                             {attachment.size != null && attachment.size > 0 && (
-                                              <p className={`m-0 text-[11px] ${isMe ? 'text-indigo-100' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                              <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
                                                 {formatFileSize(attachment.size)}
                                               </p>
                                             )}
@@ -1042,7 +1114,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                           <button
                                             type="button"
                                             onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
-                                            className={`rounded-lg p-2 transition ${isMe ? 'text-white hover:bg-white/15' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                            className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
                                             title="Tải xuống"
                                           >
                                             <Download className="h-4 w-4" />
@@ -1063,8 +1135,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
                                       <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${
                                         isMe
-                                          ? 'nextalk-themed-bubble bg-indigo-500/90 dark:bg-discord-blurple/95 border-indigo-505/50 dark:border-discord-blurple/50 text-white rounded-tr-none'
-                                          : 'bg-white dark:bg-discord-mid border-gray-350 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                                          ? 'nextalk-themed-bubble rounded-tr-none'
+                                          : 'bg-white dark:bg-discord-mid border-indigo-100 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                                       }`}>
                                         <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
                                           <FileIcon className="w-5 h-5" />
@@ -1082,7 +1154,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                         <button
                                           type="button"
                                           onClick={() => downloadFile(fileUrl, fileName)}
-                                          className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-white' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
+                                          className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-slate-600 dark:text-zinc-200' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
                                           title="Tải xuống"
                                         >
                                           <Download className="w-4 h-4" />
@@ -1129,7 +1201,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           <div className={`relative flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${
                             isMe
                               ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
-                              : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
+                              : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
                           }`}>
                             <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
                               {renderPriorityBadge()}
@@ -1145,7 +1217,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               );
                             })()}
                             {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
-                              <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble bg-indigo-500/90 dark:bg-discord-blurple text-white' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
+                              <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
                                 {renderFormattedMessage(msg.content)}
                               </div>
                             )}
@@ -1153,8 +1225,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : isAudioMessage(msg) ? (
                           <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
                             isMe
-                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-gray-200 dark:border-zinc-800'
+                              ? 'nextalk-themed-bubble rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
                           }`}>
                             {renderPriorityBadge()}
                             {(() => {
@@ -1172,7 +1244,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     <div className="min-w-0 flex-1 text-left">
                                       <p className="m-0 truncate text-[13px] font-bold">{audioName}</p>
                                       {attachment?.size != null && attachment.size > 0 && (
-                                        <p className={`m-0 text-[11px] ${isMe ? 'text-indigo-100' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                        <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
                                           {formatFileSize(attachment.size)}
                                         </p>
                                       )}
@@ -1180,7 +1252,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => downloadFile(audioUrl, audioName)}
-                                      className={`rounded-lg p-2 transition ${isMe ? 'text-white hover:bg-white/15' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                      className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
                                       title="Tải xuống"
                                     >
                                       <Download className="h-4 w-4" />
@@ -1206,7 +1278,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             <div className={`flex flex-col p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${
                               isMe
                                 ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
-                                : 'border-gray-200 dark:border-zinc-800 rounded-tl-none'
+                                : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
                             }`}>
                               {renderPriorityBadge()}
                               <div className="flex items-center gap-3">
@@ -1303,11 +1375,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                         ) : (
                           <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
                             isMe
-                              ? 'nextalk-themed-bubble bg-indigo-500 dark:bg-discord-blurple text-white rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-gray-300/40 dark:border-zinc-850/60'
+                              ? msg.parentId
+                                ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
+                                : 'nextalk-themed-bubble rounded-tr-none'
+                              : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
                           }`}>
                             {renderPriorityBadge()}
                             <div className="m-0">
+                              {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
                               {renderFormattedMessage(msg.content)}
                               {renderLinkPreviewCard(msg, isMe)}
                               {msg.isEdited && (
@@ -1387,6 +1462,14 @@ export const MessageList: React.FC<MessageListProps> = ({
         })}
 
         {hasMoreMessages && (
+          <div ref={sentinelRef} className="flex w-full shrink-0 flex-col gap-2 py-3 select-none">
+            <Skeleton className="h-9 w-64 rounded-2xl" />
+            <Skeleton className="h-9 w-80 max-w-[78%] self-end rounded-2xl" />
+            <Skeleton className="h-9 w-56 rounded-2xl" />
+          </div>
+        )}
+
+        {false && hasMoreMessages && (
           <div ref={sentinelRef} className="flex justify-center py-3 shrink-0 w-full select-none">
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-semibold py-1.5 px-3 bg-indigo-50/50 dark:bg-zinc-800/50 border border-indigo-100/30 dark:border-zinc-800/40 rounded-full">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

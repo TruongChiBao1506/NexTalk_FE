@@ -3,6 +3,7 @@ import type { ChatRequestResponse } from '../../types/chatRequest';
 import type { FriendRelationStatus } from '../../types/friend';
 import { formatRelativeTime } from '../../utils/time';
 import { stripHtml } from '../../utils/text';
+import { CardListSkeleton } from '../common/Skeleton';
 
 interface ChatRequestsTabProps {
   incoming: ChatRequestResponse[];
@@ -105,6 +106,10 @@ export const ChatRequestsTab = ({
   };
 
   if (isLoading && total === 0) {
+    return <CardListSkeleton count={4} />;
+  }
+
+  if (false && isLoading && total === 0) {
     return (
       <div className="flex flex-col items-center py-16 space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-indigo-600 dark:text-discord-blurple" />
