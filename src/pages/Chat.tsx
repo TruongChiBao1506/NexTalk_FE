@@ -16,6 +16,7 @@ import { fileService } from '../services/fileService';
 import { messageService } from '../services/messageService';
 import { blockService } from '../services/blockService';
 import { groupService } from '../services/groupService';
+import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
@@ -61,6 +62,7 @@ import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
+import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
@@ -175,6 +177,8 @@ export const Chat = () => {
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
   const [isGroupApprovalsModalOpen, setIsGroupApprovalsModalOpen] = useState(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
 
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
@@ -344,6 +348,31 @@ export const Chat = () => {
     setConversationTab,
     showAlertDialog,
   });
+
+  const handleSaveTheme = async (themeColor?: string, wallpaperUrl?: string) => {
+    if (!activeConversation) return;
+    setIsUpdatingTheme(true);
+    try {
+      const response = await conversationService.updateTheme(activeConversation.id, themeColor, wallpaperUrl);
+      if (response.success && response.data) {
+        const updatedConversation = response.data;
+        useChatStore.setState((state) => ({
+          activeConversation: state.activeConversation?.id === updatedConversation.id
+            ? updatedConversation
+            : state.activeConversation,
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === updatedConversation.id ? updatedConversation : conversation
+          ),
+        }));
+      }
+      await fetchConversations();
+      setIsThemeModalOpen(false);
+    } catch (error) {
+      console.error('Failed to update theme:', error);
+    } finally {
+      setIsUpdatingTheme(false);
+    }
+  };
 
   const {
     editingMessageId, setEditingMessageId,
@@ -1045,7 +1074,7 @@ export const Chat = () => {
   useEffect(() => {
     if (!messages.some((message) => Boolean(message.expiresAt))) return;
     const timer = window.setInterval(() => setMessageExpiryNow(Date.now()), 10000);
-    return () => window.clearInterval(timer);
+    return () => window.clearTimeout(timer);
   }, [messages]);
 
   // Infinite scroll: Observe the sentinel element at the top of the message list
@@ -2678,7 +2707,10 @@ export const Chat = () => {
   const activeUnreadMarker = activeConversation ? unreadMarkersByConversation[activeConversation.id] ?? null : null;
 
   return (
-    <div className="nextalk-chat-shell h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div 
+      className="nextalk-chat-shell h-dvh w-screen bg-gray-100 dark:bg-discord-black flex overflow-hidden text-gray-900 dark:text-discord-text transition-colors duration-300"
+      style={activeConversation?.themeColor ? { '--theme-color': activeConversation.themeColor } as React.CSSProperties : {}}
+    >
 
       {/* Column 1: Sidebar Navigation */}
       <SidebarNavigation
@@ -2770,7 +2802,9 @@ export const Chat = () => {
       </section>
 
       {/* Column 3: Chat Window */}
-      <main className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}>
+      <main 
+        className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-100 dark:bg-discord-dark overflow-hidden relative`}
+      >
         {activeConversation && (activeFriend || isGroupConversation) ? (
           <>
             {/* Chat Header */}
@@ -2832,80 +2866,85 @@ export const Chat = () => {
               </div>
             ) : (
               <>
-                <MessageList
-                  pinnedMessages={pinnedMessages}
-                  handleJumpToMessage={handleJumpToMessage}
-                  canPinMessage={canPinMessage}
-                  togglePinMessage={togglePinMessage}
-                  activeConversationSummary={activeConversationSummary}
-                  typingUsers={activeTypingUsers}
-                  unreadMarker={activeUnreadMarker}
-                  onDismissUnreadMarker={() => {
-                    if (activeConversation?.id) {
-                      clearUnreadMarker(activeConversation.id);
-                    }
-                  }}
-                  onJumpToUnreadMarker={scrollToUnreadMarker}
-                  conversationInfoOffsetClass={conversationInfoOffsetClass}
-                  messagesContainerRef={messagesContainerRef}
-                  handleMessagesScroll={handleMessagesScroll}
-                  messagesEndRef={messagesEndRef}
-                  visibleMessages={visibleMessages}
-                  user={user}
-                  isGroupConversation={isGroupConversation}
-                  activeFriend={activeFriend}
-                  getSenderAvatar={getSenderAvatar}
-                  getSenderUsername={getSenderUsername}
-                  hoveredMessageId={hoveredMessageId}
-                  setHoveredMessageId={setHoveredMessageId}
-                  activeMenuMessageId={activeMenuMessageId}
-                  setActiveMenuMessageId={setActiveMenuMessageId}
-                  reactToMessage={reactToMessage}
-                  setReplyTo={setReplyTo}
-                  setEditingMessageId={setEditingMessageId}
-                  setEditInputText={setEditInputText}
-                  recallMessage={recallMessage}
-                  deleteMessage={deleteMessage}
-                  setSharingMessage={setSharingMessage}
-                  setReminderTargetMessage={setReminderTargetMessage}
-                  onDeleteMessageReminder={handleDeleteMessageReminder}
-                  onRecreateMessageReminder={handleRecreateMessageReminder}
-                  canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
-                  getFileName={getFileName}
-                  setActiveMedia={setActiveMedia}
-                  renderFormattedMessage={renderFormattedMessage}
-                  stripMessageMarkup={stripMessageMarkup}
-                  formatMessageTime={formatMessageTime}
-                  getMessageStatus={getMessageStatus}
-                  formatDividerDate={formatDividerDate}
-                  isCallHistoryMessage={isCallHistoryMessage}
-                  getCallHistorySummary={getCallHistorySummary}
-                  getCallHistoryDetailStatus={getCallHistoryDetailStatus}
-                  formatCallLogTime={formatCallLogTime}
-                  expandedCallLogId={expandedCallLogId}
-                  setExpandedCallLogId={setExpandedCallLogId}
-                  activeCallTarget={activeCallTarget}
-                  initiateCall={initiateCall}
-                  activeConversation={activeConversation}
-                  getPollMetadata={getPollMetadata}
-                  handlePollVote={handlePollVote}
-                  pollActionMessageId={pollActionMessageId}
-                  setPollVoterDialog={setPollVoterDialog}
-                  pollNewOptionText={pollNewOptionText}
-                  setPollNewOptionText={setPollNewOptionText}
-                  handleAddPollOption={handleAddPollOption}
-                  handleLockPoll={handleLockPoll}
-                  handleDeletePoll={handleDeletePoll}
-                  hasMoreMessages={hasMoreMessages}
-                  sentinelRef={sentinelRef}
-                  showScrollToLatest={showScrollToLatest}
-                  scrollToBottom={scrollToBottom}
-                  isGroupModeratorRole={isGroupModeratorRole}
-                  currentGroupMembership={currentGroupMembership}
-                  editingMessageId={editingMessageId}
-                  editInputText={editInputText}
-                  handleSaveEdit={handleSaveEdit}
-                />
+                <div
+                  className="min-h-0 flex-1 overflow-hidden bg-cover bg-center flex flex-col"
+                  style={activeConversation?.wallpaperUrl ? { backgroundImage: `url(${activeConversation.wallpaperUrl})` } : {}}
+                >
+                  <MessageList
+                    pinnedMessages={pinnedMessages}
+                    handleJumpToMessage={handleJumpToMessage}
+                    canPinMessage={canPinMessage}
+                    togglePinMessage={togglePinMessage}
+                    activeConversationSummary={activeConversationSummary}
+                    typingUsers={activeTypingUsers}
+                    unreadMarker={activeUnreadMarker}
+                    onDismissUnreadMarker={() => {
+                      if (activeConversation?.id) {
+                        clearUnreadMarker(activeConversation.id);
+                      }
+                    }}
+                    onJumpToUnreadMarker={scrollToUnreadMarker}
+                    conversationInfoOffsetClass={conversationInfoOffsetClass}
+                    messagesContainerRef={messagesContainerRef}
+                    handleMessagesScroll={handleMessagesScroll}
+                    messagesEndRef={messagesEndRef}
+                    visibleMessages={visibleMessages}
+                    user={user}
+                    isGroupConversation={isGroupConversation}
+                    activeFriend={activeFriend}
+                    getSenderAvatar={getSenderAvatar}
+                    getSenderUsername={getSenderUsername}
+                    hoveredMessageId={hoveredMessageId}
+                    setHoveredMessageId={setHoveredMessageId}
+                    activeMenuMessageId={activeMenuMessageId}
+                    setActiveMenuMessageId={setActiveMenuMessageId}
+                    reactToMessage={reactToMessage}
+                    setReplyTo={setReplyTo}
+                    setEditingMessageId={setEditingMessageId}
+                    setEditInputText={setEditInputText}
+                    recallMessage={recallMessage}
+                    deleteMessage={deleteMessage}
+                    setSharingMessage={setSharingMessage}
+                    setReminderTargetMessage={setReminderTargetMessage}
+                    onDeleteMessageReminder={handleDeleteMessageReminder}
+                    onRecreateMessageReminder={handleRecreateMessageReminder}
+                    canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
+                    getFileName={getFileName}
+                    setActiveMedia={setActiveMedia}
+                    renderFormattedMessage={renderFormattedMessage}
+                    stripMessageMarkup={stripMessageMarkup}
+                    formatMessageTime={formatMessageTime}
+                    getMessageStatus={getMessageStatus}
+                    formatDividerDate={formatDividerDate}
+                    isCallHistoryMessage={isCallHistoryMessage}
+                    getCallHistorySummary={getCallHistorySummary}
+                    getCallHistoryDetailStatus={getCallHistoryDetailStatus}
+                    formatCallLogTime={formatCallLogTime}
+                    expandedCallLogId={expandedCallLogId}
+                    setExpandedCallLogId={setExpandedCallLogId}
+                    activeCallTarget={activeCallTarget}
+                    initiateCall={initiateCall}
+                    activeConversation={activeConversation}
+                    getPollMetadata={getPollMetadata}
+                    handlePollVote={handlePollVote}
+                    pollActionMessageId={pollActionMessageId}
+                    setPollVoterDialog={setPollVoterDialog}
+                    pollNewOptionText={pollNewOptionText}
+                    setPollNewOptionText={setPollNewOptionText}
+                    handleAddPollOption={handleAddPollOption}
+                    handleLockPoll={handleLockPoll}
+                    handleDeletePoll={handleDeletePoll}
+                    hasMoreMessages={hasMoreMessages}
+                    sentinelRef={sentinelRef}
+                    showScrollToLatest={showScrollToLatest}
+                    scrollToBottom={scrollToBottom}
+                    isGroupModeratorRole={isGroupModeratorRole}
+                    currentGroupMembership={currentGroupMembership}
+                    editingMessageId={editingMessageId}
+                    editInputText={editInputText}
+                    handleSaveEdit={handleSaveEdit}
+                  />
+                </div>
 
                 {selectedChatRequest && (
                   <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
@@ -3089,6 +3128,7 @@ export const Chat = () => {
               activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
               isRefreshingInviteCode={isRefreshingInviteCode}
               handleRefreshInviteCode={handleRefreshInviteCode}
+              setIsThemeModalOpen={setIsThemeModalOpen}
             />
           </>
         ) : selectedChatRequest ? (
@@ -3388,6 +3428,14 @@ export const Chat = () => {
         />
       )}
 
+      <ThemeSettingsModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        onSave={handleSaveTheme}
+        currentThemeColor={activeConversation?.themeColor}
+        currentWallpaperUrl={activeConversation?.wallpaperUrl}
+        isLoading={isUpdatingTheme}
+      />
       <ConfirmDialog
         isOpen={Boolean(confirmDialog)}
         title={confirmDialog?.title ?? ''}

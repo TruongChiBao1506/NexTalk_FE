@@ -18,7 +18,8 @@ import {
   Trash2,
   Loader2,
   LogOut,
-  Users
+  Users,
+  Palette
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
 
@@ -62,6 +63,7 @@ interface ConversationInfoPanelProps {
   activePrivateChatBlockedByMe: boolean;
   isRefreshingInviteCode: boolean;
   handleRefreshInviteCode: () => void;
+  setIsThemeModalOpen: (open: boolean) => void;
 }
 
 export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
@@ -104,6 +106,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activePrivateChatBlockedByMe,
   isRefreshingInviteCode,
   handleRefreshInviteCode,
+  setIsThemeModalOpen,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -416,6 +419,16 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   ))}
                 </select>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsThemeModalOpen(true)}
+                className="flex w-full items-center gap-3 rounded-lg bg-indigo-50 px-3 py-3 text-left text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+              >
+                <Palette className="h-4 w-4 text-indigo-500" />
+                <span className="min-w-0 flex-1">Đổi chủ đề / Hình nền</span>
+              </button>
+
               {activeConversation.hidden ? (
                 <button
                   type="button"

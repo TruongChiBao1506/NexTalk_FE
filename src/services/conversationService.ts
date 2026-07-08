@@ -57,5 +57,13 @@ export const conversationService = {
       params: { hidden }
     });
     return response.data;
+  },
+
+  async updateTheme(id: string, themeColor?: string, wallpaperUrl?: string): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/theme`, {
+      themeColor,
+      wallpaperUrl,
+    });
+    return response.data;
   }
 };

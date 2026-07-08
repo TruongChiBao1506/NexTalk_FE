@@ -10,6 +10,8 @@ export interface ConversationResponse {
   pinned?: boolean;
   hidden?: boolean;
   selfDestructSeconds?: number;
+  themeColor?: string;
+  wallpaperUrl?: string;
   members: User[];
   createdAt: string;
   updatedAt: string;
