@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import Quill from 'quill';
@@ -14,6 +14,7 @@ import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
 import { messageService } from '../services/messageService';
+import { reminderService } from '../services/reminderService';
 import { blockService } from '../services/blockService';
 import { groupService } from '../services/groupService';
 import { conversationService } from '../services/conversationService';
@@ -67,7 +68,6 @@ import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
 import { stripHtml } from '../utils/text';
-import { getMessagePreviewData } from '../utils/messagePreview';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
 
@@ -82,6 +82,7 @@ type MessageReminder = {
   createdAt: string;
   fired?: boolean;
   deletedAt?: string;
+  status?: 'PENDING' | 'FIRED' | 'DELETED';
 };
 
 type SpeechRecognitionResultLike = {
@@ -414,12 +415,19 @@ export const Chat = () => {
     handleJumpToMessage
   });
 
-  const getMessageReminderStorageKey = () => `nextalk_messageReminders:${user?.id ?? 'anonymous'}`;
-
-  const persistMessageReminders = (reminders: MessageReminder[]) => {
-    if (!user?.id) return;
-    localStorage.setItem(getMessageReminderStorageKey(), JSON.stringify(reminders));
-  };
+  const mapReminderResponse = (reminder: import('../services/reminderService').MessageReminderResponse): MessageReminder => ({
+    id: reminder.id,
+    messageId: reminder.messageId,
+    conversationId: reminder.conversationId,
+    senderUsername: reminder.senderUsername,
+    messagePreview: reminder.messagePreview,
+    remindAt: reminder.remindAt,
+    note: reminder.note ?? '',
+    createdAt: reminder.createdAt,
+    fired: reminder.status === 'FIRED',
+    deletedAt: reminder.deletedAt ?? undefined,
+    status: reminder.status,
+  });
 
   useEffect(() => {
     if (!user?.id) {
@@ -427,23 +435,19 @@ export const Chat = () => {
       return;
     }
 
-    try {
-      const rawReminders = localStorage.getItem(getMessageReminderStorageKey());
-      const parsedReminders = rawReminders ? JSON.parse(rawReminders) : [];
-      setMessageReminders(Array.isArray(parsedReminders) ? parsedReminders : []);
-    } catch {
-      setMessageReminders([]);
-    }
+    reminderService.getMyReminders()
+      .then((response) => setMessageReminders((response.data ?? []).map(mapReminderResponse)))
+      .catch(() => setMessageReminders([]));
   }, [user?.id]);
 
   const fireMessageReminder = (reminder: MessageReminder) => {
     setMessageReminders((current) => {
       const next = current.map((item) => (
-        item.id === reminder.id ? { ...item, fired: true } : item
+        item.id === reminder.id ? { ...item, fired: true, status: 'FIRED' as const } : item
       ));
-      persistMessageReminders(next);
       return next;
     });
+    reminderService.markReminderFired(reminder.id).catch(() => {});
 
     const title = 'NexTalk nhắc hẹn';
     const body = reminder.note || `${reminder.senderUsername}: ${reminder.messagePreview}`;
@@ -481,23 +485,17 @@ export const Chat = () => {
   const handleSaveMessageReminder = async ({ remindAt, note }: { remindAt: string; note: string }) => {
     if (!reminderTargetMessage || !activeConversation?.id) return;
 
-    const preview = getMessagePreviewData(reminderTargetMessage);
-    const nextReminder: MessageReminder = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    const response = await reminderService.createReminder({
       messageId: reminderTargetMessage.id,
-      conversationId: (reminderTargetMessage as any).conversationId ?? activeConversation.id,
-      senderUsername: reminderTargetMessage.senderUsername ?? 'NexTalk',
-      messagePreview: preview.fileName || preview.text,
       remindAt,
       note,
-      createdAt: new Date().toISOString(),
-    };
+    });
+    const nextReminder = mapReminderResponse(response.data);
 
     setMessageReminders((current) => {
       const next = [...current, nextReminder].sort(
         (a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime()
       );
-      persistMessageReminders(next);
       return next;
     });
 
@@ -508,14 +506,72 @@ export const Chat = () => {
     }
   };
 
-  const handleDeleteMessageReminder = (reminderId: string) => {
+  const processedAiReminderMessageIdsRef = useRef<Set<string>>(new Set());
+
+  const createReminderFromAiMessage = async (message: MessageResponse) => {
+    const metadata = message.metadata ?? {};
+    if (metadata.action !== 'CREATE_MESSAGE_REMINDER' || metadata.requestedByUserId !== user?.id) return;
+    if (processedAiReminderMessageIdsRef.current.has(message.id)) return;
+
+    processedAiReminderMessageIdsRef.current.add(message.id);
+    const remindAt = typeof metadata.remindAt === 'string' ? metadata.remindAt : '';
+    const remindAtDate = new Date(remindAt);
+    if (!remindAt || Number.isNaN(remindAtDate.getTime()) || remindAtDate.getTime() <= Date.now()) return;
+
+    const targetMessageId = typeof metadata.messageId === 'string' ? metadata.messageId : (message.parentId ?? message.id);
+    const targetMessage = messages.find((item) => item.id === targetMessageId);
+    if (!targetMessage && !metadata.messageId) return;
+
+    const response = await reminderService.createReminder({
+      messageId: targetMessageId,
+      remindAt,
+      note: typeof metadata.note === 'string' ? metadata.note : '',
+    });
+    const nextReminder = mapReminderResponse(response.data);
+
+    setMessageReminders((current) => {
+      if (current.some((reminder) => reminder.id === nextReminder.id || (
+        reminder.messageId === nextReminder.messageId
+        && reminder.remindAt === nextReminder.remindAt
+        && reminder.note === nextReminder.note
+      ))) return current;
+      const next = [...current, nextReminder].sort(
+        (a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime()
+      );
+      return next;
+    });
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const aiReminderMessages = [
+      ...messages,
+      ...Object.values(lastMessages),
+    ].filter((message, index, source) => (
+      message?.metadata?.action === 'CREATE_MESSAGE_REMINDER'
+      && source.findIndex((item) => item.id === message.id) === index
+    ));
+
+    aiReminderMessages.forEach((message) => {
+      createReminderFromAiMessage(message).catch(() => {});
+    });
+  }, [messages, lastMessages, user?.id]);
+
+  const handleDeleteMessageReminder = async (reminderId: string) => {
+    const response = await reminderService.deleteReminder(reminderId);
+    const deletedReminder = mapReminderResponse(response.data);
+
     setMessageReminders((current) => {
       const next = current.map((reminder) => (
         reminder.id === reminderId
-          ? { ...reminder, deletedAt: new Date().toISOString(), fired: true }
+          ? { ...reminder, ...deletedReminder, deletedAt: deletedReminder.deletedAt ?? new Date().toISOString(), fired: true }
           : reminder
       ));
-      persistMessageReminders(next);
       return next;
     });
   };
@@ -1444,6 +1500,38 @@ export const Chat = () => {
     }
   };
 
+  const mentionSource = useCallback((searchTerm: string, renderList: (list: any[], term: string) => void) => {
+    const currentConversation = useChatStore.getState().activeConversation;
+    const currentUser = useAuthStore.getState().user;
+    const values: { id: string; value: string; aliases?: string[] }[] = [];
+
+    if (currentConversation) {
+      if (currentConversation.type === 'GROUP') {
+        values.push({ id: 'bot', value: 'NexTalk AI', aliases: ['ai', 'bot', 'meta ai', 'nextalk'] });
+        values.push({ id: 'all', value: 'all' });
+      }
+
+      currentConversation.members.forEach((member) => {
+        if (member.id !== currentUser?.id) {
+          values.push({ id: member.id, value: member.username });
+        }
+      });
+    }
+
+    if (searchTerm.length === 0) {
+      renderList(values, searchTerm);
+      return;
+    }
+
+    const termLower = searchTerm.toLowerCase();
+    const matches = values.filter((item) => {
+      const aliases = item.aliases ?? [];
+      return item.value.toLowerCase().includes(termLower)
+        || aliases.some((alias) => alias.includes(termLower));
+    });
+    renderList(matches, searchTerm);
+  }, []);
+
   useEffect(() => {
     if (!quillEditorRef.current) {
       quillRef.current = null;
@@ -1457,11 +1545,13 @@ export const Chat = () => {
       modules: {
         toolbar: false,
         mention: {
-          allowedChars: /^[A-Za-z0-9_]*$/,
+          allowedChars: /^[A-Za-z0-9_\s]*$/,
           mentionDenotationChars: ['@'],
           positioningStrategy: 'fixed',
           source: function (searchTerm: string, renderList: (list: any[], term: string) => void) {
-            const currentConversation = useChatStore.getState().activeConversation;
+            mentionSource(searchTerm, renderList);
+            return;
+            const currentConversation = useChatStore.getState().activeConversation!;
             const currentUser = useAuthStore.getState().user;
             const values: { id: string, value: string }[] = [];
 
@@ -1470,7 +1560,11 @@ export const Chat = () => {
                 values.push({ id: 'all', value: 'Mọi người' });
               }
 
-              const allMention = values.find((item) => item.id === 'all');
+              if (currentConversation.type === 'GROUP') {
+                values.push({ id: 'bot', value: 'NexTalk AI' });
+              }
+
+              const allMention = values.find((item) => item.id === 'all')!;
               if (allMention) {
                 allMention.value = 'all';
               }
@@ -1527,6 +1621,13 @@ export const Chat = () => {
     });
 
   }, [activeConversation?.id]);
+
+  useEffect(() => {
+    const mentionModule = quillRef.current?.getModule?.('mention') as any;
+    if (mentionModule?.options) {
+      mentionModule.options.source = mentionSource;
+    }
+  }, [mentionSource, activeConversation?.id, user?.id]);
 
   useEffect(() => {
     const editor = quillEditorRef.current?.querySelector<HTMLElement>('.ql-editor');

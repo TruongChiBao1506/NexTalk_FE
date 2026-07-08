@@ -40,7 +40,8 @@ import {
   Link,
   Sticker,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
@@ -548,7 +549,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 
               {msg.messageType === 'SYSTEM' ? (
                 <div className="flex justify-center py-1.5 select-none">
-                  {msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
+                  {msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
+                    <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/60 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                          <Sparkles className="h-4 w-4" />
+                        </span>
+                        <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
+                      </div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {stripMessageMarkup(msg.content)}
+                      </div>
+                    </div>
+                  ) : msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
                     renderReminderSystemMessage(msg)
                   ) : isCallLog ? (
                     <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-indigo-500/20 dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20">
