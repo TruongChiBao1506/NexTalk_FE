@@ -20,6 +20,25 @@ export default {
           text: '#e9ecf5',
           muted: '#9da7bb'
         }
+      },
+      keyframes: {
+        slideInBottom: {
+          '0%': { transform: 'translateY(15px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideInRight: {
+          '0%': { transform: 'translateX(20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        slideInLeft: {
+          '0%': { transform: 'translateX(-20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        }
+      },
+      animation: {
+        'slide-in-bottom': 'slideInBottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+        'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+        'slide-in-left': 'slideInLeft 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
       }
     },
   },

@@ -105,8 +105,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // If request failed with 401 (Unauthorized) and has not been retried yet
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // If request failed with 401 (Unauthorized) or 403 (Forbidden) and has not been retried yet
+    if ((error.response?.status === 401 || error.response?.status === 403) && originalRequest && !originalRequest._retry) {
       
       // Prevent infinite loops if the refresh request itself fails with 401
       if (originalRequest.url === '/auth/refresh' || originalRequest.url === '/auth/login') {

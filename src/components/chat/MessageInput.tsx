@@ -1,6 +1,8 @@
 import React from 'react';
 import {
   Plus,
+  PlusCircle,
+  MinusCircle,
   Smile,
   Image,
   Paperclip,
@@ -189,6 +191,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const { packs: stickerPacks, isLoading: isStickersLoading } = useStickerStore();
   const [activePackId, setActivePackId] = React.useState<string | null>(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
+  const [showToolbar, setShowToolbar] = React.useState(false);
   const moreMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -335,13 +338,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Toolbar & Input Box Container */}
       <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 flex flex-col shadow-[0_18px_42px_rgba(78,91,151,0.13)] dark:shadow-black/20 ${
-        (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
+        (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-[24px] border-t-0' : 'rounded-[24px]'
       } focus-within:border-indigo-500 dark:focus-within:border-discord-blurple focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-discord-blurple/30 transition-all`}>
         
         {/* Top Toolbar Row */}
-        <div className={`flex items-center justify-between px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/10 ${
-          (pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[15px]'
-        }`}>
+        {showToolbar && (
+          <div className={`flex items-center justify-between px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/10 ${
+            (pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[23px]'
+          }`}>
           <div className="flex items-center gap-0.5">
             {/* Sticker/Smile */}
             <button
@@ -517,6 +521,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {(isSpeechListening || speechInputError) && (
           <div className={`flex items-center gap-2 border-b px-3 py-2 text-xs font-semibold ${
@@ -729,7 +734,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
 
         {/* Input Box Row */}
-        <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid rounded-b-[15px]">
+        <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid rounded-b-[23px]">
           <input
             type="file"
             ref={fileInputRef}
@@ -744,6 +749,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             accept="image/*"
             className="hidden"
           />
+
+          <div className="flex items-center shrink-0 pb-1 pl-1">
+            <button
+              type="button"
+              onClick={() => setShowToolbar(!showToolbar)}
+              className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-discord-blurple transition"
+              title="Mở thanh công cụ"
+            >
+              {showToolbar ? <MinusCircle className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+            </button>
+          </div>
 
           <div
             className="min-w-0 flex-1"

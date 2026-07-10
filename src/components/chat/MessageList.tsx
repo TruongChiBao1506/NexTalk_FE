@@ -606,7 +606,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 isMentionedCurrentUser
                   ? 'bg-amber-50/80 ring-1 ring-amber-200 hover:bg-amber-50 dark:bg-amber-500/10 dark:ring-amber-500/30 dark:hover:bg-amber-500/15'
                   : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
-              }`}
+              } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-right' : 'animate-slide-in-left') : ''}`}
             >
               {showDivider && (
                 <div className="flex items-center justify-center my-4 shrink-0 select-none">
