@@ -216,14 +216,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   }, [stickerPacks, activePackId]);
 
-  return (
-    <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
-      {/* Reply Preview */}
-      {replyTo && (
-        <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
-      )}
-
-      {activePrivateChatBlocked && (
+  if (activePrivateChatBlocked) {
+    return (
+      <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
         <div className="mb-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
           <div className="font-semibold">
             {activePrivateChatBlockedByMe ? 'Bạn đã chặn người này.' : 'Người này đã chặn bạn.'}
@@ -234,6 +229,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               : 'Bạn vẫn xem được lịch sử trò chuyện nhưng không thể gửi tin nhắn.'}
           </div>
         </div>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+      {/* Reply Preview */}
+      {replyTo && (
+        <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
       )}
 
       {!canSendInActiveConversation && !activePrivateChatBlocked && (

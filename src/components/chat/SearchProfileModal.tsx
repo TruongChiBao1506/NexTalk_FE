@@ -1,25 +1,19 @@
-import { useState } from 'react';
-import { X, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { X, MessageSquare, Loader2 } from 'lucide-react';
 import type { User as AuthUser } from '../../types/auth';
 
 interface SearchProfileModalProps {
   searchProfileUser: AuthUser | null;
   setSearchProfileUser: (user: AuthUser | null) => void;
-  isExistingFriend: (userId: string) => boolean;
-  handleSendChatRequestFromProfile: (message?: string) => void;
+  handleStartChatFromProfile: () => void;
   profileChatActionId: string | null;
-  sentChatRequestIds: string[];
 }
 
 export const SearchProfileModal = ({
   searchProfileUser,
   setSearchProfileUser,
-  isExistingFriend,
-  handleSendChatRequestFromProfile,
+  handleStartChatFromProfile,
   profileChatActionId,
-  sentChatRequestIds,
 }: SearchProfileModalProps) => {
-  const [profileChatMessage, setProfileChatMessage] = useState('');
 
   if (!searchProfileUser) return null;
 
@@ -68,45 +62,15 @@ export const SearchProfileModal = ({
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-zinc-200">{searchProfileUser.bio || 'Chưa có giới thiệu.'}</p>
             </div>
 
-            {isExistingFriend(searchProfileUser.id) ? (
-              <button
-                type="button"
-                onClick={() => handleSendChatRequestFromProfile()}
-                disabled={profileChatActionId === searchProfileUser.id}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
-              >
-                {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                Nhắn tin
-              </button>
-            ) : sentChatRequestIds.includes(searchProfileUser.id) ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                Tin nhắn đã được gửi vào mục Tin nhắn chờ của người nhận.
-              </div>
-            ) : (
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-zinc-800 dark:bg-discord-black/35">
-                <p className="m-0 text-sm font-semibold">Nhắn tin với người chưa kết bạn</p>
-                <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
-                  Tin đầu tiên sẽ nằm trong Tin nhắn chờ cho đến khi người nhận trả lời.
-                </p>
-                <textarea
-                  value={profileChatMessage}
-                  onChange={(event) => setProfileChatMessage(event.target.value)}
-                  placeholder={`Nhập lời nhắn tới ${searchProfileUser.username}...`}
-                  rows={3}
-                  maxLength={500}
-                  className="mt-3 w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSendChatRequestFromProfile(profileChatMessage)}
-                  disabled={!profileChatMessage.trim() || profileChatActionId === searchProfileUser.id}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Nhắn tin
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={handleStartChatFromProfile}
+              disabled={profileChatActionId === searchProfileUser.id}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {profileChatActionId === searchProfileUser.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+              Nhắn tin
+            </button>
           </div>
         </div>
       </div>

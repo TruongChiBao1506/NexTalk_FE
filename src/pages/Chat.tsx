@@ -57,6 +57,7 @@ import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
 import { MediaViewerModal } from '../components/chat/MediaViewerModal';
 import { SearchProfileModal } from '../components/chat/SearchProfileModal';
+import { StrangerWarningBanner } from '../components/chat/StrangerWarningBanner';
 import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
 import CreateChannelModal from '../components/chat/CreateChannelModal';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -64,6 +65,7 @@ import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
 import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
+import { MyQrModal } from '../components/chat/MyQrModal';
 import { QrScannerModal } from '../components/chat/QrScannerModal';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
@@ -183,6 +185,7 @@ export const Chat = () => {
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+  const [isMyQrOpen, setIsMyQrOpen] = useState(false);
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
   const [isGroupApprovalsModalOpen, setIsGroupApprovalsModalOpen] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
@@ -1226,13 +1229,7 @@ export const Chat = () => {
   const canSendInActiveConversation = !activeConversation ||
     (
       activeConversation.type === 'PRIVATE'
-        ? !activePrivateChatBlocked && (
-          activeConversation.canSendMessages === true ||
-          (
-            activeConversation.canSendMessages === undefined &&
-            (!activePrivateFriendId || friends.some((friend) => friend.id === activePrivateFriendId))
-          )
-        )
+        ? !activePrivateChatBlocked
         : true
     );
   const messagePlaceholder = activePrivateChatBlockedByMe
@@ -1959,38 +1956,15 @@ export const Chat = () => {
   };
 
   const handleSendBlockedChatRequest = async () => {
-    const receiverId = getActivePrivateFriendId();
-    const message = getCurrentInputMessage().trim();
     if (activePrivateChatBlocked) {
       showAlertDialog(
         activePrivateChatBlockedByMe
-          ? 'B?n c?n b? ch?n ng??i n?y tr??c khi nh?n tin.'
+          ? 'Bạn cần bỏ chặn người này trước khi nhắn tin.'
           : 'Bạn không thể nhắn tin vì người này đã chặn bạn.',
         'Không thể nhắn tin',
         'danger'
       );
       return;
-    }
-    if (!receiverId || !message || isSendingBlockedChatRequest) {
-      return;
-    }
-
-    setIsSendingBlockedChatRequest(true);
-    try {
-      const created = await createChatRequest({ receiverId, message });
-      if (created) {
-        clearQuillInput();
-        resetUploadState();
-        if (replyTo) {
-          setReplyTo(null);
-        }
-      } else {
-        showAlertDialog('Không thể gửi tin nhắn chờ', 'Tin nhắn chờ', 'danger');
-      }
-    } catch (err: any) {
-      showAlertDialog(err.response?.data?.message || 'Không thể gửi tin nhắn chờ', 'Tin nhắn chờ', 'danger');
-    } finally {
-      setIsSendingBlockedChatRequest(false);
     }
   };
 
@@ -2110,31 +2084,12 @@ export const Chat = () => {
     setSearchProfileUser(targetUser);
   };
 
-  const handleSendChatRequestFromProfile = async (message?: string) => {
-    if (!searchProfileUser || profileChatActionId) return;
-
-    if (isExistingFriend(searchProfileUser.id)) {
-      await handleStartChatFromSearch(searchProfileUser.id);
-      setSearchProfileUser(null);
-      return;
-    }
-
-    const trimmedMessage = message?.trim();
-    if (!trimmedMessage) return;
-
+  const handleStartChatFromProfile = async () => {
+    if (!searchProfileUser) return;
     setProfileChatActionId(searchProfileUser.id);
     try {
-      const created = await createChatRequest({
-        receiverId: searchProfileUser.id,
-        message: trimmedMessage,
-      });
-      if (created) {
-        setSentChatRequestIds((prev) => prev.includes(searchProfileUser.id) ? prev : [...prev, searchProfileUser.id]);
-      } else {
-        showAlertDialog('Không thể gửi tin nhắn chờ.', 'Tin nhắn chờ', 'danger');
-      }
-    } catch (err: any) {
-      showAlertDialog(err.response?.data?.message || err.message || 'Không thể gửi tin nhắn chờ.', 'Tin nhắn chờ', 'danger');
+      await handleStartChatFromSearch(searchProfileUser.id);
+      setSearchProfileUser(null);
     } finally {
       setProfileChatActionId(null);
     }
@@ -2920,12 +2875,7 @@ export const Chat = () => {
           setSearchQuery={setSearchQuery}
         />
 
-        <SidebarTabs
-          conversationTab={conversationTab}
-          setConversationTab={setConversationTab}
-          fetchIncomingChatRequests={fetchIncomingChatRequests}
-          incomingRequestsCount={incomingChatRequests.length}
-        />
+
         <ConversationList
           conversationTab={conversationTab}
           isLoadingChatRequests={isLoadingChatRequests}
@@ -2982,7 +2932,7 @@ export const Chat = () => {
         <VoiceConnectedPanel />
 
         {/* User Card */}
-        <SidebarFooter user={user} onOpenQrScanner={() => setIsQrScannerOpen(true)} />
+        <SidebarFooter user={user} onOpenQrScanner={() => setIsQrScannerOpen(true)} onOpenMyQr={() => setIsMyQrOpen(true)} />
       </section>
 
       {/* Column 3: Chat Window */}
@@ -3015,6 +2965,17 @@ export const Chat = () => {
               activeChannel={activeChannel}
               isGroupModerator={canModerateActiveGroup}
             />
+
+            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedByOther && (
+              <StrangerWarningBanner
+                onAddFriend={() => handleSendFriendRequestFromSearch(activeFriend.id)}
+                isAddFriendLoading={friendRequestActionId === activeFriend.id}
+                isAddFriendSent={sentFriendRequestIds.includes(activeFriend.id)}
+                onBlock={handleToggleBlockUser}
+                isBlockLoading={blockActionLoading}
+                onReport={() => window.alert('Tính năng Báo xấu đang được phát triển.')}
+              />
+            )}
 
             {activeChannel?.type === 'VOICE' ? (
               <div className="flex flex-col items-center justify-center flex-1 h-full bg-gray-100 dark:bg-discord-dark">
@@ -3558,10 +3519,8 @@ export const Chat = () => {
       <SearchProfileModal
         searchProfileUser={searchProfileUser}
         setSearchProfileUser={setSearchProfileUser}
-        isExistingFriend={isExistingFriend}
-        handleSendChatRequestFromProfile={handleSendChatRequestFromProfile}
+        handleStartChatFromProfile={handleStartChatFromProfile}
         profileChatActionId={profileChatActionId}
-        sentChatRequestIds={sentChatRequestIds}
       />
 
       {isCreatePollOpen && activeConversation?.type === 'GROUP' && isGroupModeratorRole(currentGroupMembership?.role) && (
@@ -3575,6 +3534,14 @@ export const Chat = () => {
         pollVoterDialog={pollVoterDialog}
         onClose={() => setPollVoterDialog(null)}
       />
+
+
+      {isMyQrOpen && (
+        <MyQrModal
+          user={user}
+          onClose={() => setIsMyQrOpen(false)}
+        />
+      )}
 
       {activeMedia && (
         <MediaViewerModal

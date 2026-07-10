@@ -11,11 +11,11 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
-import { ChatRequestsTab } from '../components/friends/ChatRequestsTab';
+
 import { CardListSkeleton } from '../components/common/Skeleton';
 import type { ChatRequestResponse } from '../types/chatRequest';
 
-type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations' | 'chat_requests';
+type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations';
 
 export const Friends = () => {
   const navigate = useNavigate();
@@ -675,23 +675,7 @@ export const Friends = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <ChatRequestsTab
-              incoming={incomingChatRequests}
-              outgoing={outgoingChatRequests}
-              isLoading={isChatRequestLoading}
-              actionLoadingId={actionLoadingId}
-              relationStatuses={relationStatuses}
-              onAccept={handleAcceptChatRequest}
-              onReject={handleRejectChatRequest}
-              onCancel={handleCancelChatRequest}
-              onBlock={handleBlockChatRequest}
-              onReport={handleReportChatRequest}
-              onAddFriend={handleAddChatRequestPeer}
-              onAcceptFriend={handleAcceptFriendFromChatRequest}
-              onOpenChat={handleOpenAcceptedChatRequest}
-            />
-          )}
+          ) : null}
         </div>
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">

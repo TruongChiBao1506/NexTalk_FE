@@ -102,6 +102,7 @@ interface ChatState {
 
   fetchConversations: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
+  updateConversation: (conversation: ConversationResponse) => void;
   loadMoreMessages: () => Promise<void>;
   sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => void;
   sendTypingIndicator: (typing: boolean, conversationId?: string) => void;
@@ -338,6 +339,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  updateConversation: (updatedConversation: ConversationResponse) => {
+    set((state) => {
+      const nextConversations = state.conversations.map((c) =>
+        c.id === updatedConversation.id ? updatedConversation : c
+      );
+      
+      let nextActiveConversation = state.activeConversation;
+      if (state.activeConversation?.id === updatedConversation.id) {
+        nextActiveConversation = updatedConversation;
+      }
+      
+      return {
+        conversations: sortConversations(nextConversations),
+        activeConversation: nextActiveConversation,
+      };
+    });
+  },
+
   loadMoreMessages: async () => {
     const { activeConversation, currentPage, hasMoreMessages, messages, isLoading } = get();
     if (!activeConversation || !hasMoreMessages || isLoading) return;
@@ -537,6 +556,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             get().handleTypingIndicator(body);
           } else if (body.type === 'CONVERSATION_SUMMARY') {
             get().setConversationSummary(body);
+          } else if (body.type === 'CONVERSATION_UPDATE') {
+            get().updateConversation(body.data);
           } else {
             if (shouldPlayIncomingMessageSound(body)) {
               audioSynth.playMessageNotification();
