@@ -2547,8 +2547,7 @@ export const Chat = () => {
     const totalSeconds = Math.max(0, Math.floor(seconds ?? 0));
     const minutes = Math.floor(totalSeconds / 60);
     const remainingSeconds = totalSeconds % 60;
-    if (minutes <= 0) return `${remainingSeconds} giây`;
-    return `${minutes} phút ${remainingSeconds.toString().padStart(2, '0')} giây`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const formatCallLogTime = (value?: string) => {
@@ -2570,7 +2569,7 @@ export const Chat = () => {
     if (metadata?.status === 'MISSED') return `${callKind}${scopeText} bị lỡ`;
     if (metadata?.status === 'REJECTED') return `${callKind}${scopeText} bị từ chối`;
     if (metadata?.status === 'CANCELED') return `${callKind}${scopeText} đã huỷ`;
-    return `${callKind}${scopeText} - ${formatCallDuration(metadata?.durationSeconds)}`;
+    return `${callKind}${scopeText} ${formatCallDuration(metadata?.durationSeconds)}`;
   };
 
   const getCallHistoryDetailStatus = (metadata?: CallHistoryMetadata) => {

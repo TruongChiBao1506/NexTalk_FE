@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
+  ChevronDown,
+  Grip,
+  Lock,
+  Maximize2,
+  MessageSquare,
   Mic,
   MicOff,
   Monitor,
@@ -10,7 +15,11 @@ import {
   Pin,
   PinOff,
   RotateCcw,
+  ScreenShare,
+  Settings,
   Sparkles,
+  UserPlus,
+  Users,
   Video,
   VideoOff,
   Volume2,
@@ -99,7 +108,7 @@ const VideoTile = ({
   onTogglePin?: () => void;
   compact?: boolean;
 }) => (
-  <div className={`nextalk-call-tile group relative h-full overflow-hidden rounded-2xl border bg-white ${
+  <div className={`nextalk-call-tile group relative h-full w-full overflow-hidden rounded-2xl border bg-white ${
     tile.isSpeaking ? 'border-emerald-400 shadow-lg shadow-emerald-500/20' : 'border-slate-200'
   }`}>
     {tile.videoTrack ? (
@@ -333,232 +342,225 @@ export const CallOverlay = () => {
 
   return (
     <div className="nextalk-call-overlay fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
-      {callState !== 'connected' && (
-        <div className="nextalk-call-card pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-slate-200 bg-white/95 p-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in">
-          <div className="relative mb-7">
-            <div className="absolute inset-0 rounded-full bg-indigo-600/30 animate-ping" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
-            <div className="relative z-10">
-              <Avatar tile={{ id: 'ring', name: displayName, avatarUrl: partner?.avatarUrl }} />
+      {(callState !== 'connected' || callType === 'voice') && (
+        <div className="nextalk-call-card pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-[2rem] border border-slate-200 bg-white/95 px-6 py-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in relative">
+          
+          {callState === 'connected' ? (
+            <div className="flex w-full items-center justify-between text-slate-400 mb-6 px-2">
+              <ChevronDown className="h-5 w-5 cursor-pointer hover:text-slate-800" />
+              <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+                <Lock className="h-3 w-3" />
+                <span>Mã hóa đầu cuối</span>
+              </div>
+              <UserPlus className="h-4 w-4 cursor-pointer hover:text-slate-800" />
             </div>
-          </div>
+          ) : callState !== 'ringing_incoming' ? (
+            <div className="text-sm font-bold text-blue-500 mb-6 tracking-wide">NexTalk</div>
+          ) : null}
 
-          <h2 className="mb-2 max-w-full truncate text-xl font-bold tracking-tight">{displayName}</h2>
-          <p className="mb-8 flex items-center justify-center gap-2 text-sm text-slate-500">
-            {callType === 'video' ? <Video className="h-4 w-4 text-indigo-500" /> : <Volume2 className="h-4 w-4 text-indigo-500" />}
-            <span>
-              {callState === 'ringing_incoming'
-                ? isGroupCall ? `${subtitle} dang goi...` : callType === 'video' ? 'Cuoc goi video den...' : 'Cuoc goi thoai den...'
-                : isGroupCall ? `${subtitle} - dang do chuong...` : 'Dang do chuong...'}
-            </span>
-          </p>
+          {callState === 'ringing_incoming' ? (
+             <div className="relative mb-3 mt-2">
+               <div className="absolute -inset-2 rounded-full border-2 border-blue-100 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
+               <div className="relative z-10 shadow-sm rounded-full bg-white p-0.5">
+                 <Avatar tile={{ id: 'ring', name: displayName, avatarUrl: partner?.avatarUrl }} />
+               </div>
+               <div className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-1 border-2 border-white z-20">
+                 {callType === 'video' ? <Video className="w-3 h-3 text-white" /> : <Phone className="w-3 h-3 text-white" />}
+               </div>
+             </div>
+          ) : (
+             <div className="relative mb-6">
+               <div className="absolute -inset-4 rounded-full border border-blue-500/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
+               <div className="absolute -inset-8 rounded-full border border-blue-500/10 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite] animation-delay-1000" />
+               <div className="relative z-10 shadow-lg shadow-slate-200 rounded-full">
+                 <Avatar tile={{ id: 'ring', name: displayName, avatarUrl: partner?.avatarUrl }} />
+               </div>
+             </div>
+          )}
 
-          <div className="flex items-center justify-center gap-8">
-            <EndCallButton onClick={callState === 'ringing_incoming' ? () => rejectCall() : () => cancelCall('canceled')} />
-            {callState === 'ringing_incoming' && (
-              <button
-                type="button"
-                onClick={acceptCall}
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 transition-transform duration-200 hover:scale-110 hover:bg-emerald-500 active:scale-95 cursor-pointer animate-pulse"
-                title="Nhan cuoc goi"
-              >
-                {callType === 'video' ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
-              </button>
-            )}
-          </div>
+          <h2 className="mb-1 max-w-full truncate text-[17px] font-bold text-slate-800">{displayName}</h2>
+          
+          {callState === 'ringing_incoming' ? (
+            <p className="mb-6 text-xs font-medium text-blue-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              {callType === 'video' ? 'Cuộc gọi video đến...' : 'Cuộc gọi đến...'}
+            </p>
+          ) : callState === 'connected' ? (
+            <p className="mb-8 text-sm font-semibold text-blue-500 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              {formatDuration(callDuration)}
+            </p>
+          ) : (
+            <p className="mb-8 text-sm font-semibold text-blue-500">
+              Đang gọi...
+            </p>
+          )}
+
+          {callState === 'ringing_incoming' ? (
+            <>
+              <div className="flex w-full items-center justify-center gap-3 mb-2">
+                <button
+                  type="button"
+                  onClick={() => rejectCall()}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-50 py-2 text-red-600 transition-colors hover:bg-red-100 cursor-pointer"
+                >
+                  <div className="bg-red-600 rounded-full p-1.5">
+                     <PhoneOff className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-sm font-bold">Từ chối</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={acceptCall}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-green-50 py-2 text-green-600 transition-colors hover:bg-green-100 cursor-pointer"
+                >
+                  <div className="bg-green-600 rounded-full p-1.5 animate-pulse">
+                     {callType === 'video' ? <Video className="h-3.5 w-3.5 text-white" /> : <Phone className="h-3.5 w-3.5 text-white" />}
+                  </div>
+                  <span className="text-sm font-bold">Trả lời</span>
+                </button>
+              </div>
+              <div className="mt-3 flex w-full items-center justify-between border-t border-slate-100 pt-3 text-[10px] text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <Lock className="h-3 w-3" />
+                  <span>Mã hóa đầu cuối</span>
+                </div>
+                <Maximize2 className="h-3 w-3 cursor-pointer hover:text-slate-600" />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center w-full">
+              <div className={`flex justify-center ${callState === 'connected' ? 'gap-4' : 'gap-6'} mb-8 w-full`}>
+                <div className="flex flex-col items-center gap-2">
+                  <button type="button" onClick={toggleMic} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+                    {isMicMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                  </button>
+                  <span className="text-[11px] text-slate-500 font-bold">Tắt tiếng</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <button type="button" onClick={toggleSpeaker} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+                    {isSpeakerOn ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
+                  </button>
+                  <span className="text-[11px] text-slate-500 font-bold">Loa ngoài</span>
+                </div>
+                {callState === 'connected' && (
+                  <div className="flex flex-col items-center gap-2">
+                    <button type="button" onClick={startVideo} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+                      <Video className="h-6 w-6" />
+                    </button>
+                    <span className="text-[11px] text-slate-500 font-bold">Video</span>
+                  </div>
+                )}
+                <div className="flex flex-col items-center gap-2">
+                  <button type="button" className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+                    <Grip className="h-6 w-6" />
+                  </button>
+                  <span className="text-[11px] text-slate-500 font-bold">Bàn phím</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <EndCallButton onClick={() => callState === 'connected' ? hangupCall() : cancelCall('canceled')} />
+                {callState !== 'connected' && <span className="text-xs font-bold text-red-500 mt-1">Hủy bỏ</span>}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {callState === 'connected' && (
-        <div className={`nextalk-call-card pointer-events-auto relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/95 text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl ${
-          callType === 'video'
-            ? 'h-[min(720px,calc(100vh-3rem))] w-[min(980px,calc(100vw-2rem))]'
-            : 'w-[min(620px,calc(100vw-2rem))]'
-        }`}>
-          {callNotices.length > 0 && (
-            <div className="pointer-events-none absolute left-1/2 top-16 z-40 flex -translate-x-1/2 flex-col items-center gap-2">
-              {callNotices.map((notice) => (
-                <div
-                  key={notice.id}
-                  className="nextalk-call-notice max-w-[min(420px,calc(100vw-4rem))] rounded-full bg-white/85 px-3 py-1.5 text-center text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200 backdrop-blur"
-                >
-                  {notice.message}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="nextalk-call-header flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-            <div className="min-w-0">
-              <p className="m-0 truncate text-sm font-bold">{displayName}</p>
-              <p className="m-0 text-xs text-slate-500">{subtitle}</p>
-            </div>
-            <div className="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-              {formatDuration(callDuration)}
-            </div>
-          </div>
-
-          <div className="nextalk-call-canvas min-h-0 flex-1 overflow-hidden bg-slate-50 p-3">
-            {callType === 'video' ? (
-              !isGroupCall && oneOnOneTile ? (
-                <VideoTile tile={oneOnOneTile} />
-              ) : shouldUseStageLayout ? (
-                <div className="flex h-full flex-col gap-3">
-                  <div className="min-h-0 flex-1">
-                    <div className={`grid h-full gap-3 ${stageGridClass}`}>
-                      {activeStageTiles.map((tile) => (
-                        <VideoTile
-                          key={tile.id}
-                          tile={tile}
-                          pinned={tile.id === pinnedTileId}
-                          onTogglePin={() => setPinnedTileId(tile.id === pinnedTileId ? null : tile.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {stripTiles.length > 0 && (
-                    <div className="flex max-h-28 gap-2 overflow-x-auto pb-1">
-                      {stripTiles.map((tile, index) => (
-                        <button
-                          key={tile.id}
-                          type="button"
-                          onClick={() => setPinnedTileId(tile.id)}
-                          className={`h-24 w-36 shrink-0 text-left ${index >= 5 ? 'hidden sm:block' : ''}`}
-                          title="Ghim nguoi nay"
-                        >
-                          <VideoTile tile={tile} compact />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className={`grid h-full gap-3 ${boardGridClass}`}>
-                  {visibleBoardTiles.map((tile, index) => (
-                    <div key={tile.id} className={`min-h-0 ${index >= 6 ? 'hidden sm:block' : ''}`}>
+      {callState === 'connected' && callType === 'video' && (
+        <div className="nextalk-call-card pointer-events-auto relative flex flex-col overflow-hidden rounded-2xl bg-black text-white shadow-2xl backdrop-blur-xl h-[min(720px,calc(100vh-3rem))] w-[min(980px,calc(100vw-2rem))] border-0">
+          
+          <div className="nextalk-call-canvas absolute inset-0 flex items-center justify-center bg-black z-0">
+            {!isGroupCall && oneOnOneTile ? (
+              <VideoTile tile={oneOnOneTile} />
+            ) : shouldUseStageLayout ? (
+              <div className="flex h-full w-full flex-col gap-3 p-3">
+                <div className="min-h-0 flex-1">
+                  <div className={`grid h-full gap-3 ${stageGridClass}`}>
+                    {activeStageTiles.map((tile) => (
                       <VideoTile
+                        key={tile.id}
                         tile={tile}
-                        onTogglePin={() => setPinnedTileId(tile.id)}
-                        compact={index >= 6}
+                        pinned={tile.id === pinnedTileId}
+                        onTogglePin={() => setPinnedTileId(tile.id === pinnedTileId ? null : tile.id)}
                       />
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : (
-              !isGroupCall && oneOnOneTile ? (
-                <div className="flex h-full min-h-[300px] items-center justify-center">
-                  <div className="w-full max-w-xs">
-                    <VoiceTile tile={oneOnOneTile} />
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <div className="grid h-full min-h-[300px] grid-cols-2 gap-3 overflow-y-auto md:grid-cols-3">
-                  {allTiles.map((tile) => (
-                    <VoiceTile key={tile.id} tile={tile} />
-                  ))}
-                </div>
-              )
+                {stripTiles.length > 0 && (
+                  <div className="flex max-h-28 gap-2 overflow-x-auto pb-1">
+                    {stripTiles.map((tile, index) => (
+                      <button
+                        key={tile.id}
+                        type="button"
+                        onClick={() => setPinnedTileId(tile.id)}
+                        className={`h-24 w-36 shrink-0 text-left ${index >= 5 ? 'hidden sm:block' : ''}`}
+                        title="Ghim người này"
+                      >
+                        <VideoTile tile={tile} compact />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className={`grid h-full w-full gap-3 p-3 ${boardGridClass}`}>
+                {visibleBoardTiles.map((tile, index) => (
+                  <div key={tile.id} className={`min-h-0 ${index >= 6 ? 'hidden sm:block' : ''}`}>
+                    <VideoTile
+                      tile={tile}
+                      onTogglePin={() => setPinnedTileId(tile.id)}
+                      compact={index >= 6}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {remoteAudioPlaybackBlocked && (
-            <div className="border-t border-amber-500/20 bg-amber-500/10 px-4 py-3">
-              <button
-                type="button"
-                onClick={resumeRemoteAudio}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-zinc-950 shadow transition hover:bg-amber-400 active:scale-95"
-              >
-                <Volume2 className="h-4 w-4" />
-                <span>Bat am thanh</span>
-              </button>
+          {!isGroupCall && (
+            <div className="absolute bottom-24 right-6 z-30 pointer-events-auto h-44 w-32 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-900 shadow-2xl">
+              <VideoTile tile={localTile} compact />
             </div>
           )}
 
-          <div className="nextalk-call-controls z-30 flex w-full flex-wrap items-center justify-center gap-3 border-t border-slate-200 px-4 py-4">
-            <button
-              type="button"
-              onClick={toggleMic}
-              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
-                isMicMuted ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-              }`}
-              title={isMicMuted ? 'Bat micro' : 'Tat micro'}
-            >
-              {isMicMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20 pointer-events-none">
+             <div className="pointer-events-auto flex items-center gap-3 bg-white/90 backdrop-blur rounded-full pl-2 pr-4 py-1.5 shadow-lg">
+                <Avatar tile={{ id: 'info', name: displayName, avatarUrl: partner?.avatarUrl }} size="sm" />
+                <div className="flex flex-col items-start">
+                   <span className="text-xs font-bold text-slate-900">{displayName}</span>
+                   <span className="text-[10px] font-bold text-green-600 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"/>{formatDuration(callDuration)}</span>
+                </div>
+             </div>
+             <div className="pointer-events-auto flex items-center gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2.5 shadow-lg">
+                <button className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-blue-600 px-2 cursor-pointer transition-colors"><Users className="w-4 h-4"/><span className="text-[9px] font-bold">People</span></button>
+                <div className="w-px h-6 bg-slate-200 mx-1" />
+                <button className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-blue-600 px-2 cursor-pointer transition-colors"><MessageSquare className="w-4 h-4"/><span className="text-[9px] font-bold">Chat</span></button>
+                <div className="w-px h-6 bg-slate-200 mx-1" />
+                <button className="flex flex-col items-center justify-center gap-1 text-slate-600 hover:text-blue-600 px-2 cursor-pointer transition-colors"><Settings className="w-4 h-4"/><span className="text-[9px] font-bold">Settings</span></button>
+             </div>
+          </div>
 
-            <button
-              type="button"
-              onClick={toggleSpeaker}
-              className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
-                isSpeakerOn ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900' : 'bg-red-50 text-red-500 hover:bg-red-100'
-              }`}
-              title={isSpeakerOn ? 'Tat loa' : 'Bat loa'}
-            >
-              {isSpeakerOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-            </button>
-
-            {callType === 'voice' ? (
-              <button
-                type="button"
-                onClick={startVideo}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-100 text-slate-700 shadow-sm transition-colors hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
-                title="Chuyen sang video"
-              >
-                <Video className="h-5 w-5" />
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={toggleCamera}
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
-                    isCameraMuted ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-                  }`}
-                  title={isCameraMuted ? 'Bat camera' : 'Tat camera'}
-                >
-                  {isCameraMuted ? <VideoOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={switchCamera}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-100 text-slate-700 shadow-sm transition-colors hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
-                  title="Doi camera truoc/sau"
-                >
-                  <RotateCcw className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleScreenShare}
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-colors cursor-pointer border border-slate-200/50 ${
-                    isScreenSharing ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-                  }`}
-                  title={isScreenSharing ? 'Dung chia se man hinh' : 'Chia se man hinh'}
-                >
-                  <Monitor className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-50 text-slate-400 shadow-sm cursor-not-allowed"
-                  title="Filter khuon mat dang duoc phat trien"
-                >
-                  <Sparkles className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/50 bg-slate-50 text-slate-400 shadow-sm cursor-not-allowed"
-                  title="Doi hinh nen dang duoc phat trien"
-                >
-                  <Palette className="h-5 w-5" />
-                </button>
-              </>
-            )}
-
-            <EndCallButton onClick={hangupCall} large />
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-xl rounded-full px-4 py-2.5 shadow-xl shadow-black/20">
+             <button onClick={toggleMic} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                {isMicMuted ? <MicOff className="w-5 h-5 text-red-500"/> : <Mic className="w-5 h-5"/>}
+                <span className="text-[10px] font-bold text-slate-600">Mute</span>
+             </button>
+             <button onClick={toggleCamera} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                {isCameraMuted ? <VideoOff className="w-5 h-5 text-red-500"/> : <Camera className="w-5 h-5"/>}
+                <span className="text-[10px] font-bold text-slate-600">Camera</span>
+             </button>
+             <button className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                <UserPlus className="w-5 h-5"/>
+                <span className="text-[10px] font-bold text-slate-600">Add</span>
+             </button>
+             <button onClick={toggleScreenShare} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                <ScreenShare className={`w-5 h-5 ${isScreenSharing ? 'text-blue-500' : ''}`} />
+                <span className={`text-[10px] font-bold ${isScreenSharing ? 'text-blue-600' : 'text-slate-600'}`}>Share</span>
+             </button>
+             <button onClick={() => hangupCall()} className="flex items-center justify-center w-14 h-14 rounded-full bg-red-600 text-white hover:bg-red-500 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30 ml-2 cursor-pointer">
+                <span className="text-[11px] font-bold">End</span>
+             </button>
           </div>
         </div>
       )}

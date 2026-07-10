@@ -51,6 +51,7 @@ interface CallStore {
   localAgoraUid: number | null;
   callNotices: CallNotice[];
   outgoingRingTimeoutId: number | null;
+  incomingRingTimeoutId: number | null;
   groupAloneTimeoutId: number | null;
 
   activeVoiceChannelId: string | null;
@@ -84,6 +85,7 @@ interface CallStore {
   addCallNotice: (message: string) => void;
   removeCallNotice: (noticeId: string) => void;
   clearOutgoingRingTimeout: () => void;
+  clearIncomingRingTimeout: () => void;
   clearGroupAloneTimeout: () => void;
   scheduleGroupAloneTimeout: () => void;
   joinAgoraChannel: () => Promise<void>;
@@ -122,6 +124,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   localAgoraUid: null,
   callNotices: [],
   outgoingRingTimeoutId: null,
+  incomingRingTimeoutId: null,
   groupAloneTimeoutId: null,
 
   agoraClient: null,
@@ -257,6 +260,14 @@ export const useCallStore = create<CallStore>((set, get) => ({
     });
 
     audioSynth.playIncomingRing();
+
+    const ringTimeoutId = window.setTimeout(() => {
+      const state = get();
+      if (state.callState === 'ringing_incoming' && state.callId === signal.callId) {
+        state.rejectCall();
+      }
+    }, 60000);
+    set({ incomingRingTimeoutId: ringTimeoutId });
   },
 
   acceptCall: async () => {
@@ -267,6 +278,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
+    get().clearIncomingRingTimeout();
 
     // Set callState immediately to connected to prevent receiving other calls
     set({
@@ -310,6 +322,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
+    get().clearIncomingRingTimeout();
 
     if (conversationId && caller && currentUser && stompClient && stompClient.connected) {
       try {
@@ -409,6 +422,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
+    get().clearIncomingRingTimeout();
     get().clearTracks();
 
     if (activeVoiceChannelId && stompClient && stompClient.connected && currentUser) {
@@ -633,6 +647,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     const resetCall = () => {
       get().clearOutgoingRingTimeout();
+      get().clearIncomingRingTimeout();
       get().clearGroupAloneTimeout();
       set({
         callState: 'idle',
@@ -672,6 +687,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
         if (signal.accept) {
           audioSynth.stop();
+          get().clearOutgoingRingTimeout();
           set({ callState: 'connected' });
           get().joinAgoraChannel().catch((err: any) => {
             console.error('Failed to join Agora channel after accepted answer:', err);
@@ -790,10 +806,18 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   clearOutgoingRingTimeout: () => {
-    const timeoutId = get().outgoingRingTimeoutId;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
+    const { outgoingRingTimeoutId } = get();
+    if (outgoingRingTimeoutId) {
+      window.clearTimeout(outgoingRingTimeoutId);
       set({ outgoingRingTimeoutId: null });
+    }
+  },
+
+  clearIncomingRingTimeout: () => {
+    const { incomingRingTimeoutId } = get();
+    if (incomingRingTimeoutId) {
+      window.clearTimeout(incomingRingTimeoutId);
+      set({ incomingRingTimeoutId: null });
     }
   },
 
