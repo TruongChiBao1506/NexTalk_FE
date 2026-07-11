@@ -8,6 +8,8 @@ export interface User {
   lastSeen?: string;
   isVerified: boolean;
   hasChatPin?: boolean;
+  birthday?: string;
+  enableBirthdayNotification?: boolean;
   createdAt: string;
   updatedAt: string;
 }

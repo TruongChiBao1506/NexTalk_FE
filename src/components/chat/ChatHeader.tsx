@@ -61,7 +61,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isGroupModerator,
 }) => {
   const isChungChannel = !activeChannel || activeChannel.name?.toLowerCase() === 'chung' || activeChannel.name?.toLowerCase() === 'general';
-  const shouldShowCallButtons = activeConversation && activeCallTarget && (
+  const shouldShowCallButtons = activeConversation && activeCallTarget && activeFriend?.email !== 'moderator@nextalk.local' && (
     !isGroupConversation || (isGroupModerator && isChungChannel)
   );
 

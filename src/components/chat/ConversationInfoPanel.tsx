@@ -516,15 +516,17 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   <span>{currentUserIsGroupOwner ? 'Chủ nhóm không thể rời' : 'Thoát nhóm'}</span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleToggleBlockUser}
-                  disabled={blockActionLoading}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                >
-                  {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                  <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
-                </button>
+                activeFriend?.email !== 'moderator@nextalk.local' && (
+                  <button
+                    type="button"
+                    onClick={handleToggleBlockUser}
+                    disabled={blockActionLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                  >
+                    {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                    <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
+                  </button>
+                )
               )}
             </div>
           </section>

@@ -58,6 +58,7 @@ import { PinSetupModal } from '../components/chat/PinSetupModal';
 import { MediaViewerModal } from '../components/chat/MediaViewerModal';
 import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import { StrangerWarningBanner } from '../components/chat/StrangerWarningBanner';
+import { ReportModal } from '../components/chat/ReportModal';
 import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
 import CreateChannelModal from '../components/chat/CreateChannelModal';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -191,6 +192,7 @@ export const Chat = () => {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
   const [conversationArchiveMessages, setConversationArchiveMessages] = useState<MessageResponse[]>([]);
@@ -1999,10 +2001,10 @@ export const Chat = () => {
       if (uploadResponse.success && uploadResponse.data?.url) {
         const updatedGroup = await updateGroup(activeGroup.id, { avatarUrl: uploadResponse.data.url });
         if (!updatedGroup) {
-          throw new Error('Khong the luu anh nhom.');
+          throw new Error('Không thể lưu ảnh nhóm.');
         }
       } else {
-        throw new Error(uploadResponse.message || 'Upload anh that bai.');
+        throw new Error(uploadResponse.message || 'Upload ảnh thất bại.');
       }
     } catch (err: any) {
       showAlertDialog(err.response?.data?.message || err.message || 'Không thể cập nhật ảnh nhóm.', 'Thông báo', 'danger');
@@ -2966,14 +2968,14 @@ export const Chat = () => {
               isGroupModerator={canModerateActiveGroup}
             />
 
-            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedByOther && (
+            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedByOther && activeFriend.email !== 'moderator@nextalk.local' && (
               <StrangerWarningBanner
                 onAddFriend={() => handleSendFriendRequestFromSearch(activeFriend.id)}
                 isAddFriendLoading={friendRequestActionId === activeFriend.id}
                 isAddFriendSent={sentFriendRequestIds.includes(activeFriend.id)}
                 onBlock={handleToggleBlockUser}
                 isBlockLoading={blockActionLoading}
-                onReport={() => window.alert('Tính năng Báo xấu đang được phát triển.')}
+                onReport={() => setIsReportModalOpen(true)}
               />
             )}
 
@@ -3401,9 +3403,17 @@ export const Chat = () => {
                 <span>Tạo nhóm mới</span>
               </button>
             </div>
+
           </div>
         )}
       </main>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportedUserId={activeFriend?.id || ''}
+        reportedUserName={activeFriend?.username || ''}
+      />
 
       {/* Pinned Messages Panel */}
       <PinnedMessagesPanel

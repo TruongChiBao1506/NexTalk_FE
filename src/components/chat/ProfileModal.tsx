@@ -371,36 +371,38 @@ export const ProfileModal = ({
             </div>
 
             <div className="mt-5 space-y-3 text-left">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
-                <div>
-                  <p className="m-0 text-sm font-semibold">
-                    {activeFriendIsFriend ? 'Đã là bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời kết bạn' : 'Chưa là bạn bè'}
-                  </p>
-                  <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
-                    {activeFriendIsFriend ? 'Bạn có thể nhắn tin trực tiếp với người này.' : 'Gửi lời mời để kết nối với người này.'}
-                  </p>
+              {activeFriend?.email !== 'moderator@nextalk.local' && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
+                  <div>
+                    <p className="m-0 text-sm font-semibold">
+                      {activeFriendIsFriend ? 'Đã là bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời kết bạn' : 'Chưa là bạn bè'}
+                    </p>
+                    <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">
+                      {activeFriendIsFriend ? 'Bạn có thể nhắn tin trực tiếp với người này.' : 'Gửi lời mời để kết nối với người này.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleProfileFriendAction}
+                    disabled={profileActionLoading || activeFriendRequestSent}
+                    className={`rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${
+                      activeFriendIsFriend
+                        ? 'bg-rose-600 text-white hover:bg-rose-700'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {profileActionLoading ? 'Đang xử lý...' : activeFriendIsFriend ? 'Hủy bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời' : 'Thêm bạn'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleBlockUser}
+                    disabled={blockActionLoading}
+                    className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                  >
+                    {blockActionLoading ? 'Đang xử lý...' : activePrivateChatBlockedByMe ? 'Bỏ chặn' : 'Chặn'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleProfileFriendAction}
-                  disabled={profileActionLoading || activeFriendRequestSent}
-                  className={`rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${
-                    activeFriendIsFriend
-                      ? 'bg-rose-600 text-white hover:bg-rose-700'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
-                >
-                  {profileActionLoading ? 'Đang xử lý...' : activeFriendIsFriend ? 'Hủy bạn bè' : activeFriendRequestSent ? 'Đã gửi lời mời' : 'Thêm bạn'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToggleBlockUser}
-                  disabled={blockActionLoading}
-                  className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                >
-                  {blockActionLoading ? 'Đang xử lý...' : activePrivateChatBlockedByMe ? 'Bỏ chặn' : 'Chặn'}
-                </button>
-              </div>
+              )}
               <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
                 <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Email</p>
                 <p className="mt-1 break-all text-sm font-semibold">{activeFriend?.email || 'Không có email'}</p>

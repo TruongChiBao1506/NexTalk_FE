@@ -22,7 +22,9 @@ const editProfileSchema = z.object({
     .max(30, 'Username không vượt quá 30 ký tự')
     .regex(/^[a-zA-Z0-9._-]+$/, 'Username chỉ được chứa chữ, số, dấu chấm, gạch dưới và gạch ngang'),
   avatarUrl: z.string().min(1, 'Vui lòng chọn ảnh đại diện'),
-  bio: z.string().max(160, 'Giới thiệu không vượt quá 160 ký tự'),
+  bio: z.string().max(160, 'Giới thiệu không vượt quá 160 ký tự').optional().or(z.literal('')),
+  birthday: z.string().optional().or(z.literal('')),
+  enableBirthdayNotification: z.boolean().optional(),
 });
 
 type EditProfileInput = z.infer<typeof editProfileSchema>;
@@ -67,6 +69,8 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
       username: user.username,
       avatarUrl: user.avatarUrl || AVATAR_PRESETS[0],
       bio: user.bio || '',
+      birthday: user.birthday || '',
+      enableBirthdayNotification: user.enableBirthdayNotification ?? true,
     },
   });
 
@@ -294,6 +298,34 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
                   }`}
                 />
                 {errors.bio && <p className="m-0 text-xs font-medium text-rose-500">{errors.bio.message}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Ngày sinh</label>
+                <input
+                  type="date"
+                  disabled={isSubmitting}
+                  {...register('birthday')}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-indigo-500 focus:bg-white disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-white dark:focus:border-indigo-500 dark:focus:bg-zinc-950"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+                <div className="pr-4">
+                  <p className="m-0 text-sm font-bold text-gray-900 dark:text-white">Thông báo sinh nhật</p>
+                  <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+                    Nhận tin nhắn chúc mừng sinh nhật từ NexTalk Moderator.
+                  </p>
+                </div>
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    disabled={isSubmitting}
+                    {...register('enableBirthdayNotification')}
+                    className="peer sr-only"
+                  />
+                  <div className="peer h-6 w-11 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 disabled:opacity-60 dark:bg-zinc-700 dark:border-zinc-600 dark:peer-focus:ring-indigo-800"></div>
+                </label>
               </div>
             </section>
           </div>
