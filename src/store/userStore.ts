@@ -8,7 +8,13 @@ interface UserState {
   isLoading: boolean;
   error: string | null;
   fetchProfile: () => Promise<void>;
-  updateProfile: (data: { username: string; avatarUrl: string; bio: string; }) => Promise<boolean>;
+  updateProfile: (data: {
+    username?: string;
+    avatarUrl?: string;
+    bio?: string;
+    birthday?: string;
+    enableBirthdayNotification?: boolean;
+  }) => Promise<boolean>;
 }
 
 export const useUserStore = create<UserState>((set) => ({

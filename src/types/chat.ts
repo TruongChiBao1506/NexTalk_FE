@@ -9,9 +9,11 @@ export interface ConversationResponse {
   blockedMe?: boolean;
   pinned?: boolean;
   hidden?: boolean;
+  muted?: boolean;
   selfDestructSeconds?: number;
   themeColor?: string;
   wallpaperUrl?: string;
+  nicknames?: Record<string, string>;
   members: User[];
   createdAt: string;
   updatedAt: string;

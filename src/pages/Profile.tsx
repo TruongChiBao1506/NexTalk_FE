@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Calendar, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2, Monitor, MapPin, X } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, Cake, Bell, BellOff, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2, Monitor, MapPin, X } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { userService } from '../services/userService';
 import { useChatStore } from '../store/chatStore';
 import { ProfileSkeleton } from '../components/common/Skeleton';
+import { PinSetupModal } from '../components/chat/PinSetupModal';
 
 export const Profile = () => {
   const navigate = useNavigate();
@@ -30,6 +31,14 @@ export const Profile = () => {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
+  const [isPinSetupOpen, setIsPinSetupOpen] = useState(false);
+
+  const formatProfileDate = (date?: string | null) => {
+    if (!date) return 'Chưa có dữ liệu';
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return 'Chưa có dữ liệu';
+    return parsed.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -165,8 +174,8 @@ export const Profile = () => {
                   )}
                   {/* Status Indicator */}
                   <span
-                    className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full bg-emerald-500 border-4 border-white dark:border-discord-mid"
-                    title={profile.status || 'ONLINE'}
+                    className={`absolute bottom-1.5 right-1.5 h-6 w-6 rounded-full border-4 border-white dark:border-discord-mid ${profile.status === 'ONLINE' ? 'bg-emerald-500' : 'bg-gray-400'}`}
+                    title={profile.status === 'ONLINE' ? 'Đang online' : 'Đang offline'}
                   />
                 </div>
 
@@ -178,12 +187,12 @@ export const Profile = () => {
                   {profile.isVerified ? (
                     <>
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Verified Account</span>
+                      <span>Tài khoản đã xác minh</span>
                     </>
                   ) : (
                     <>
                       <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Unverified Account</span>
+                      <span>Tài khoản chưa xác minh</span>
                     </>
                   )}
                 </div>
@@ -277,6 +286,36 @@ export const Profile = () => {
                     })}
                   </span>
                 </div>
+
+                <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                    <Cake className="h-4.5 w-4.5" />
+                    <span>Ngày sinh</span>
+                  </div>
+                  <span className="font-semibold text-gray-950 dark:text-white sm:text-right">{formatProfileDate(profile.birthday)}</span>
+                </div>
+
+                <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                    {profile.enableBirthdayNotification !== false ? <Bell className="h-4.5 w-4.5 text-indigo-500" /> : <BellOff className="h-4.5 w-4.5" />}
+                    <span>Thông báo sinh nhật</span>
+                  </div>
+                  <span className={`font-semibold sm:text-right ${profile.enableBirthdayNotification !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-zinc-400'}`}>
+                    {profile.enableBirthdayNotification !== false ? 'Đang bật' : 'Đang tắt'}
+                  </span>
+                </div>
+
+                {!profile.hasChatPin && (
+                  <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                      <Lock className="h-4.5 w-4.5 text-indigo-500" />
+                      <span>Chat PIN</span>
+                    </div>
+                    <button type="button" onClick={() => setIsPinSetupOpen(true)} className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+                      Thiết lập PIN
+                    </button>
+                  </div>
+                )}
 
                 {profile.hasChatPin && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2 sm:gap-4 rounded-2xl bg-white/50 dark:bg-discord-black/20 border border-gray-100 dark:border-zinc-900/30 text-sm text-left">
@@ -386,6 +425,17 @@ export const Profile = () => {
         <EditProfileModal
           user={profile}
           onClose={() => setIsEditOpen(false)}
+        />
+      )}
+
+      {isPinSetupOpen && (
+        <PinSetupModal
+          pendingHideId={null}
+          onClose={() => setIsPinSetupOpen(false)}
+          onSuccess={() => {
+            setIsPinSetupOpen(false);
+            void fetchProfile();
+          }}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { X, Download } from 'lucide-react';
+import { downloadFile } from '../../utils/fileUtils';
 
 export type ActiveMediaProps = {
   url: string;
@@ -19,17 +20,17 @@ export const MediaViewerModal = ({ activeMedia, onClose }: MediaViewerModalProps
     >
       {/* Top bar with buttons */}
       <div className="absolute top-4 right-4 z-[110] flex items-center gap-3">
-        <a
-          href={activeMedia.url}
-          download={activeMedia.name || 'download'}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void downloadFile(activeMedia.url, activeMedia.name || 'download');
+          }}
           className="rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition hover:bg-white/20 hover:scale-105"
           title="Tải xuống tệp gốc"
         >
           <Download className="h-5 w-5" />
-        </a>
+        </button>
         <button
           type="button"
           onClick={onClose}

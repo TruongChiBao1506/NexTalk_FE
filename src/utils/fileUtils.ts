@@ -1,5 +1,6 @@
 import { FileText, File, FileArchive, FileCode, FileSpreadsheet, FileAudio } from 'lucide-react';
 import React from 'react';
+import { apiClient } from '../api/apiClient';
 
 export const formatFileSize = (bytes?: number | null): string => {
   if (bytes == null || isNaN(bytes)) return '';
@@ -48,9 +49,11 @@ export const getFileIconConfig = (fileName: string): { icon: React.ElementType; 
 
 export const downloadFile = async (url: string, fileName: string) => {
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Network response was not ok');
-    const blob = await response.blob();
+    const response = await apiClient.get<Blob>('/files/download', {
+      params: { url, fileName },
+      responseType: 'blob'
+    });
+    const blob = response.data;
     const blobUrl = window.URL.createObjectURL(blob);
     
     const link = document.createElement('a');
@@ -63,30 +66,6 @@ export const downloadFile = async (url: string, fileName: string) => {
     window.URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.error('Error downloading file:', error);
-    let targetUrl = url;
-    try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname.includes('cloudinary.com')) {
-        const parts = urlObj.pathname.split('/');
-        const uploadIndex = parts.indexOf('upload');
-        if (uploadIndex !== -1) {
-          let safeName = fileName;
-          // Remove accents
-          safeName = safeName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          safeName = safeName.replace(/đ/g, 'd').replace(/Đ/g, 'D');
-          // Replace invalid characters and spaces with underscore
-          safeName = safeName.replace(/[^a-zA-Z0-9.\-]/g, '_');
-          // Remove duplicate underscores
-          safeName = safeName.replace(/_+/g, '_');
-          
-          parts.splice(uploadIndex + 1, 0, `fl_attachment:${safeName}`);
-          urlObj.pathname = parts.join('/');
-          targetUrl = urlObj.toString();
-        }
-      }
-    } catch (e) {
-      // Ignore URL parsing errors
-    }
-    window.open(targetUrl, '_blank');
+    throw error;
   }
 };

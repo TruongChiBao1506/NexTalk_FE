@@ -50,6 +50,7 @@ import { MessageReactions } from './MessageReactions';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { getMessagePreviewData } from '../../utils/messagePreview';
 import { Skeleton } from '../common/Skeleton';
+import { useChatStore } from '../../store/chatStore';
 
 interface MessageListProps {
   pinnedMessages: any[];
@@ -192,6 +193,35 @@ export const MessageList: React.FC<MessageListProps> = ({
   editInputText,
   handleSaveEdit,
 }) => {
+  const getMessageStatusLabel = (msg: any) => {
+    const status = getMessageStatus(msg);
+    if (status === 'SEEN') {
+      if (isGroupConversation) {
+        const seenCount = (msg.statuses ?? []).filter((item: any) => item.userId !== user?.id && item.status === 'SEEN').length;
+        return seenCount > 0 ? `${seenCount} người đã xem` : 'Đã xem';
+      }
+      return 'Đã xem';
+    }
+    return status === 'DELIVERED' ? 'Đã nhận' : 'Đã gửi';
+  };
+  const getNicknameSystemText = (msg: any) => {
+    const metadata = msg.metadata ?? {};
+    const actorIsViewer = metadata.actorId === user?.id;
+    const targetIsViewer = metadata.targetUserId === user?.id;
+    const actorIsTarget = metadata.actorId === metadata.targetUserId;
+    const actor = actorIsViewer ? 'Bạn' : (msg.senderUsername || metadata.actorUsername || 'Một thành viên');
+    const oldNickname = String(metadata.oldNickname || '');
+    const newNickname = String(metadata.newNickname || '');
+    const possessiveTarget = actorIsTarget ? 'của mình' : targetIsViewer ? 'của bạn' : `của ${metadata.targetUsername}`;
+    const setTarget = actorIsTarget ? 'của mình' : targetIsViewer ? 'cho bạn' : `cho ${metadata.targetUsername}`;
+    if (!newNickname) return `${actor} đã xóa biệt danh ${possessiveTarget}.`;
+    if (!oldNickname) return `${actor} đã đặt biệt danh ${setTarget} là "${newNickname}".`;
+    return `${actor} đã đổi biệt danh ${possessiveTarget} từ "${oldNickname}" thành "${newNickname}".`;
+  };
+  const isSelectionMode = useChatStore((state) => state.isSelectionMode);
+  const selectedMessageIds = useChatStore((state) => state.selectedMessageIds);
+  const toggleMessageSelection = useChatStore((state) => state.toggleMessageSelection);
+
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     type: 'recall' | 'delete' | null;
@@ -604,7 +634,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               onMouseLeave={() => setHoveredMessageId(null)}
               className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${
                 isMentionedCurrentUser
-                  ? 'bg-amber-50/80 ring-1 ring-amber-200 hover:bg-amber-50 dark:bg-amber-500/10 dark:ring-amber-500/30 dark:hover:bg-amber-500/15'
+                  ? 'border-l-2 border-amber-400 pl-2 dark:border-amber-500 hover:bg-white/35 dark:hover:bg-zinc-800/10'
                   : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
               } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-right' : 'animate-slide-in-left') : ''}`}
             >
@@ -722,10 +752,11 @@ export const MessageList: React.FC<MessageListProps> = ({
                     <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
                       <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
                       <span className="min-w-0 truncate">
-                        <span className="font-semibold">
-                          {isMe ? 'Bạn' : msg.senderUsername}
-                        </span>{' '}
-                        {stripMessageMarkup(msg.content)}
+                        {msg.metadata?.systemType === 'NICKNAME_UPDATED' ? (
+                          getNicknameSystemText(msg)
+                        ) : (
+                          <><span className="font-semibold">{isMe ? 'Bạn' : msg.senderUsername}</span>{' '}{stripMessageMarkup(msg.content)}</>
+                        )}
                       </span>
                     </div>
                   )}
@@ -953,9 +984,15 @@ export const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
 
-                  <div className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
+                  <div
+                    className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${isSelectionMode ? 'items-center cursor-pointer transition hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 p-2 -m-2 rounded-xl' : ''}`}
+                    onClick={() => {
+                      if (isSelectionMode) toggleMessageSelection(msg.id);
+                    }}
+                  >
+
                     {/* Avatar */}
-                    {!isMe && (
+                    {!isMe && !isSelectionMode && (
                       <div className="shrink-0 mt-0.5">
                         {(() => {
                           const avatarUrl = isGroupConversation
@@ -986,9 +1023,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                         </span>
                       )}
 
-                      <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                      <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isSelectionMode ? 'pointer-events-none' : ''}`}>
                         {/* Context menu actions bar */}
-                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && !isSelectionMode && (
                           <div
                             className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${
                               isMe 
@@ -1424,7 +1461,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         )}
                         <span>{formatMessageTime(msg.createdAt)}</span>
                         {isMe && (
-                          <span className="inline-flex shrink-0" title={getMessageStatus(msg).toLowerCase()}>
+                          <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
                             {getMessageStatus(msg) === 'SEEN' && (
                               <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
                             )}
@@ -1434,10 +1471,16 @@ export const MessageList: React.FC<MessageListProps> = ({
                             {getMessageStatus(msg) === 'SENT' && (
                               <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
                             )}
+                            <span>{getMessageStatusLabel(msg)}</span>
                           </span>
                         )}
                       </span>
                     </div>
+                    {isSelectionMode && (
+                      <div className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-indigo-600 bg-white dark:bg-zinc-900 transition-colors" style={{ backgroundColor: selectedMessageIds.includes(msg.id) ? '#4f46e5' : undefined }}>
+                        {selectedMessageIds.includes(msg.id) && <Check className="h-3.5 w-3.5 text-white" />}
+                      </div>
+                    )}
                   </div>
                 </>
               )}

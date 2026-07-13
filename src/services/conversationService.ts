@@ -59,11 +59,21 @@ export const conversationService = {
     return response.data;
   },
 
+  async updateMuted(id: string, muted: boolean): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/muted`, null, { params: { muted } });
+    return response.data;
+  },
+
   async updateTheme(id: string, themeColor?: string, wallpaperUrl?: string): Promise<ApiResponse<ConversationResponse>> {
     const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/theme`, {
       themeColor,
       wallpaperUrl,
     });
+    return response.data;
+  },
+
+  async updateNickname(id: string, userId: string, nickname: string): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/nicknames/${userId}`, { nickname });
     return response.data;
   }
 };

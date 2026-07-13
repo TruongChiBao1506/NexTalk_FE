@@ -30,8 +30,24 @@ const sortConversations = (conversations: ConversationResponse[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
+const mergeMessagesNewestFirst = (current: MessageResponse[], incoming: MessageResponse[]) => {
+  const byId = new Map(current.map((message) => [message.id, message]));
+  incoming.forEach((message) => {
+    const existing = byId.get(message.id);
+    byId.set(message.id, existing ? { ...existing, ...message } : message);
+  });
+  return [...byId.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+const newerMessage = (current: MessageResponse | undefined, candidate: MessageResponse | undefined) => {
+  if (!candidate) return current;
+  if (!current) return candidate;
+  return new Date(candidate.createdAt).getTime() > new Date(current.createdAt).getTime() ? candidate : current;
+};
+
 const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
+const MESSAGE_PAGE_SIZE = 25;
 
 export interface TypingUser {
   userId: string;
@@ -88,6 +104,7 @@ interface ChatState {
   hasMoreMessages: boolean;
   currentPage: number;
   isLoading: boolean;
+  isLoadingConversations: boolean;
   messagesCache: Record<string, MessageResponse[]>;
   paginationCache: Record<string, { currentPage: number; hasMoreMessages: boolean }>;
   pinnedMessagesCache: Record<string, MessageResponse[]>;
@@ -130,6 +147,15 @@ interface ChatState {
   togglePinConversation: (conversationId: string, pinned: boolean) => Promise<boolean>;
   deleteConversation: (conversationId: string) => Promise<boolean>;
   toggleHideConversation: (conversationId: string, hidden: boolean) => Promise<boolean>;
+  
+  isSelectionMode: boolean;
+  selectedMessageIds: string[];
+  toggleSelectionMode: () => void;
+  toggleMessageSelection: (messageId: string) => void;
+  clearSelection: () => void;
+  batchDeleteMessages: () => Promise<void>;
+  batchRecallMessages: () => Promise<void>;
+  batchShareMessages: (targetConversationIds: string[]) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -143,6 +169,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hasMoreMessages: true,
   currentPage: 0,
   isLoading: false,
+  isLoadingConversations: false,
   messagesCache: {},
   paginationCache: {},
   pinnedMessagesCache: {},
@@ -154,8 +181,89 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typingUsersByConversation: {},
   messageDrafts: loadMessageDrafts(),
   unreadMarkersByConversation: {},
+  isSelectionMode: false,
+  selectedMessageIds: [],
+
+  toggleSelectionMode: () => {
+    set((state) => ({
+      isSelectionMode: !state.isSelectionMode,
+      selectedMessageIds: !state.isSelectionMode ? [] : state.selectedMessageIds
+    }));
+  },
+
+  toggleMessageSelection: (messageId: string) => {
+    set((state) => {
+      const isSelected = state.selectedMessageIds.includes(messageId);
+      let newSelection = [];
+      if (isSelected) {
+        newSelection = state.selectedMessageIds.filter(id => id !== messageId);
+      } else {
+        newSelection = [...state.selectedMessageIds, messageId];
+      }
+      return {
+        selectedMessageIds: newSelection,
+        isSelectionMode: newSelection.length > 0 ? true : false
+      };
+    });
+  },
+
+  clearSelection: () => {
+    set({ isSelectionMode: false, selectedMessageIds: [] });
+  },
+
+  batchDeleteMessages: async () => {
+    const { selectedMessageIds, messages } = get();
+    if (selectedMessageIds.length === 0) return;
+    try {
+      const res = await messageService.batchDeleteMessages(selectedMessageIds);
+      if (res.success) {
+        set({
+          messages: messages.filter(m => !selectedMessageIds.includes(m.id)),
+          isSelectionMode: false,
+          selectedMessageIds: []
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  batchRecallMessages: async () => {
+    const { selectedMessageIds, messages } = get();
+    if (selectedMessageIds.length === 0) return;
+    try {
+      const res = await messageService.batchRecallMessages(selectedMessageIds);
+      if (res.success && res.data) {
+        const recalledMap = new Map(res.data.map(m => [m.id, m]));
+        set({
+          messages: messages.map(m => recalledMap.has(m.id) ? recalledMap.get(m.id)! : m),
+          isSelectionMode: false,
+          selectedMessageIds: []
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  batchShareMessages: async (targetConversationIds: string[]) => {
+    const { selectedMessageIds } = get();
+    if (selectedMessageIds.length === 0) return;
+    try {
+      const res = await messageService.batchShareMessages(selectedMessageIds, targetConversationIds);
+      if (res.success) {
+        set({
+          isSelectionMode: false,
+          selectedMessageIds: []
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  },
 
   fetchConversations: async () => {
+    set({ isLoadingConversations: true });
     try {
       const response = await conversationService.getUserConversations();
       if (response.success && response.data) {
@@ -163,20 +271,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const sorted = sortConversations(response.data);
         set({ conversations: sorted });
         
-        // Fetch last message for each conversation
-        Promise.all(
-          sorted.map(async (conv) => {
-            try {
-              const msgsResponse = await messageService.getConversationMessages(conv.id, 0, 1);
-              if (msgsResponse.success && msgsResponse.data && msgsResponse.data.length > 0) {
-                return { convId: conv.id, msg: msgsResponse.data[0] };
-              }
-            } catch (e) {
-              // ignore
-            }
-            return null;
-          })
-        ).then(results => {
+        // Fetch all conversation previews in one request (avoids N+1 HTTP calls).
+        messageService.getLatestMessages(sorted.map((conv) => conv.id)).then(response => {
+          const results = (response.data ?? []).map((msg) => ({ convId: msg.conversationId, msg }));
           set(state => {
             const newLastMessages = { ...state.lastMessages };
             let hasChanges = false;
@@ -188,7 +285,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
             return hasChanges ? { lastMessages: newLastMessages } : state;
           });
-        });
+        }).catch(() => undefined);
 
         // Mark all conversations as delivered
         for (const conv of sorted) {
@@ -197,6 +294,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to fetch conversations:', err);
+    } finally {
+      set({ isLoadingConversations: false });
     }
   },
 
@@ -237,7 +336,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       useNotificationStore.getState().markAsRead(n.id).catch(() => {});
     }
 
-    const { conversations, messagesCache, paginationCache, pinnedMessagesCache } = get();
+    const { conversations, messagesCache, paginationCache, pinnedMessagesCache, lastMessages } = get();
     const active = conversations.find((c) => c.id === conversationId) || null;
 
     let resolvedActive = active;
@@ -256,7 +355,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
-    const cachedMessages = messagesCache[conversationId] || [];
+    const cachedMessages = messagesCache[conversationId]?.length
+      ? messagesCache[conversationId]
+      : lastMessages[conversationId] ? [lastMessages[conversationId]] : [];
     const cachedPagination = paginationCache[conversationId] || { currentPage: 0, hasMoreMessages: true };
     const cachedPinnedMessages = pinnedMessagesCache[conversationId] || [];
 
@@ -275,7 +376,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     try {
-      const response = await messageService.getConversationMessages(conversationId, 0, 40);
+      const response = await messageService.getConversationMessages(conversationId, 0, MESSAGE_PAGE_SIZE);
       if (response.success && response.data) {
         const history = response.data;
         
@@ -289,25 +390,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           set((state) => {
             const updatedLastMessages = { ...state.lastMessages };
             if (history.length > 0) {
-              updatedLastMessages[conversationId] = history[0];
+              updatedLastMessages[conversationId] = newerMessage(updatedLastMessages[conversationId], history[0])!;
             }
 
-            let newMessages = history;
-            let newHasMore = history.length === 40;
-
-            if (cachedMessages.length > 0) {
-              // Merge fresh data to avoid scroll jumps
-              const existingIds = new Set(state.messages.map((m) => m.id));
-              const missingMessages = history.filter((m) => !existingIds.has(m.id));
-              
-              let merged = [...missingMessages, ...state.messages];
-              merged = merged.map((m) => {
-                const fresh = history.find((h) => h.id === m.id);
-                return fresh ? fresh : m;
-              });
-              newMessages = merged;
-              newHasMore = state.hasMoreMessages;
-            }
+            const newMessages = mergeMessagesNewestFirst(state.messages, history);
+            const newHasMore = state.messages.length > 0 ? state.hasMoreMessages : history.length === MESSAGE_PAGE_SIZE;
 
             const markerIndex = unreadCountAtOpen > 0
               ? Math.min(unreadCountAtOpen, newMessages.length) - 1
@@ -358,7 +445,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadMoreMessages: async () => {
-    const { activeConversation, currentPage, hasMoreMessages, messages, isLoading } = get();
+    const { activeConversation, currentPage, hasMoreMessages, isLoading } = get();
     if (!activeConversation || !hasMoreMessages || isLoading) return;
 
     set({ isLoading: true });
@@ -368,16 +455,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await messageService.getConversationMessages(
         activeConversation.id,
         nextPage,
-        40
+        MESSAGE_PAGE_SIZE
       );
       if (response.success && response.data) {
         const history = response.data;
-        set({
-          messages: [...messages, ...history],
+        set((state) => ({
+          messages: mergeMessagesNewestFirst(state.messages, history),
           currentPage: nextPage,
-          hasMoreMessages: history.length === 40,
+          hasMoreMessages: history.length === MESSAGE_PAGE_SIZE,
           isLoading: false,
-        });
+        }));
       }
     } catch (err) {
       console.error('Failed to load more messages:', err);
@@ -764,6 +851,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }));
         }
       });
+    }
+
+    // If it's a SYSTEM message (member join/leave/update), refresh group data
+    // so the composite avatar and member list update in real-time
+    if (message.messageType === 'SYSTEM') {
+      import('./groupStore').then(({ useGroupStore }) => {
+        useGroupStore.getState().fetchGroups();
+      }).catch(() => undefined);
     }
   },
 

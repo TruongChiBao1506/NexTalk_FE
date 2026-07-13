@@ -834,16 +834,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <Smile className="w-5 h-5" />
             </button>
 
-            {/* ThumbsUp or Send */}
+            {/* Unified composer action: like when empty, send when content exists. */}
             {(!inputMessage.trim() && pendingAttachments.length === 0) ? (
               <button
                 type="button"
                 onClick={handleSendThumbsUp}
                 disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
-                className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-450 rounded-lg hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:bg-transparent transition active:scale-90"
-                title="Send Like"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow transition hover:bg-amber-600 active:scale-95 disabled:scale-100 disabled:opacity-45"
+                title="Gửi lượt thích"
+                aria-label="Gửi lượt thích"
               >
-                <ThumbsUp className="w-5 h-5 fill-current" />
+                <ThumbsUp className="h-[19px] w-[19px] fill-current" />
               </button>
             ) : (
               <button
@@ -854,13 +855,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
                     : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
                 }
-                className="nextalk-theme-bg p-2 bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl active:scale-95 disabled:opacity-50 disabled:scale-100 transition shadow"
+                className="nextalk-theme-bg inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition hover:bg-indigo-700 active:scale-95 disabled:scale-100 disabled:opacity-50 dark:bg-discord-blurple dark:hover:bg-indigo-600"
                 title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
               >
                 {isSendingBlockedChatRequest ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-[19px] w-[19px] animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send className="h-[19px] w-[19px]" />
                 )}
               </button>
             )}

@@ -104,6 +104,11 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
     }
   }, [isOpen]);
 
+  const jumpToPinnedMessage = (messageId: string) => {
+    onClose();
+    window.setTimeout(() => onJumpToMessage(messageId), 60);
+  };
+
   if (!isOpen) return null;
 
   const sortedMessages = [...pinnedMessages].sort(
@@ -303,7 +308,7 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
                 >
                   <button
                     type="button"
-                    onClick={() => onJumpToMessage(message.id)}
+                    onClick={() => jumpToPinnedMessage(message.id)}
                     className="block w-full text-left"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -325,7 +330,7 @@ export const PinnedMessagesPanel: React.FC<PinnedMessagesPanelProps> = ({
                   <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-2 dark:border-zinc-800">
                     <button
                       type="button"
-                      onClick={() => onJumpToMessage(message.id)}
+                      onClick={() => jumpToPinnedMessage(message.id)}
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
                       title="Đi đến tin nhắn"
                     >

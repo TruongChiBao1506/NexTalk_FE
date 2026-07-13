@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
   X,
+  Search,
   Pin,
+  Bell,
   BellOff,
-  UserPlus,
-  Settings,
   Image,
   Video,
   FileText,
@@ -18,10 +18,12 @@ import {
   Trash2,
   Loader2,
   LogOut,
-  Users,
   Palette
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
+import { GroupQrModal } from './GroupQrModal';
+import { GroupAvatar } from './GroupAvatar';
+import { downloadFile } from '../../utils/fileUtils';
 
 interface ConversationInfoPanelProps {
   isConversationInfoOpen: boolean;
@@ -31,13 +33,12 @@ interface ConversationInfoPanelProps {
   activeFriend: any;
   activeConversation: ConversationResponse;
   setIsProfileModalOpen: (open: boolean) => void;
+  onOpenSearch: () => void;
+  onToggleMuted: () => Promise<void>;
   getConversationInfoSubtitle: () => string;
   isPinnedPanelOpen: boolean;
   setIsPinnedPanelOpen: (open: boolean) => void;
   fetchPinnedMessages: (conversationId: string) => Promise<any>;
-  canInviteToActiveGroup: boolean;
-  setIsInviteMembersOpen: (open: boolean) => void;
-  setIsGroupApprovalsModalOpen: (open: boolean) => void;
   isLoadingConversationArchive: boolean;
   activeConversationMedia: any[];
   handleJumpToMessage: (messageId: string) => void;
@@ -64,6 +65,9 @@ interface ConversationInfoPanelProps {
   isRefreshingInviteCode: boolean;
   handleRefreshInviteCode: () => void;
   setIsThemeModalOpen: (open: boolean) => void;
+  onOpenMedia: (media: { url: string; type: 'IMAGE' | 'VIDEO'; name?: string }) => void;
+  currentUserId: string;
+  onUpdateNickname: (userId: string, nickname: string) => Promise<void>;
 }
 
 export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
@@ -74,13 +78,12 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeFriend,
   activeConversation,
   setIsProfileModalOpen,
+  onOpenSearch,
+  onToggleMuted,
   getConversationInfoSubtitle,
   isPinnedPanelOpen,
   setIsPinnedPanelOpen,
   fetchPinnedMessages,
-  canInviteToActiveGroup,
-  setIsInviteMembersOpen,
-  setIsGroupApprovalsModalOpen,
   isLoadingConversationArchive,
   activeConversationMedia,
   handleJumpToMessage,
@@ -107,8 +110,33 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   isRefreshingInviteCode,
   handleRefreshInviteCode,
   setIsThemeModalOpen,
+  onOpenMedia,
+  currentUserId,
+  onUpdateNickname,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showGroupQrModal, setShowGroupQrModal] = useState(false);
+  const [showAllMedia, setShowAllMedia] = useState(false);
+  const [showAllFiles, setShowAllFiles] = useState(false);
+  const [showAllLinks, setShowAllLinks] = useState(false);
+  const [notificationFeedback, setNotificationFeedback] = useState<string | null>(null);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState('');
+  const [isSavingNickname, setIsSavingNickname] = useState(false);
+  const nicknameTargetId = isGroupConversation ? currentUserId : activeFriend?.id;
+  const currentNickname = nicknameTargetId ? activeConversation.nicknames?.[nicknameTargetId] || '' : '';
+
+  const handleToggleNotifications = async () => {
+    const nextMuted = !activeConversation.muted;
+    try {
+      await onToggleMuted();
+      setNotificationFeedback(nextMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo');
+    } catch {
+      setNotificationFeedback('Không thể cập nhật thông báo');
+    } finally {
+      window.setTimeout(() => setNotificationFeedback(null), 2200);
+    }
+  };
 
   const handleCopyInviteLink = () => {
     if (!activeGroup?.inviteCode) return;
@@ -142,17 +170,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
           <section className="flex flex-col items-center text-center">
             {isGroupConversation ? (
-              activeGroup?.avatarUrl ? (
-                <img
-                  src={activeGroup.avatarUrl}
-                  alt={activeGroup.name}
-                  className="h-20 w-20 rounded-2xl object-cover shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-600 text-3xl font-bold text-white shadow-sm">
-                  {(activeGroup?.name || activeFriend?.username || activeConversation?.name || 'G').charAt(0).toUpperCase()}
-                </div>
-              )
+              <GroupAvatar conversation={activeGroup} size={80} className="!rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700" />
             ) : activeFriend?.avatarUrl ? (
               <img
                 src={activeFriend.avatarUrl}
@@ -171,15 +189,78 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               title={isGroupConversation ? 'Xem hồ sơ nhóm' : 'Xem hồ sơ'}
             >
               <span className="block truncate">
-                {isGroupConversation ? (activeGroup?.name || activeConversation.name || activeFriend?.username) : activeFriend?.username}
+                {isGroupConversation ? (activeGroup?.name || activeConversation.name || activeFriend?.username) : (activeFriend?.id ? activeConversation.nicknames?.[activeFriend.id] : null) || activeFriend?.username}
               </span>
             </button>
             <p className="m-0 text-xs font-medium text-gray-500 dark:text-zinc-400">{getConversationInfoSubtitle()}</p>
+            {nicknameTargetId && (
+              <div className="mt-3 w-full max-w-[260px]">
+                {isEditingNickname ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={nicknameDraft}
+                      onChange={(event) => setNicknameDraft(event.target.value.slice(0, 40))}
+                      placeholder={isGroupConversation ? 'Biệt danh của bạn' : 'Nhập biệt danh'}
+                      autoFocus
+                      className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <button
+                      type="button"
+                      disabled={isSavingNickname}
+                      onClick={async () => {
+                        setIsSavingNickname(true);
+                        try {
+                          await onUpdateNickname(nicknameTargetId, nicknameDraft);
+                          setIsEditingNickname(false);
+                        } finally {
+                          setIsSavingNickname(false);
+                        }
+                      }}
+                      className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                    >
+                      {isSavingNickname ? 'Lưu...' : 'Lưu'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-3">
+                    <button type="button" onClick={() => { setNicknameDraft(currentNickname); setIsEditingNickname(true); }} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                      {currentNickname ? `Biệt danh: ${currentNickname}` : (isGroupConversation ? 'Đặt biệt danh của bạn' : 'Đặt biệt danh')}
+                    </button>
+                    {currentNickname && (
+                      <button
+                        type="button"
+                        disabled={isSavingNickname}
+                        onClick={async () => {
+                          setIsSavingNickname(true);
+                          try {
+                            await onUpdateNickname(nicknameTargetId, '');
+                            setNicknameDraft('');
+                          } finally {
+                            setIsSavingNickname(false);
+                          }
+                        }}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-60 dark:text-rose-400"
+                      >
+                        {isSavingNickname ? 'Đang xóa...' : 'Xóa'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="mt-6">
             <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Lối tắt nhanh</h4>
             <div className="grid grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <Search className="h-4 w-4" />
+                <span>Tìm kiếm</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -192,47 +273,31 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 <Pin className="h-4 w-4" />
-                <span>Ghim</span>
+                <span>Tin đã ghim</span>
               </button>
               <button
                 type="button"
+                onClick={handleToggleNotifications}
+                disabled={conversationActionId === activeConversation.id}
                 className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                <BellOff className="h-4 w-4" />
-                <span>Tắt báo</span>
-              </button>
-              {isGroupConversation && activeGroup?.requiresApproval && currentUserIsGroupOwner && (
-                <button
-                  type="button"
-                  onClick={() => setIsGroupApprovalsModalOpen(true)}
-                  className="relative flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
-                >
-                  <Users className="h-4 w-4" />
-                  <span>Chờ duyệt</span>
-                  {activeGroup.pendingApprovalCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
-                      {activeGroup.pendingApprovalCount}
-                    </span>
-                  )}
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={!isGroupConversation || !canInviteToActiveGroup}
-                onClick={() => setIsInviteMembersOpen(true)}
-                className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <UserPlus className="h-4 w-4" />
-                <span>Thêm</span>
+                {activeConversation.muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                <span>{activeConversation.muted ? 'Bật thông báo' : 'Tắt thông báo'}</span>
               </button>
               <button
                 type="button"
+                onClick={() => setIsThemeModalOpen(true)}
                 className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                <Settings className="h-4 w-4" />
-                <span>Cài đặt</span>
+                <Palette className="h-4 w-4" />
+                <span>Chủ đề</span>
               </button>
             </div>
+            {notificationFeedback && (
+              <p role="status" className="mt-2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-semibold text-white dark:bg-white dark:text-gray-900">
+                {notificationFeedback}
+              </p>
+            )}
           </section>
 
           {isGroupConversation && activeGroup && (
@@ -250,6 +315,13 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                       className="flex-1 rounded-lg bg-indigo-50 py-2 text-center text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
                     >
                       {copiedLink ? 'Đã copy' : 'Copy liên kết'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupQrModal(true)}
+                      className="flex-1 rounded-lg bg-indigo-100 py-2 text-center text-xs font-semibold text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-500/30"
+                    >
+                      Mã QR
                     </button>
                     {currentUserIsGroupOwner && (
                       <button
@@ -303,11 +375,11 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 </div>
                 {activeConversationMedia.length > 0 ? (
                   <div className="grid grid-cols-4 gap-2">
-                    {activeConversationMedia.map((item, index) => (
+                    {(showAllMedia ? activeConversationMedia : activeConversationMedia.slice(0, 8)).map((item, index) => (
                       <button
                         type="button"
                         key={`${item.url}-${index}`}
-                        onClick={() => handleJumpToMessage(item.message.id)}
+                        onClick={() => onOpenMedia({ url: item.url, type: item.type, name: item.name || getFileName(item.url) })}
                         className="aspect-square overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200 transition hover:ring-indigo-500 dark:bg-zinc-900 dark:ring-zinc-800"
                         title={item.name || getFileName(item.url)}
                       >
@@ -324,6 +396,11 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 ) : (
                   <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có ảnh hoặc video.</p>
                 )}
+                {activeConversationMedia.length > 8 && (
+                  <button type="button" onClick={() => setShowAllMedia((value) => !value)} className="mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                    {showAllMedia ? 'Thu gọn' : `Xem tất cả ${activeConversationMedia.length}`}
+                  </button>
+                )}
               </div>
 
               <div>
@@ -335,21 +412,26 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   <span className="text-xs text-gray-400">{activeConversationFiles.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {activeConversationFiles.length > 0 ? activeConversationFiles.map((item, index) => (
-                    <button
-                      type="button"
+                  {activeConversationFiles.length > 0 ? (showAllFiles ? activeConversationFiles : activeConversationFiles.slice(0, 5)).map((item, index) => (
+                    <div
                       key={`${item.url}-${index}`}
-                      onClick={() => handleJumpToMessage(item.message.id)}
-                      className="flex w-full items-center gap-3 rounded-lg bg-gray-50 px-3 py-2 text-left transition hover:bg-indigo-50 dark:bg-zinc-900/50 dark:hover:bg-zinc-800"
+                      className="flex w-full items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5 dark:bg-zinc-900/50"
                     >
-                      <FileText className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800 dark:text-zinc-100">
-                        {item.name || getFileName(item.url)}
-                      </span>
-                      <Download className="h-4 w-4 shrink-0 text-gray-400" />
-                    </button>
+                      <button type="button" onClick={() => handleJumpToMessage(item.message.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 text-left transition hover:text-indigo-600">
+                        <FileText className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800 dark:text-zinc-100">{item.name || getFileName(item.url)}</span>
+                      </button>
+                      <button type="button" onClick={() => void downloadFile(item.url, item.name || getFileName(item.url))} className="rounded-md p-2 text-gray-400 transition hover:bg-white hover:text-indigo-600 dark:hover:bg-zinc-800" title="Tải file" aria-label={`Tải ${item.name || getFileName(item.url)}`}>
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
                   )) : (
                     <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có file tài liệu.</p>
+                  )}
+                  {activeConversationFiles.length > 5 && (
+                    <button type="button" onClick={() => setShowAllFiles((value) => !value)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                      {showAllFiles ? 'Thu gọn' : `Xem tất cả ${activeConversationFiles.length}`}
+                    </button>
                   )}
                 </div>
               </div>
@@ -363,7 +445,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   <span className="text-xs text-gray-400">{activeConversationLinks.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {activeConversationLinks.length > 0 ? activeConversationLinks.map((item, index) => (
+                  {activeConversationLinks.length > 0 ? (showAllLinks ? activeConversationLinks : activeConversationLinks.slice(0, 5)).map((item, index) => (
                     <div
                       key={`${item.url}-${index}`}
                       className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-zinc-900/50"
@@ -388,6 +470,11 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                     </div>
                   )) : (
                     <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có link đã chia sẻ.</p>
+                  )}
+                  {activeConversationLinks.length > 5 && (
+                    <button type="button" onClick={() => setShowAllLinks((value) => !value)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                      {showAllLinks ? 'Thu gọn' : `Xem tất cả ${activeConversationLinks.length}`}
+                    </button>
                   )}
                 </div>
               </div>
@@ -419,15 +506,6 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   ))}
                 </select>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsThemeModalOpen(true)}
-                className="flex w-full items-center gap-3 rounded-lg bg-indigo-50 px-3 py-3 text-left text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
-              >
-                <Palette className="h-4 w-4 text-indigo-500" />
-                <span className="min-w-0 flex-1">Đổi chủ đề / Hình nền</span>
-              </button>
 
               {activeConversation.hidden ? (
                 <button
@@ -532,6 +610,12 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
           </section>
         </div>
       </div>
+      {showGroupQrModal && activeGroup && (
+        <GroupQrModal
+          group={activeGroup}
+          onClose={() => setShowGroupQrModal(false)}
+        />
+      )}
     </aside>
   );
 };

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BellRing, CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward } from 'lucide-react';
+import { BellRing, CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward, Check } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
+import { useChatStore } from '../../store/chatStore';
 
 interface MessageActionsBarProps {
   message: MessageResponse;
@@ -278,6 +279,19 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
                 <span>Thu hồi tin nhắn</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                useChatStore.getState().toggleSelectionMode();
+                useChatStore.getState().toggleMessageSelection(message.id);
+                setShowDropdown(false);
+              }}
+              className="w-full flex items-center px-2 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-650 dark:hover:bg-indigo-500/15 dark:hover:text-white transition-colors duration-150 text-left font-medium"
+            >
+              <Check className="w-3.5 h-3.5 mr-2" />
+              <span>Chọn tin nhắn</span>
+            </button>
 
             <button
               type="button"

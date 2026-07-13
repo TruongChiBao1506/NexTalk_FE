@@ -13,6 +13,10 @@ export interface CreatePollPayload {
 }
 
 export const messageService = {
+  async getLatestMessages(conversationIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse[]>>('/messages/latest', conversationIds);
+    return response.data;
+  },
   async getConversationMessages(
     conversationId: string,
     page = 0,
@@ -79,6 +83,28 @@ export const messageService = {
 
   async shareMessage(id: string, targetConversationIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
     const response = await apiClient.post<ApiResponse<MessageResponse[]>>(`/messages/${id}/share`, {
+      targetConversationIds
+    });
+    return response.data;
+  },
+
+  async batchDeleteMessages(messageIds: string[]): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>(`/messages/batch`, {
+      data: { messageIds }
+    });
+    return response.data;
+  },
+
+  async batchRecallMessages(messageIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse[]>>(`/messages/batch/recall`, {
+      messageIds
+    });
+    return response.data;
+  },
+
+  async batchShareMessages(messageIds: string[], targetConversationIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse[]>>(`/messages/batch/share`, {
+      messageIds,
       targetConversationIds
     });
     return response.data;

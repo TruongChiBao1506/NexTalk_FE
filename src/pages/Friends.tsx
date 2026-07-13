@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Sparkles } from 'lucide-react';
+import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Sparkles, Search, UserCheck, Clock3, Network } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
@@ -67,6 +67,7 @@ export const Friends = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [removeFriendConfirm, setRemoveFriendConfirm] = useState<{ id: string; username: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; description: string; variant?: 'primary' | 'danger' } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchConversations();
@@ -257,9 +258,14 @@ export const Friends = () => {
 
   const totalChatRequests = incomingChatRequests.length + outgoingChatRequests.length;
   const isChatRequestLoading = isLoadingIncomingChatRequests || isLoadingOutgoingChatRequests;
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase('vi');
+  const visibleFriends = friends.filter((friend) =>
+    !normalizedSearch || [friend.username, friend.bio].some((value) => value?.toLocaleLowerCase('vi').includes(normalizedSearch))
+  );
+  const onlineFriends = friends.filter((friend) => friend.status === 'ONLINE').length;
 
   return (
-    <div className="nextalk-friends-shell h-dvh w-screen overflow-hidden flex text-slate-900 dark:text-discord-text transition-colors duration-300">
+    <div className="nextalk-friends-shell h-dvh w-screen overflow-hidden flex bg-[#f6f7fc] text-slate-900 dark:bg-discord-dark dark:text-discord-text transition-colors duration-300">
       <aside className="hidden md:flex w-16 md:w-20 flex-col items-center py-4 border-r shrink-0">
         <div
           onClick={() => navigate('/chat')}
@@ -300,16 +306,29 @@ export const Friends = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto max-w-7xl mx-auto p-4 md:p-8 pb-20 md:pb-8 space-y-6">
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 border-b border-indigo-100 dark:border-zinc-800 gap-4">
-          <div>
-            <h2 className="text-2xl font-bold m-0 text-left text-gray-900 dark:text-white">Bạn bè</h2>
-            <p className="text-sm text-gray-500 dark:text-discord-muted mt-1 text-left">
-              Quản lý bạn bè và lời mời kết bạn. Tìm người mới bằng ô tìm kiếm ở trang Chat.
-            </p>
+      <main className="flex-1 overflow-y-auto mx-auto w-full max-w-[1440px] p-4 pb-24 md:p-8 md:pb-10 space-y-6">
+        <header className="overflow-hidden rounded-[28px] border border-indigo-100 bg-white shadow-[0_18px_55px_rgba(79,70,229,0.08)] dark:border-zinc-800 dark:bg-discord-mid">
+          <div className="relative flex flex-col gap-7 p-6 md:p-8 xl:flex-row xl:items-end xl:justify-between">
+            <div className="relative z-10 max-w-2xl text-left">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"><Network className="h-3.5 w-3.5" /> Không gian kết nối</div>
+              <h1 className="m-0 text-3xl font-black tracking-tight text-slate-950 md:text-4xl dark:text-white">Bạn bè & cộng đồng</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-discord-muted">Quản lý các mối quan hệ, lời mời và nhóm của bạn trong một không gian rõ ràng, dễ theo dõi.</p>
+            </div>
+            <div className="relative z-10 grid w-full grid-cols-3 gap-2 xl:w-auto xl:min-w-[390px]">
+              <div className="rounded-2xl bg-slate-50 p-3 text-left dark:bg-zinc-900/60"><UserCheck className="mb-2 h-4 w-4 text-indigo-600"/><strong className="block text-xl text-slate-950 dark:text-white">{friends.length}</strong><span className="text-[11px] text-slate-500">Bạn bè</span></div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-left dark:bg-emerald-500/10"><span className="mb-2 block h-2.5 w-2.5 rounded-full bg-emerald-500"/><strong className="block text-xl text-slate-950 dark:text-white">{onlineFriends}</strong><span className="text-[11px] text-slate-500">Trực tuyến</span></div>
+              <div className="rounded-2xl bg-amber-50 p-3 text-left dark:bg-amber-500/10"><Clock3 className="mb-2 h-4 w-4 text-amber-600"/><strong className="block text-xl text-slate-950 dark:text-white">{pending.length + pendingInvitations.length}</strong><span className="text-[11px] text-slate-500">Đang chờ</span></div>
+            </div>
+            <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-indigo-100/60 blur-3xl dark:bg-indigo-500/10" />
           </div>
 
-          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl border border-indigo-100 bg-white/65 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:border-zinc-850/60 dark:bg-discord-dark/50 self-start xl:self-auto shadow-sm">
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 md:px-8 xl:flex-row xl:items-center xl:justify-between dark:border-zinc-800">
+            <div className="relative w-full xl:max-w-xs">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm theo tên hoặc giới thiệu..." className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-indigo-500/10" />
+            </div>
+
+          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:bg-discord-dark/50 self-start xl:self-auto">
             <button
               onClick={() => setActiveTab('friends')}
               className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
@@ -361,6 +380,7 @@ export const Friends = () => {
               )}
             </button>
           </div>
+          </div>
         </header>
 
         {(storeError || groupError || chatRequestError) && (
@@ -374,10 +394,14 @@ export const Friends = () => {
           {(isStoreLoading || isGroupLoading || isChatRequestLoading) && friends.length === 0 && pending.length === 0 && groups.length === 0 && totalChatRequests === 0 ? (
             <CardListSkeleton count={6} />
           ) : activeTab === 'friends' ? (
-            <div className="space-y-3">
-              {friends.length === 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-end justify-between text-left">
+                <div><h2 className="m-0 text-2xl font-black text-slate-950 dark:text-white">Tất cả bạn bè</h2><p className="mt-1 text-sm text-slate-500">{visibleFriends.length} kết nối {searchQuery ? 'phù hợp tìm kiếm' : 'trong danh sách của bạn'}.</p></div>
+                <button onClick={() => navigate('/chat')} className="hidden items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex"><UserPlus className="h-4 w-4"/> Thêm bạn mới</button>
+              </div>
+              {visibleFriends.length === 0 ? (
                 <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-                  <p className="text-gray-500 dark:text-discord-muted m-0">Chưa có bạn bè.</p>
+                  <p className="text-gray-500 dark:text-discord-muted m-0">{searchQuery ? 'Không tìm thấy bạn bè phù hợp.' : 'Chưa có bạn bè.'}</p>
                   <button
                     onClick={() => navigate('/chat')}
                     className="mt-3 inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold text-white bg-indigo-600 dark:bg-discord-blurple hover:opacity-90 transition-all duration-250"
@@ -388,10 +412,10 @@ export const Friends = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {friends.map((friend) => (
+                  {visibleFriends.map((friend) => (
                     <div
                       key={friend.id}
-                      className="nextalk-soft-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                      className="nextalk-soft-card group relative overflow-hidden rounded-2xl border border-white/70 p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_16px_35px_rgba(79,70,229,0.12)] dark:border-zinc-800 dark:hover:border-indigo-500/30"
                     >
                       <div className="relative shrink-0">
                         {friend.avatarUrl ? (
@@ -448,6 +472,7 @@ export const Friends = () => {
                           )}
                         </button>
                       </div>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-transform group-hover:scale-x-100" />
                     </div>
                   ))}
                 </div>

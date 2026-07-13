@@ -37,6 +37,8 @@ interface ChatHeaderProps {
   isGroupModerator?: boolean;
 }
 
+import { GroupAvatar } from './GroupAvatar';
+
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   selectConversation,
   setIsProfileModalOpen,
@@ -83,13 +85,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
         >
           {isGroupConversation ? (
-            activeGroup?.avatarUrl ? (
-              <img src={activeGroup.avatarUrl} alt={activeGroup.name} className="w-9 h-9 rounded-xl object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
-            ) : (
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-sm">
-                {(activeGroup?.name || activeFriend?.username || '?').charAt(0).toUpperCase()}
-              </div>
-            )
+            <GroupAvatar conversation={activeGroup} size={36} className="!rounded-xl border border-gray-200 dark:border-zinc-800" />
           ) : activeFriend?.avatarUrl ? (
             <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />
           ) : (

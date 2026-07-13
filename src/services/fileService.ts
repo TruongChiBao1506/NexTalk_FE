@@ -4,6 +4,9 @@ import type { ApiResponse } from '../types/auth';
 export interface FileUploadResponse {
   url: string;
   publicId: string;
+  fileName?: string;
+  contentType?: string;
+  size?: number;
 }
 
 export const fileService = {

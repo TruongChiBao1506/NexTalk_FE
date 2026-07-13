@@ -49,14 +49,36 @@ export const useMessageActions = ({
   };
 
   const handleJumpToMessage = (messageId: string) => {
-    const element = document.getElementById(`message-${messageId}`);
-    if (element) {
+    const scrollToElement = () => {
+      const element = document.getElementById(`message-${messageId}`);
+      if (!element) return false;
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       element.classList.add('bg-discord-blurple/25');
-      setTimeout(() => {
-        element.classList.remove('bg-discord-blurple/25');
-      }, 2000);
-    }
+      setTimeout(() => element.classList.remove('bg-discord-blurple/25'), 2000);
+      return true;
+    };
+
+    if (scrollToElement()) return;
+
+    // Pinned messages can be older than the currently loaded history page.
+    // Insert the full pinned response into the rendered timeline, then retry.
+    const state = useChatStore.getState();
+    const pinnedMessage = state.pinnedMessages.find((message) => message.id === messageId);
+    if (!pinnedMessage) return;
+    useChatStore.setState((current) => {
+      const withoutDuplicate = current.messages.filter((message) => message.id !== pinnedMessage.id);
+      const messages = [...withoutDuplicate, pinnedMessage].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return {
+        messages,
+        messagesCache: current.activeConversation
+          ? { ...current.messagesCache, [current.activeConversation.id]: messages }
+          : current.messagesCache
+      };
+    });
+
+    window.setTimeout(scrollToElement, 80);
   };
 
   const handleJumpToMessageFromSearch = async (messageId: string, conversationId: string) => {

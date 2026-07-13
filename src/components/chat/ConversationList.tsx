@@ -33,10 +33,12 @@
 } from "lucide-react";
 import React from "react";
 import { ChatListSkeleton } from "../common/Skeleton";
+import { GroupAvatar } from "./GroupAvatar";
 
 interface ConversationListProps {
   conversationTab: any;
   isLoadingChatRequests: any;
+  isLoadingConversations: boolean;
   incomingChatRequests: any;
   selectedChatRequest: any;
   setSelectedChatRequest: any;
@@ -89,6 +91,7 @@ interface ConversationListProps {
 export const ConversationList = ({
   conversationTab,
   isLoadingChatRequests,
+  isLoadingConversations,
   incomingChatRequests,
   selectedChatRequest,
   setSelectedChatRequest,
@@ -144,6 +147,14 @@ export const ConversationList = ({
     const text = stripMessageMarkup ? stripMessageMarkup(draft) : draft.replace(/<[^>]*>/g, ' ');
     return text.replace(/\s+/g, ' ').trim();
   };
+
+  if (conversationTab !== 'requests' && isLoadingConversations && conversations.length === 0 && !isSearchActive) {
+    return (
+      <div className="flex-1 overflow-y-auto px-2 pb-3">
+        <ChatListSkeleton count={7} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-3">
@@ -334,6 +345,7 @@ export const ConversationList = ({
                 {globalConversationResults.slice(0, 8).map((c) => {
                   if (c.type === "PRIVATE") {
                     const friend = getFriendInfo(c);
+                    const friendDisplayName = c.nicknames?.[friend.id] || friend.username;
                     const friendId = c.members.find(
                       (member) => member.id !== user?.id,
                     )?.id;
@@ -351,12 +363,12 @@ export const ConversationList = ({
                           {friend.avatarUrl ? (
                             <img
                               src={friend.avatarUrl}
-                              alt={friend.username}
+                              alt={friendDisplayName}
                               className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm">
-                              {friend.username.charAt(0).toUpperCase()}
+                              {friendDisplayName.charAt(0).toUpperCase()}
                             </div>
                           )}
                           {c.hidden && (
@@ -368,7 +380,7 @@ export const ConversationList = ({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                              {friend.username}
+                              {friendDisplayName}
                             </span>
                             {c.hidden && (
                               <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
@@ -397,17 +409,7 @@ export const ConversationList = ({
                       className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                     >
                       <div className="relative shrink-0">
-                        {(c as any).avatarUrl ? (
-                          <img
-                            src={(c as any).avatarUrl as string}
-                            alt={c.name || ""}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold flex items-center justify-center text-sm">
-                            {c.name ? c.name.charAt(0).toUpperCase() : "G"}
-                          </div>
-                        )}
+                        <GroupAvatar conversation={c as any} size={40} />
                         {c.hidden && (
                           <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
                             <Lock className="h-2.5 w-2.5" />
@@ -533,6 +535,7 @@ export const ConversationList = ({
           if (item.kind === "dm") {
             const c = item.conv;
             const friend = getFriendInfo(c);
+            const friendDisplayName = c.nicknames?.[friend.id] || friend.username;
             const lastMsg = lastMessages[c.id];
             const draftPreview = getDraftPreview(c.id);
             const isSelected = activeConversation?.id === c.id;
@@ -563,12 +566,12 @@ export const ConversationList = ({
                   {friend.avatarUrl ? (
                     <img
                       src={friend.avatarUrl}
-                      alt={friend.username}
+                      alt={friendDisplayName}
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-white font-bold flex items-center justify-center text-lg">
-                      {friend.username.charAt(0).toUpperCase()}
+                      {friendDisplayName.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <span
@@ -592,7 +595,7 @@ export const ConversationList = ({
                           : "font-medium text-gray-800 dark:text-zinc-200"
                       }`}
                     >
-                      {friend.username}
+                      {friendDisplayName}
                       {c.pinned && (
                         <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />
                       )}
@@ -765,17 +768,7 @@ export const ConversationList = ({
               >
                 {/* Group Avatar */}
                 <div className="relative shrink-0">
-                  {g.avatarUrl ? (
-                    <img
-                      src={g.avatarUrl}
-                      alt={g.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white font-bold flex items-center justify-center text-lg">
-                      {g.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <GroupAvatar conversation={g} size={48} />
                   {/* Group badge */}
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white dark:bg-discord-mid rounded-full flex items-center justify-center shadow-sm">
                     <Users className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400" />
