@@ -24,7 +24,6 @@ export const Friends = () => {
     friends,
     pending,
     suggestions,
-    relationStatuses,
     isLoading: isStoreLoading,
     error: storeError,
     fetchFriends,
@@ -191,6 +190,16 @@ export const Friends = () => {
     setActionLoadingId(null);
     navigate('/chat');
   };
+
+  // Các thao tác này được giữ sẵn cho giao diện hộp thư chờ đang được hoàn thiện.
+  void handleAcceptChatRequest;
+  void handleRejectChatRequest;
+  void handleCancelChatRequest;
+  void handleBlockChatRequest;
+  void handleReportChatRequest;
+  void handleAddChatRequestPeer;
+  void handleAcceptFriendFromChatRequest;
+  void handleOpenAcceptedChatRequest;
 
   const handleSendSuggestionRequest = async (userId: string) => {
     setActionLoadingId(userId);

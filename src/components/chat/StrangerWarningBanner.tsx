@@ -7,6 +7,7 @@ interface StrangerWarningBannerProps {
   isAddFriendLoading: boolean;
   isAddFriendSent: boolean;
   isBlockLoading: boolean;
+  messagingRestricted?: boolean;
 }
 
 export const StrangerWarningBanner = ({
@@ -16,6 +17,7 @@ export const StrangerWarningBanner = ({
   isAddFriendLoading,
   isAddFriendSent,
   isBlockLoading,
+  messagingRestricted = false,
 }: StrangerWarningBannerProps) => {
   return (
     <div className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between gap-4 shadow-sm z-10 shrink-0">
@@ -24,8 +26,8 @@ export const StrangerWarningBanner = ({
           <AlertCircle className="w-5 h-5 text-gray-700 dark:text-gray-300" strokeWidth={1.5} />
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-gray-900 dark:text-white leading-tight">Cảnh giác lừa đảo</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Cẩn thận khi chia sẻ thông tin với người lạ</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{messagingRestricted ? 'Cần kết bạn để nhắn tin' : 'Cảnh giác lừa đảo'}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{messagingRestricted ? 'Người này chỉ nhận tin nhắn từ bạn bè.' : 'Cẩn thận khi chia sẻ thông tin với người lạ'}</span>
         </div>
       </div>
       

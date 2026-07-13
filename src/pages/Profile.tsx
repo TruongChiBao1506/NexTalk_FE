@@ -14,10 +14,11 @@ import { userService } from '../services/userService';
 import { useChatStore } from '../store/chatStore';
 import { ProfileSkeleton } from '../components/common/Skeleton';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
+import { ProfileDashboard } from '../components/profile/ProfileDashboard';
 
 export const Profile = () => {
   const navigate = useNavigate();
-  const { profile, isLoading, error, fetchProfile } = useUserStore();
+  const { profile, isLoading, error, fetchProfile, updateProfile } = useUserStore();
   const { logout } = useAuthStore();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -108,7 +109,7 @@ export const Profile = () => {
   };
 
   return (
-    <div className="relative min-h-dvh w-screen overflow-y-auto flex items-start justify-center px-4 pb-24 pt-16 md:items-center md:py-14 bg-gradient-animate-light dark:bg-gradient-animate text-gray-900 dark:text-discord-text transition-colors duration-300">
+    <div className="relative h-dvh w-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-gradient-animate-light px-4 pb-24 pt-20 text-gray-900 transition-colors duration-300 dark:bg-gradient-animate dark:text-discord-text md:px-8 md:pb-16 md:pt-20">
 
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
@@ -126,9 +127,9 @@ export const Profile = () => {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-5xl z-10">
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
         {/* Main profile card */}
-        <div className="glass rounded-3xl p-5 sm:p-6 shadow-2xl dark:shadow-black/50 border border-white/20 dark:border-zinc-800/80 transition-all duration-300">
+        <div className="rounded-3xl transition-all duration-300">
 
           {isLoading && !profile ? (
             <ProfileSkeleton />
@@ -145,7 +146,21 @@ export const Profile = () => {
               </button>
             </div>
           ) : profile ? (
-            <div className="space-y-5 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-x-6 md:gap-y-4 md:space-y-0">
+            <>
+            <ProfileDashboard
+              profile={profile}
+              sessionCount={sessions.length}
+              isLoggingOut={isLoggingOut}
+              onBack={() => navigate('/chat')}
+              onEdit={() => setIsEditOpen(true)}
+              onChangePassword={() => setIsChangePasswordOpen(true)}
+              onManageSessions={() => { setIsSessionsModalOpen(true); void loadSessions(); }}
+              onSetupPin={() => setIsPinSetupOpen(true)}
+              onDeletePin={() => { setResetPinInput(''); setResetPinError(''); setIsPinInputModalOpen(true); }}
+              onLogout={() => void handleLogout()}
+               onUpdateSetting={updateProfile}
+            />
+            <div className="hidden">
 
               {/* Profile Card Header with Avatar */}
               <div className="flex flex-col items-center text-center pb-5 border-b border-gray-150 dark:border-zinc-800/60 md:row-span-7 md:self-start md:border-b-0 md:border-r md:pb-0 md:pr-6 dark:md:border-zinc-800/60">
@@ -289,10 +304,36 @@ export const Profile = () => {
 
                 <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
                   <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                    {profile.blockStrangerMessages ? <ShieldCheck className="h-4.5 w-4.5 text-indigo-500" /> : <ShieldAlert className="h-4.5 w-4.5" />}
+                    <div>
+                      <span className="block">Chỉ nhận tin nhắn từ bạn bè</span>
+                      <span className="block text-xs text-gray-400">Người lạ phải kết bạn trước khi nhắn tin</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => void updateProfile({ blockStrangerMessages: !profile.blockStrangerMessages })} className={`rounded-full px-4 py-2 text-xs font-bold text-white transition ${profile.blockStrangerMessages ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 hover:bg-gray-500'}`}>
+                    {profile.blockStrangerMessages ? 'Đang bật' : 'Đang tắt'}
+                  </button>
+                </div>
+
+                <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
                     <Cake className="h-4.5 w-4.5" />
                     <span>Ngày sinh</span>
                   </div>
                   <span className="font-semibold text-gray-950 dark:text-white sm:text-right">{formatProfileDate(profile.birthday)}</span>
+                </div>
+
+                <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                    {profile.showActivityStatus !== false ? <Monitor className="h-4.5 w-4.5 text-emerald-500" /> : <Monitor className="h-4.5 w-4.5" />}
+                    <div>
+                      <span className="block">Trạng thái hoạt động</span>
+                      <span className="block text-xs text-gray-400">Hiển thị Online và hoạt động gần đây</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => void updateProfile({ showActivityStatus: profile.showActivityStatus === false })} className={`rounded-full px-4 py-2 text-xs font-bold text-white transition ${profile.showActivityStatus !== false ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'}`}>
+                    {profile.showActivityStatus !== false ? 'Đang bật' : 'Đang tắt'}
+                  </button>
                 </div>
 
                 <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
@@ -415,6 +456,7 @@ export const Profile = () => {
               </div>
 
             </div>
+            </>
           ) : null}
 
         </div>

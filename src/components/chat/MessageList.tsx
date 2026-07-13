@@ -58,6 +58,8 @@ interface MessageListProps {
   canPinMessage: (msg: any) => boolean;
   togglePinMessage: (id: string, isPinned: boolean) => void;
   activeConversationSummary: any;
+  onSummarizeConversation: () => void;
+  isSummarizingConversation: boolean;
   typingUsers: any[];
   unreadMarker: { messageId: string; count: number } | null;
   onDismissUnreadMarker: () => void;
@@ -129,6 +131,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   canPinMessage,
   togglePinMessage,
   activeConversationSummary,
+  onSummarizeConversation,
+  isSummarizingConversation,
   typingUsers,
   unreadMarker,
   onDismissUnreadMarker,
@@ -193,6 +197,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   editInputText,
   handleSaveEdit,
 }) => {
+  const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const getMessageStatusLabel = (msg: any) => {
     const status = getMessageStatus(msg);
     if (status === 'SEEN') {
@@ -559,6 +564,22 @@ export const MessageList: React.FC<MessageListProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {!activeConversationSummary && unreadMarker && unreadMarker.count >= 15 && dismissedSummaryMarkerId !== unreadMarker.messageId && (
+        <div className={`mx-4 mt-4 flex items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/90 px-4 py-3 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 ${conversationInfoOffsetClass}`}>
+          <div className="rounded-lg bg-white p-2 text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-300"><Sparkles className="h-4 w-4" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 text-sm font-bold text-indigo-800 dark:text-indigo-200">Bạn có {unreadMarker.count} tin nhắn chưa đọc</p>
+            <p className="m-0 mt-0.5 text-xs text-indigo-600/80 dark:text-indigo-300/80">AI có thể giúp bạn nắm nhanh nội dung chính.</p>
+          </div>
+          <button type="button" disabled={isSummarizingConversation} onClick={onSummarizeConversation} className="shrink-0 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60">
+            {isSummarizingConversation ? 'Đang tóm tắt...' : 'Tóm tắt bằng AI'}
+          </button>
+          <button type="button" onClick={() => setDismissedSummaryMarkerId(unreadMarker.messageId)} className="shrink-0 rounded-lg p-1.5 text-indigo-400 transition hover:bg-white hover:text-indigo-700 dark:hover:bg-zinc-900" aria-label="Ẩn gợi ý tóm tắt">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

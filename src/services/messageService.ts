@@ -13,6 +13,10 @@ export interface CreatePollPayload {
 }
 
 export const messageService = {
+  async getUnreadCounts(): Promise<ApiResponse<Record<string, number>>> {
+    const response = await apiClient.get<ApiResponse<Record<string, number>>>('/messages/unread-counts');
+    return response.data;
+  },
   async getLatestMessages(conversationIds: string[]): Promise<ApiResponse<MessageResponse[]>> {
     const response = await apiClient.post<ApiResponse<MessageResponse[]>>('/messages/latest', conversationIds);
     return response.data;

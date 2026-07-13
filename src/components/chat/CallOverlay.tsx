@@ -8,16 +8,12 @@ import {
   MessageSquare,
   Mic,
   MicOff,
-  Monitor,
-  Palette,
   Phone,
   PhoneOff,
   Pin,
   PinOff,
-  RotateCcw,
   ScreenShare,
   Settings,
-  Sparkles,
   UserPlus,
   Users,
   Video,
@@ -140,20 +136,6 @@ const VideoTile = ({
   </div>
 );
 
-const VoiceTile = ({ tile }: { tile: Tile }) => (
-  <div className="nextalk-call-tile flex min-w-0 flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-    <div className={`relative rounded-full ${tile.isSpeaking ? 'ring-4 ring-emerald-400/80 ring-offset-4 ring-offset-white animate-pulse' : ''}`}>
-      <Avatar tile={tile} />
-      {tile.isMuted && (
-        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white ring-4 ring-white">
-          <MicOff className="h-4 w-4" />
-        </div>
-      )}
-    </div>
-    <span className="max-w-full truncate text-sm font-semibold text-slate-900">{tile.isLocal ? 'Ban' : tile.name}</span>
-  </div>
-);
-
 export const CallOverlay = () => {
   const currentUser = useAuthStore((state) => state.user);
   const {
@@ -172,8 +154,6 @@ export const CallOverlay = () => {
     remoteUsers,
     activeSpeakerUids,
     localAgoraUid,
-    callNotices,
-    remoteAudioPlaybackBlocked,
     localVideoTrack,
     screenVideoTrack,
     acceptCall,
@@ -183,10 +163,8 @@ export const CallOverlay = () => {
     toggleMic,
     toggleCamera,
     toggleSpeaker,
-    switchCamera,
     startVideo,
     toggleScreenShare,
-    resumeRemoteAudio,
     activeVoiceChannelId
   } = useCallStore();
   const callConversation = useChatStore((state) =>
@@ -526,9 +504,9 @@ export const CallOverlay = () => {
 
           <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20 pointer-events-none">
              <div className="pointer-events-auto flex items-center gap-3 bg-white/90 backdrop-blur rounded-full pl-2 pr-4 py-1.5 shadow-lg">
-                <Avatar tile={{ id: 'info', name: displayName, avatarUrl: partner?.avatarUrl }} size="sm" />
+                 <Avatar tile={{ id: 'info', name: displayName, avatarUrl: partner?.avatarUrl }} size="small" />
                 <div className="flex flex-col items-start">
-                   <span className="text-xs font-bold text-slate-900">{displayName}</span>
+                   <span className="text-xs font-bold text-slate-900" title={subtitle}>{displayName}</span>
                    <span className="text-[10px] font-bold text-green-600 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"/>{formatDuration(callDuration)}</span>
                 </div>
              </div>

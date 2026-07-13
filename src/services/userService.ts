@@ -2,9 +2,13 @@ import { apiClient } from '../api/apiClient';
 import type { ApiResponse, User } from '../types/auth';
 
 export interface UpdateProfilePayload {
-  username: string;
-  avatarUrl: string;
-  bio: string;
+  username?: string;
+  avatarUrl?: string;
+  bio?: string;
+  birthday?: string;
+  enableBirthdayNotification?: boolean;
+  showActivityStatus?: boolean;
+  blockStrangerMessages?: boolean;
 }
 
 export const userService = {

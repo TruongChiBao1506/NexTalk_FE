@@ -18,7 +18,8 @@ import {
   Trash2,
   Loader2,
   LogOut,
-  Palette
+  Palette,
+  Pencil
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
 import { GroupQrModal } from './GroupQrModal';
@@ -120,11 +121,21 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [showAllFiles, setShowAllFiles] = useState(false);
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [notificationFeedback, setNotificationFeedback] = useState<string | null>(null);
-  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [showNicknameManager, setShowNicknameManager] = useState(false);
+  const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
-  const [isSavingNickname, setIsSavingNickname] = useState(false);
-  const nicknameTargetId = isGroupConversation ? currentUserId : activeFriend?.id;
-  const currentNickname = nicknameTargetId ? activeConversation.nicknames?.[nicknameTargetId] || '' : '';
+  const [savingNicknameUserId, setSavingNicknameUserId] = useState<string | null>(null);
+
+  const saveNickname = async (userId: string, nickname: string) => {
+    setSavingNicknameUserId(userId);
+    try {
+      await onUpdateNickname(userId, nickname);
+      setEditingNicknameUserId(null);
+      setNicknameDraft('');
+    } finally {
+      setSavingNicknameUserId(null);
+    }
+  };
 
   const handleToggleNotifications = async () => {
     const nextMuted = !activeConversation.muted;
@@ -193,61 +204,60 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               </span>
             </button>
             <p className="m-0 text-xs font-medium text-gray-500 dark:text-zinc-400">{getConversationInfoSubtitle()}</p>
-            {nicknameTargetId && (
-              <div className="mt-3 w-full max-w-[260px]">
-                {isEditingNickname ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={nicknameDraft}
-                      onChange={(event) => setNicknameDraft(event.target.value.slice(0, 40))}
-                      placeholder={isGroupConversation ? 'Biệt danh của bạn' : 'Nhập biệt danh'}
-                      autoFocus
-                      className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-900"
-                    />
-                    <button
-                      type="button"
-                      disabled={isSavingNickname}
-                      onClick={async () => {
-                        setIsSavingNickname(true);
-                        try {
-                          await onUpdateNickname(nicknameTargetId, nicknameDraft);
-                          setIsEditingNickname(false);
-                        } finally {
-                          setIsSavingNickname(false);
-                        }
-                      }}
-                      className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
-                    >
-                      {isSavingNickname ? 'Lưu...' : 'Lưu'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-3">
-                    <button type="button" onClick={() => { setNicknameDraft(currentNickname); setIsEditingNickname(true); }} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
-                      {currentNickname ? `Biệt danh: ${currentNickname}` : (isGroupConversation ? 'Đặt biệt danh của bạn' : 'Đặt biệt danh')}
-                    </button>
-                    {currentNickname && (
-                      <button
-                        type="button"
-                        disabled={isSavingNickname}
-                        onClick={async () => {
-                          setIsSavingNickname(true);
-                          try {
-                            await onUpdateNickname(nicknameTargetId, '');
-                            setNicknameDraft('');
-                          } finally {
-                            setIsSavingNickname(false);
-                          }
-                        }}
-                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-60 dark:text-rose-400"
-                      >
-                        {isSavingNickname ? 'Đang xóa...' : 'Xóa'}
-                      </button>
+          </section>
+
+          <button type="button" onClick={() => setShowNicknameManager(true)} className="mt-6 flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+            <Pencil className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="min-w-0 flex-1 text-sm font-bold text-gray-800 dark:text-zinc-100">Biệt danh</span>
+            <span className="text-xs text-gray-400">{activeConversation.members.length} thành viên ›</span>
+          </button>
+
+          <section className={`${showNicknameManager ? 'absolute inset-0 z-20 flex flex-col bg-white p-4 dark:bg-discord-mid' : 'hidden'}`}>
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">Chỉnh sửa biệt danh</h4>
+              <button type="button" title="Đóng" onClick={() => { setShowNicknameManager(false); setEditingNicknameUserId(null); }} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-80 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 dark:border-zinc-700">
+              {activeConversation.members.map((member) => {
+                const nickname = activeConversation.nicknames?.[member.id] || '';
+                const isEditing = editingNicknameUserId === member.id;
+                const isSaving = savingNicknameUserId === member.id;
+                return (
+                  <div key={member.id} className="border-b border-gray-100 px-3 py-3 last:border-b-0 dark:border-zinc-800">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={nicknameDraft}
+                          onChange={(event) => setNicknameDraft(event.target.value.slice(0, 40))}
+                          onKeyDown={(event) => { if (event.key === 'Enter') void saveNickname(member.id, nicknameDraft); }}
+                          placeholder={`Biệt danh cho ${member.username}`}
+                          autoFocus
+                          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <button type="button" disabled={isSaving} onClick={() => void saveNickname(member.id, nicknameDraft)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">
+                          {isSaving ? 'Lưu...' : 'Lưu'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800 dark:text-zinc-200">
+                          {nickname ? `${nickname} - ${member.username}` : member.username}{member.id === currentUserId ? ' (Bạn)' : ''}
+                        </span>
+                        <button type="button" title="Chỉnh sửa biệt danh" onClick={() => { setNicknameDraft(nickname); setEditingNicknameUserId(member.id); }} className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-zinc-800">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        {nickname && (
+                          <button type="button" disabled={isSaving} title="Xóa biệt danh" onClick={() => { if (window.confirm(`Xóa biệt danh của ${member.id === currentUserId ? 'bạn' : member.username}?`)) void saveNickname(member.id, ''); }} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:hover:bg-zinc-800">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            )}
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-zinc-400">Mọi thành viên đều có thể thay đổi biệt danh. Thay đổi sẽ được thông báo trong cuộc trò chuyện.</p>
           </section>
 
           <section className="mt-6">

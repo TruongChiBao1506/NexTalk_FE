@@ -21,7 +21,7 @@ import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
-  Shield, Lock, Headphones, Mic, BellRing, Copy, Forward, Download, Trash2, Undo2
+  Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -47,7 +47,6 @@ import { ConversationList } from '../components/chat/ConversationList';
 import { SidebarNavigation } from '../components/chat/SidebarNavigation';
 import { SidebarHeader } from '../components/chat/SidebarHeader';
 import { SidebarSearch } from '../components/chat/SidebarSearch';
-import { SidebarTabs } from '../components/chat/SidebarTabs';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
 import { VoiceConnectedPanel } from '../components/chat/VoiceConnectedPanel';
 import { VoiceChannelGrid } from '../components/chat/VoiceChannelGrid';
@@ -166,6 +165,7 @@ export const Chat = () => {
     typingUsersByConversation,
     messageDrafts,
     unreadMarkersByConversation,
+    unreadCounts,
     fetchPinnedMessages,
     setReplyTo,
     editMessage,
@@ -187,7 +187,6 @@ export const Chat = () => {
     incoming: incomingChatRequests,
     isLoadingIncoming: isLoadingChatRequests,
     fetchIncoming: fetchIncomingChatRequests,
-    createRequest: createChatRequest,
   } = useChatRequestStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -247,10 +246,10 @@ export const Chat = () => {
 
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
   const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
-  const [isSendingBlockedChatRequest, setIsSendingBlockedChatRequest] = useState(false);
+  const isSendingBlockedChatRequest = false;
   const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [sentFriendRequestIds, setSentFriendRequestIds] = useState<string[]>([]);
-  const [sentChatRequestIds, setSentChatRequestIds] = useState<string[]>([]);
+  const sentChatRequestIds: string[] = [];
   const [profileChatActionId, setProfileChatActionId] = useState<string | null>(null);
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
@@ -1223,27 +1222,24 @@ export const Chat = () => {
     }
   };
 
-  const getActivePrivateFriendId = () => {
-    if (activeConversation?.type !== 'PRIVATE') {
-      return null;
-    }
-    return activeConversation.members.find((member) => member.id !== user?.id)?.id ?? null;
-  };
-
-  const activePrivateFriendId = getActivePrivateFriendId();
   const activePrivateChatBlockedByMe = activeConversation?.type === 'PRIVATE' && activeConversation.blockedByMe === true;
   const activePrivateChatBlockedMe = activeConversation?.type === 'PRIVATE' && activeConversation.blockedMe === true;
   const activePrivateChatBlocked = activePrivateChatBlockedByMe || activePrivateChatBlockedMe;
+  const activePrivateChatRequiresFriendship = activeConversation?.type === 'PRIVATE'
+    && activeConversation.canSendMessages === false
+    && !activePrivateChatBlocked;
   const canSendInActiveConversation = !activeConversation ||
     (
       activeConversation.type === 'PRIVATE'
-        ? !activePrivateChatBlocked
+        ? !activePrivateChatBlocked && activeConversation.canSendMessages !== false
         : true
     );
   const messagePlaceholder = activePrivateChatBlockedByMe
     ? 'Bạn đã chặn người này. Bỏ chặn để tiếp tục nhắn tin.'
     : activePrivateChatBlockedMe
       ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn.'
+      : activePrivateChatRequiresFriendship
+        ? 'Cần kết bạn để tiếp tục nhắn tin.'
       : !canSendInActiveConversation
         ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
         : activeConversation?.type === 'GROUP'
@@ -1553,7 +1549,12 @@ export const Chat = () => {
 
       currentConversation.members.forEach((member) => {
         if (member.id !== currentUser?.id) {
-          values.push({ id: member.id, value: member.username });
+          const nickname = currentConversation.nicknames?.[member.id]?.trim();
+          values.push({
+            id: member.id,
+            value: nickname || member.username,
+            aliases: nickname ? [member.username.toLowerCase()] : undefined,
+          });
         }
       });
     }
@@ -1585,7 +1586,7 @@ export const Chat = () => {
       modules: {
         toolbar: false,
         mention: {
-          allowedChars: /^[A-Za-z0-9_\s]*$/,
+          allowedChars: /^[\p{L}\p{M}0-9_\s]*$/u,
           mentionDenotationChars: ['@'],
           positioningStrategy: 'fixed',
           source: function (searchTerm: string, renderList: (list: any[], term: string) => void) {
@@ -2046,6 +2047,7 @@ export const Chat = () => {
   const getFriendInfo = (conversation: ConversationResponse) => {
     if (conversation.type === 'PRIVATE') {
       return conversation.members.find(m => m.id !== user?.id) || {
+        id: '',
         username: 'Unknown User',
         avatarUrl: null,
         email: '',
@@ -2055,6 +2057,7 @@ export const Chat = () => {
       };
     }
     return {
+      id: '',
       username: conversation.name || 'Group Chat',
       avatarUrl: null,
       email: '',
@@ -2910,6 +2913,7 @@ export const Chat = () => {
           selectConversation={selectConversation}
           user={user}
           notifications={notifications}
+          unreadCounts={unreadCounts}
           setChannelSettingsData={setChannelSettingsData}
           setCreateChannelGroupId={setCreateChannelGroupId}
           handleDeleteConversation={handleDeleteConversation}
@@ -2979,8 +2983,9 @@ export const Chat = () => {
               isGroupModerator={canModerateActiveGroup}
             />
 
-            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedByOther && activeFriend.email !== 'moderator@nextalk.local' && (
+            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
               <StrangerWarningBanner
+                messagingRestricted={activePrivateChatRequiresFriendship}
                 onAddFriend={() => handleSendFriendRequestFromSearch(activeFriend.id)}
                 isAddFriendLoading={friendRequestActionId === activeFriend.id}
                 isAddFriendSent={sentFriendRequestIds.includes(activeFriend.id)}
@@ -3034,6 +3039,8 @@ export const Chat = () => {
                     canPinMessage={canPinMessage}
                     togglePinMessage={togglePinMessage}
                     activeConversationSummary={activeConversationSummary}
+                    onSummarizeConversation={handleSummarizeConversation}
+                    isSummarizingConversation={isSummarizingConversation}
                     typingUsers={activeTypingUsers}
                     unreadMarker={activeUnreadMarker}
                     onDismissUnreadMarker={() => {
@@ -3193,7 +3200,7 @@ export const Chat = () => {
                 {/* Selection Toolbar */}
                 {isSelectionMode && (() => {
                   const selectedMsgs = visibleMessages.filter(m => selectedMessageIds.includes(m.id));
-                  const canRecallAll = selectedMsgs.length > 0 && selectedMsgs.every(m => m.senderId === user?.id && !m.isRecalled);
+                  const canRecallAll = selectedMsgs.length > 0 && selectedMsgs.every(m => m.senderId === user?.id && !('isRecalled' in m && m.isRecalled));
 
                   return (
                   <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 p-2 px-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">

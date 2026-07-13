@@ -116,8 +116,10 @@ interface ChatState {
   typingUsersByConversation: Record<string, TypingUser[]>;
   messageDrafts: Record<string, string>;
   unreadMarkersByConversation: Record<string, UnreadMarker>;
+  unreadCounts: Record<string, number>;
 
   fetchConversations: () => Promise<void>;
+  fetchUnreadCounts: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   updateConversation: (conversation: ConversationResponse) => void;
   loadMoreMessages: () => Promise<void>;
@@ -181,6 +183,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typingUsersByConversation: {},
   messageDrafts: loadMessageDrafts(),
   unreadMarkersByConversation: {},
+  unreadCounts: {},
   isSelectionMode: false,
   selectedMessageIds: [],
 
@@ -270,6 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Sort conversations by updatedAt descending
         const sorted = sortConversations(response.data);
         set({ conversations: sorted });
+        void get().fetchUnreadCounts();
         
         // Fetch all conversation previews in one request (avoids N+1 HTTP calls).
         messageService.getLatestMessages(sorted.map((conv) => conv.id)).then(response => {
@@ -296,6 +300,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to fetch conversations:', err);
     } finally {
       set({ isLoadingConversations: false });
+    }
+  },
+
+  fetchUnreadCounts: async () => {
+    try {
+      const response = await messageService.getUnreadCounts();
+      if (response.success && response.data) set({ unreadCounts: response.data });
+    } catch {
+      // Giữ dữ liệu hiện tại nếu đồng bộ nền thất bại.
     }
   },
 
@@ -373,6 +386,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...get().typingUsersByConversation,
         [conversationId]: [],
       },
+      unreadCounts: { ...get().unreadCounts, [conversationId]: 0 },
     });
 
     try {
@@ -781,6 +795,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...state.lastMessages,
         [message.conversationId]: message,
       },
+      unreadCounts: currentUser && message.senderId !== currentUser.id && activeConversation?.id !== message.conversationId
+        ? { ...state.unreadCounts, [message.conversationId]: (state.unreadCounts[message.conversationId] ?? 0) + 1 }
+        : { ...state.unreadCounts, [message.conversationId]: 0 },
     }));
 
     // If belongs to the active conversation

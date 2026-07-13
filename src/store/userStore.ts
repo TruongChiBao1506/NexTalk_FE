@@ -14,6 +14,8 @@ interface UserState {
     bio?: string;
     birthday?: string;
     enableBirthdayNotification?: boolean;
+    showActivityStatus?: boolean;
+    blockStrangerMessages?: boolean;
   }) => Promise<boolean>;
 }
 

@@ -107,7 +107,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <Users className="w-3 h-3" />
                   <span>{activeGroup?.memberCount ?? '?'} thành viên</span>
                 </>
-              ) : activeFriend ? (
+              ) : activeFriend && activeFriend.status !== 'HIDDEN' ? (
                 <>
                   <span className={`w-1.5 h-1.5 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-550'}`} />
                   <span className="capitalize truncate">

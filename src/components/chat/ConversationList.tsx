@@ -57,6 +57,7 @@ interface ConversationListProps {
   selectConversation: any;
   user: any;
   notifications: any;
+  unreadCounts?: Record<string, number>;
   setChannelSettingsData: any;
   setCreateChannelGroupId: any;
   handleDeleteConversation: any;
@@ -110,6 +111,7 @@ export const ConversationList = ({
   selectConversation,
   user,
   notifications,
+  unreadCounts = {},
   setChannelSettingsData,
   setCreateChannelGroupId,
   handleDeleteConversation,
@@ -545,7 +547,7 @@ export const ConversationList = ({
                 !n.read &&
                 (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
             );
-            const unreadCount = unreadNotifs.length;
+            const unreadCount = unreadCounts[c.id] ?? unreadNotifs.length;
             const hasUnread = unreadCount > 0;
 
             return (
@@ -574,7 +576,7 @@ export const ConversationList = ({
                       {friendDisplayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span
+                  {friend.status !== 'HIDDEN' && <span
                     className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-discord-mid ${
                       friend.status === "ONLINE"
                         ? "bg-emerald-500"
@@ -582,7 +584,7 @@ export const ConversationList = ({
                           ? "bg-amber-400"
                           : "bg-gray-400 dark:bg-zinc-600"
                     }`}
-                  />
+                  />}
                 </div>
 
                 {/* Content */}
@@ -749,7 +751,7 @@ export const ConversationList = ({
               !n.read &&
               (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
           );
-          const unreadCount = unreadNotifs.length;
+          const unreadCount = unreadCounts[groupConversationId ?? ''] ?? unreadNotifs.length;
           const hasUnread = unreadCount > 0;
 
           return (
