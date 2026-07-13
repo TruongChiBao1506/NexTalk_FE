@@ -2243,6 +2243,9 @@ export const Chat = () => {
     if (!activeGroup || !currentGroupMembership || member.userId === user?.id || member.role === role) {
       return false;
     }
+    if (role === 'OWNER') {
+      return currentGroupMembership.role === 'OWNER' && member.role !== 'OWNER';
+    }
     return isGroupLeaderRole(currentGroupMembership.role)
       && !isGroupLeaderRole(member.role)
       && (role === 'DEPUTY' || role === 'MEMBER');
@@ -2264,9 +2267,11 @@ export const Chat = () => {
     const actionId = `${member.userId}:${role}`;
 
     setConfirmDialog({
-      title: 'Cập nhật vai trò',
-      description: `Bạn có chắc muốn cập nhật ${member.username} thành ${roleLabels[role]}?`,
-      confirmLabel: 'Cập nhật',
+      title: role === 'OWNER' ? 'Chuyển quyền trưởng nhóm' : 'Cập nhật vai trò',
+      description: role === 'OWNER'
+        ? `Bạn có chắc muốn chuyển toàn bộ quyền trưởng nhóm cho ${member.username}? Sau thao tác này bạn sẽ trở thành thành viên.`
+        : `Bạn có chắc muốn cập nhật ${member.username} thành ${roleLabels[role]}?`,
+      confirmLabel: role === 'OWNER' ? 'Chuyển quyền' : 'Cập nhật',
       variant: 'primary',
       onConfirm: async () => {
         setGroupMemberActionId(actionId);

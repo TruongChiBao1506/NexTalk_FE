@@ -1,18 +1,27 @@
 import React from 'react';
-import type { ConversationResponse } from '../../types/chat';
-
 interface GroupAvatarProps {
-  conversation: ConversationResponse;
+  conversation: GroupAvatarSource;
   className?: string;
   size?: number;
 }
 
+interface GroupAvatarSource {
+  name?: string | null;
+  avatarUrl?: string | null;
+  members?: Array<{
+    id?: string;
+    userId?: string;
+    username: string;
+    avatarUrl?: string | null;
+  }>;
+}
+
 export const GroupAvatar: React.FC<GroupAvatarProps> = ({ conversation, className = '', size = 48 }) => {
   // If the group has a custom avatar URL, show it
-  if ((conversation as any).avatarUrl) {
+  if (conversation.avatarUrl) {
     return (
       <img
-        src={(conversation as any).avatarUrl}
+        src={conversation.avatarUrl}
         alt={conversation.name || 'Group Avatar'}
         className={`rounded-full object-cover shrink-0 ${className}`}
         style={{ width: size, height: size }}
@@ -86,7 +95,7 @@ export const GroupAvatar: React.FC<GroupAvatarProps> = ({ conversation, classNam
           if (member.avatarUrl) {
             return (
               <img
-                key={member.id || (member as any).userId || index}
+                key={member.id || member.userId || index}
                 src={member.avatarUrl}
                 alt={member.username}
                 className="w-full h-full object-cover"
@@ -97,7 +106,7 @@ export const GroupAvatar: React.FC<GroupAvatarProps> = ({ conversation, classNam
           // Fallback for individual member in grid
           return (
             <div
-              key={member.id || (member as any).userId || index}
+              key={member.id || member.userId || index}
               className="w-full h-full bg-gradient-to-br from-indigo-400 to-blue-500 text-white flex items-center justify-center font-bold"
               style={{ fontSize: size * (isGrid2x2 ? 0.25 : 0.3) }}
             >

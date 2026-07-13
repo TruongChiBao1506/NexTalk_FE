@@ -1,4 +1,4 @@
-import { X, Camera, Loader2, Check, Settings, Users, Search, UserCog, User, UserMinus } from 'lucide-react';
+import { X, Camera, Loader2, Check, Settings, Users, Search, UserCog, User, UserMinus, Crown } from 'lucide-react';
 import type { User as AuthUser } from '../../types/auth';
 import type { GroupResponse } from '../../types/group';
 import type { ConversationResponse } from '../../types/chat';
@@ -276,6 +276,7 @@ export const ProfileModal = ({
                   const canKick = canKickGroupMember(member);
                   const canMakeDeputy = canSetGroupMemberRole(member, 'DEPUTY');
                   const canMakeMember = canSetGroupMemberRole(member, 'MEMBER') && member.role !== 'MEMBER';
+                  const canTransferOwnership = canSetGroupMemberRole(member, 'OWNER');
                   const roleActionLoading = groupMemberActionId?.startsWith(`${member.userId}:`);
                   return (
                     <div key={member.userId} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
@@ -290,8 +291,19 @@ export const ProfileModal = ({
                         <p className="m-0 truncate text-sm font-semibold">{member.username}</p>
                         <p className="m-0 text-[11px] text-gray-400 dark:text-zinc-500">{roleLabels[member.role]}</p>
                       </div>
-                      {(canMakeDeputy || canMakeMember) && (
+                      {(canTransferOwnership || canMakeDeputy || canMakeMember) && (
                         <div className="flex shrink-0 items-center gap-1">
+                          {canTransferOwnership && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateGroupMemberRole(member, 'OWNER')}
+                              disabled={Boolean(groupMemberActionId)}
+                              className="rounded-lg p-2 text-amber-500 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-60 dark:hover:bg-amber-500/10"
+                              title="Chuyển quyền trưởng nhóm"
+                            >
+                              {roleActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
+                            </button>
+                          )}
                           {canMakeDeputy && (
                             <button
                               type="button"

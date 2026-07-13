@@ -411,7 +411,7 @@ export const ConversationList = ({
                       className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                     >
                       <div className="relative shrink-0">
-                        <GroupAvatar conversation={c as any} size={40} />
+                        <GroupAvatar conversation={c} size={40} />
                         {c.hidden && (
                           <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white dark:ring-zinc-900 shadow">
                             <Lock className="h-2.5 w-2.5" />

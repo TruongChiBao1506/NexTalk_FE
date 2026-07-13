@@ -24,6 +24,15 @@ function isTokenExpired(token: string, offsetSeconds = 60): boolean {
   }
 }
 
+function getTokenSessionId(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1])).sid ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const sortConversations = (conversations: ConversationResponse[]) =>
   [...conversations].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -651,7 +660,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       client.subscribe('/user/queue/private', (message) => {
         try {
           const body = JSON.parse(message.body);
-          if (body.type === 'STATUS_UPDATE') {
+          if (body.type === 'ALL_SESSIONS_REVOKED') {
+            get().disconnectWebSocket();
+            useAuthStore.getState().logout();
+          } else if (body.type === 'SESSION_REVOKED') {
+            const accessToken = localStorage.getItem('nextalk_accessToken');
+            if (getTokenSessionId(accessToken) === body.sessionId) {
+              get().disconnectWebSocket();
+              useAuthStore.getState().logout();
+            }
+          } else if (body.type === 'STATUS_UPDATE') {
             get().handleStatusUpdate(body);
           } else if (body.type === 'TYPING') {
             get().handleTypingIndicator(body);
@@ -881,6 +899,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   handleStatusUpdate: (update: MessageStatusUpdateResponse) => {
     const { activeConversation, messages, lastMessages } = get();
+    const currentUser = useAuthStore.getState().user;
+
+    if (update.status === 'SEEN' && update.userId === currentUser?.id) {
+      set((state) => ({
+        unreadCounts: { ...state.unreadCounts, [update.conversationId]: 0 },
+      }));
+
+      const notifications = useNotificationStore.getState().notifications.filter((notification) =>
+        notification.referenceId === update.conversationId &&
+        !notification.read &&
+        (notification.type === 'NEW_MESSAGE' || notification.type === 'MENTION')
+      );
+      notifications.forEach((notification) => {
+        useNotificationStore.getState().markAsRead(notification.id).catch(() => undefined);
+      });
+    }
 
     // 1. Update the status in the active conversation's messages list in local state
     if (activeConversation && activeConversation.id === update.conversationId) {

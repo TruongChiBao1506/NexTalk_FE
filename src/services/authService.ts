@@ -81,5 +81,10 @@ export const authService = {
   async revokeSession(id: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/auth/sessions/${id}`);
     return response.data;
+  },
+
+  async revokeAllSessions(): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>('/auth/sessions');
+    return response.data;
   }
 };

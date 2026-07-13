@@ -672,6 +672,17 @@ export const useCallStore = create<CallStore>((set, get) => ({
         if (signal.receiverId && signal.receiverId !== currentUser.id) return;
         get().receiveCall(signal);
         break;
+      case 'CALL_HANDLED':
+        if (
+          callState !== 'ringing_incoming' ||
+          !isSameConversation ||
+          !isSameCall ||
+          signal.receiverId !== currentUser?.id
+        ) return;
+        audioSynth.stop();
+        get().clearTracks();
+        resetCall();
+        break;
       case 'ANSWER':
         if (
           !currentUser ||
@@ -1147,4 +1158,3 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({ isViewingVoiceGrid: isViewing });
   }
 }));
-

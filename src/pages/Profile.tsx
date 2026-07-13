@@ -31,6 +31,7 @@ export const Profile = () => {
   const [sessions, setSessions] = useState<SessionResponse[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [isRevokingAllSessions, setIsRevokingAllSessions] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
   const [isPinSetupOpen, setIsPinSetupOpen] = useState(false);
 
@@ -105,6 +106,19 @@ export const Profile = () => {
       window.alert(err.response?.data?.message || 'Không thể đăng xuất thiết bị này.');
     } finally {
       setRevokingSessionId(null);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    if (!window.confirm('Đăng xuất khỏi tất cả thiết bị, bao gồm thiết bị này?')) return;
+    setIsRevokingAllSessions(true);
+    try {
+      await authService.revokeAllSessions();
+    } finally {
+      useChatStore.getState().disconnectWebSocket();
+      logout();
+      navigate('/login');
+      setIsRevokingAllSessions(false);
     }
   };
 
@@ -710,6 +724,18 @@ export const Profile = () => {
                 ))
               )}
             </div>
+            {sessions.length > 0 && (
+              <div className="border-t border-gray-100 p-4 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={handleRevokeAllSessions}
+                  disabled={isRevokingAllSessions}
+                  className="w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {isRevokingAllSessions ? 'Đang đăng xuất...' : 'Đăng xuất tất cả thiết bị'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
