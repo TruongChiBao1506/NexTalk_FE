@@ -46,6 +46,7 @@ interface ConversationListProps {
   isSearchActive: any;
   isGlobalSearching: any;
   globalSearchError: any;
+  pinUnlockStatus?: 'idle' | 'verifying' | 'unlocked' | 'invalid';
   globalUserResults: any;
   isExistingFriend: any;
   sentFriendRequestIds: any;
@@ -78,6 +79,7 @@ interface ConversationListProps {
   handleToggleConversationPin: any;
   handleHideClick: any;
   getGroupConversationId: any;
+  getLatestGroupMessage: any;
   expandedGroups: any;
   handleOpenGroup: any;
   toggleGroupExpand: any;
@@ -100,6 +102,7 @@ export const ConversationList = ({
   isSearchActive,
   isGlobalSearching,
   globalSearchError,
+  pinUnlockStatus,
   globalUserResults,
   isExistingFriend,
   sentFriendRequestIds,
@@ -132,6 +135,7 @@ export const ConversationList = ({
   handleToggleConversationPin,
   handleHideClick,
   getGroupConversationId,
+  getLatestGroupMessage,
   expandedGroups,
   handleOpenGroup,
   toggleGroupExpand,
@@ -242,6 +246,20 @@ export const ConversationList = ({
           {globalSearchError && (
             <div className="rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">
               {globalSearchError}
+            </div>
+          )}
+
+          {pinUnlockStatus === 'verifying' && (
+            <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Đang xác thực Chat PIN…</span>
+            </div>
+          )}
+
+          {pinUnlockStatus === 'unlocked' && globalConversationResults.length === 0 && (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              <Unlock className="h-4 w-4" />
+              <span>Đã mở khóa — hiện chưa có cuộc trò chuyện ẩn.</span>
             </div>
           )}
 
@@ -741,17 +759,34 @@ export const ConversationList = ({
                 (conversation) => conversation.id === groupConversationId,
               )
             : null;
-          const lastMsg = groupConversationId
-            ? lastMessages[groupConversationId]
-            : undefined;
-          const draftPreview = getDraftPreview(groupConversationId);
+          const lastMsg = getLatestGroupMessage(g);
+          const previewConversationId = lastMsg?.conversationId ?? groupConversationId;
+          const previewChannel = g.channels?.find(
+            (channel: any) => channel.conversationId === lastMsg?.conversationId,
+          );
+          const draftPreview = getDraftPreview(previewConversationId);
+          const groupConversationIds = new Set(
+            (g.channels ?? []).map((channel: any) => channel.conversationId),
+          );
+          if (groupConversationId) groupConversationIds.add(groupConversationId);
           const unreadNotifs = notifications.filter(
             (n) =>
-              n.referenceId === groupConversationId &&
+              groupConversationIds.has(n.referenceId) &&
               !n.read &&
               (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
           );
-          const unreadCount = unreadCounts[groupConversationId ?? ''] ?? unreadNotifs.length;
+          const channelUnreadCount = Array.from(groupConversationIds).reduce(
+            (total: number, conversationId: any) => total + (unreadCounts[conversationId] ?? 0),
+            0,
+          );
+          const lastMessageIsUnread = Boolean(
+            lastMsg
+              && lastMsg.senderId !== user?.id
+              && !lastMsg.statuses?.some(
+                (status: any) => status.userId === user?.id && status.status === 'SEEN',
+              ),
+          );
+          const unreadCount = channelUnreadCount || unreadNotifs.length || (lastMessageIsUnread ? 1 : 0);
           const hasUnread = unreadCount > 0;
 
           return (
@@ -824,6 +859,11 @@ export const ConversationList = ({
                         </>
                       ) : lastMsg ? (
                         <>
+                          {previewChannel && previewChannel.conversationId !== groupConversationId && (
+                            <span className="font-semibold text-indigo-500 dark:text-indigo-400">
+                              #{previewChannel.name} ·{' '}
+                            </span>
+                          )}
                           {lastMsg.metadata?.priority === 'IMPORTANT' && (
                             <span className="text-rose-600 dark:text-rose-500 font-bold mr-1 inline-flex items-center gap-0.5 align-text-bottom">
                               <AlertTriangle className="w-3.5 h-3.5" /> [Quan trọng]
@@ -975,7 +1015,7 @@ export const ConversationList = ({
                       </div>
                     )}
                     {hasUnread && (
-                      <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 dark:bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
+                      <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
                         {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
                     )}
@@ -995,7 +1035,17 @@ export const ConversationList = ({
                         !n.read &&
                         (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
                     );
-                    const channelUnreadCount = channelNotifs.length;
+                    const channelLastMessage = lastMessages[ch.conversationId];
+                    const channelLastMessageIsUnread = Boolean(
+                      channelLastMessage
+                        && channelLastMessage.senderId !== user?.id
+                        && !channelLastMessage.statuses?.some(
+                          (status: any) => status.userId === user?.id && status.status === 'SEEN',
+                        ),
+                    );
+                    const channelUnreadCount = (unreadCounts[ch.conversationId] ?? 0)
+                      || channelNotifs.length
+                      || (channelLastMessageIsUnread ? 1 : 0);
                     const channelHasUnread = channelUnreadCount > 0;
                     const channelDraftPreview = getDraftPreview(ch.conversationId);
 

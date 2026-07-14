@@ -12,6 +12,13 @@ import type { ConversationResponse, ConversationSummaryResponse, MessageAttachme
 import { refreshAccessToken } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
 
+let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+const stopPresenceHeartbeat = () => {
+  if (presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
+  presenceHeartbeatTimer = null;
+};
+
 function isTokenExpired(token: string, offsetSeconds = 60): boolean {
   try {
     const payloadBase64 = token.split('.')[1];
@@ -655,6 +662,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     client.onConnect = () => {
       console.info('[STOMP] WebSocket connected.');
       set({ isConnected: true, isConnecting: false, stompClient: client });
+      stopPresenceHeartbeat();
+      const sendPresenceHeartbeat = () => client.connected && client.publish({ destination: '/app/presence.heartbeat', body: '{}' });
+      sendPresenceHeartbeat();
+      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 30_000);
 
       // Subscribe to personal private chat channel
       client.subscribe('/user/queue/private', (message) => {
@@ -730,11 +741,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     client.onDisconnect = () => {
+      stopPresenceHeartbeat();
       console.info('[STOMP] WebSocket disconnected.');
       set({ isConnected: false, stompClient: null });
     };
 
     client.onStompError = async (frame) => {
+      stopPresenceHeartbeat();
       console.error('[STOMP] STOMP error:', frame.headers['message']);
       set({ error: frame.headers['message'] || 'STOMP Protocol Error', isConnecting: false });
 
@@ -753,6 +766,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     client.onWebSocketError = async () => {
+      stopPresenceHeartbeat();
       console.error('[STOMP] WebSocket connection failed.');
       set({ error: 'WebSocket connection failed', isConnecting: false });
 
@@ -775,6 +789,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   disconnectWebSocket: () => {
     const { stompClient } = get();
+    stopPresenceHeartbeat();
     if (stompClient) {
       stompClient.deactivate();
       Object.values(typingIndicatorTimeouts).forEach(clearTimeout);

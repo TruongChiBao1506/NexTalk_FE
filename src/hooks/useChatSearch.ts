@@ -21,6 +21,7 @@ export const useChatSearch = ({ handleJumpToMessage }: UseChatSearchProps) => {
   const [globalConversationResults, setGlobalConversationResults] = useState<ConversationResponse[]>([]);
   const [isGlobalSearching, setIsGlobalSearching] = useState(false);
   const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
+  const [pinUnlockStatus, setPinUnlockStatus] = useState<'idle' | 'verifying' | 'unlocked' | 'invalid'>('idle');
 
   const [groupMemberSearchQuery, setGroupMemberSearchQuery] = useState('');
 
@@ -28,7 +29,49 @@ export const useChatSearch = ({ handleJumpToMessage }: UseChatSearchProps) => {
 
   useEffect(() => {
     const query = searchQuery.trim();
+    const isChatPinEntry = Boolean(user?.hasChatPin && /^\d{1,4}$/.test(query));
+
+    if (isChatPinEntry) {
+      setGlobalUserResults([]);
+      setGlobalMessageResults([]);
+      setGlobalSearchError(null);
+
+      if (query.length < 4) {
+        setPinUnlockStatus('idle');
+        setGlobalConversationResults([]);
+        setIsGlobalSearching(false);
+        return;
+      }
+
+      let cancelled = false;
+      setPinUnlockStatus('verifying');
+      const timer = window.setTimeout(async () => {
+        setIsGlobalSearching(true);
+        try {
+          const response = await conversationService.searchConversations(query);
+          if (!cancelled) {
+            setGlobalConversationResults(response.success && response.data ? response.data : []);
+            setPinUnlockStatus('unlocked');
+          }
+        } catch {
+          if (!cancelled) {
+            setGlobalConversationResults([]);
+            setPinUnlockStatus('invalid');
+            setGlobalSearchError('Mã PIN không chính xác hoặc bạn đã thử quá nhiều lần.');
+          }
+        } finally {
+          if (!cancelled) setIsGlobalSearching(false);
+        }
+      }, 500);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
     if (query.length < 2) {
+      setPinUnlockStatus('idle');
       setGlobalUserResults([]);
       setGlobalMessageResults([]);
       setGlobalConversationResults([]);
@@ -87,7 +130,20 @@ export const useChatSearch = ({ handleJumpToMessage }: UseChatSearchProps) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [searchQuery, user?.id]);
+  }, [searchQuery, user?.hasChatPin, user?.id]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        setSearchQuery('');
+        setGlobalConversationResults([]);
+        setGlobalSearchError(null);
+        setPinUnlockStatus('idle');
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const handleOpenSearchMessage = async (message: MessageResponse) => {
     await selectConversation(message.conversationId);
@@ -102,6 +158,7 @@ export const useChatSearch = ({ handleJumpToMessage }: UseChatSearchProps) => {
     globalConversationResults, setGlobalConversationResults,
     isGlobalSearching,
     globalSearchError, setGlobalSearchError,
+    pinUnlockStatus,
     groupMemberSearchQuery, setGroupMemberSearchQuery,
     normalizeSearchTerm,
     handleOpenSearchMessage

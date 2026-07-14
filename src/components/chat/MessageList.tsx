@@ -313,11 +313,10 @@ export const MessageList: React.FC<MessageListProps> = ({
             handleJumpToMessage(message.id);
           }
         }}
-        className={`mb-2 block w-full overflow-hidden rounded-lg text-left transition hover:brightness-[0.98] ${
-          isOwnMessage
+        className={`mb-2 block w-full overflow-hidden rounded-lg text-left transition hover:brightness-[0.98] ${isOwnMessage
             ? 'bg-blue-200/55 text-slate-700 dark:bg-indigo-900/35 dark:text-zinc-100'
             : 'bg-indigo-50 text-slate-700 dark:bg-indigo-500/10 dark:text-zinc-100'
-        }`}
+          }`}
       >
         <span className="flex min-w-0 border-l-4 border-blue-500 px-3 py-2 dark:border-indigo-400">
           <span className="min-w-0 flex-1">
@@ -371,11 +370,10 @@ export const MessageList: React.FC<MessageListProps> = ({
       <button
         type="button"
         onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
-        className={`mt-3 block w-full max-w-[330px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${
-          isMine
+        className={`mt-3 block w-full max-w-[330px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${isMine
             ? 'bg-white/92 ring-1 ring-blue-200/90 shadow-sm dark:bg-zinc-900/80 dark:ring-indigo-500/25'
             : 'bg-gray-50 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
-        }`}
+          }`}
       >
         {preview.image && (
           <img
@@ -386,23 +384,20 @@ export const MessageList: React.FC<MessageListProps> = ({
           />
         )}
         <div className="space-y-1 p-3">
-          <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${
-            isMine ? 'text-indigo-600 dark:text-indigo-300' : 'text-indigo-600 dark:text-indigo-300'
-          }`}>
+          <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${isMine ? 'text-indigo-600 dark:text-indigo-300' : 'text-indigo-600 dark:text-indigo-300'
+            }`}>
             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{preview.siteName || getLinkHost(preview.url)}</span>
           </div>
           {preview.title && (
-            <p className={`m-0 line-clamp-2 text-sm font-bold leading-snug ${
-              isMine ? 'text-slate-900 dark:text-white' : 'text-gray-950 dark:text-white'
-            }`}>
+            <p className={`m-0 line-clamp-2 text-sm font-bold leading-snug ${isMine ? 'text-slate-900 dark:text-white' : 'text-gray-950 dark:text-white'
+              }`}>
               {preview.title}
             </p>
           )}
           {preview.description && (
-            <p className={`m-0 line-clamp-2 text-xs leading-relaxed ${
-              isMine ? 'text-slate-600 dark:text-zinc-300' : 'text-gray-600 dark:text-zinc-300'
-            }`}>
+            <p className={`m-0 line-clamp-2 text-xs leading-relaxed ${isMine ? 'text-slate-600 dark:text-zinc-300' : 'text-gray-600 dark:text-zinc-300'
+              }`}>
               {preview.description}
             </p>
           )}
@@ -418,11 +413,10 @@ export const MessageList: React.FC<MessageListProps> = ({
 
     return (
       <div className="inline-flex max-w-[min(88vw,620px)] items-center gap-2 rounded-full bg-white/95 px-3.5 py-2 text-sm text-slate-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
-          isDeleted
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${isDeleted
             ? 'border-rose-200 bg-rose-50 text-rose-500 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
             : 'border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300'
-        }`}>
+          }`}>
           <BellRing className="h-4 w-4" />
         </span>
         <span className="min-w-0 truncate">
@@ -478,9 +472,11 @@ export const MessageList: React.FC<MessageListProps> = ({
     <>
       {/* Pinned Messages Banner */}
       {pinnedMessages && pinnedMessages.length > 0 && (() => {
-        const latestPinned = { ...[...pinnedMessages].sort(
-          (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
-        )[0] };
+        const latestPinned = {
+          ...[...pinnedMessages].sort(
+            (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
+          )[0]
+        };
         const latestPinnedPreview = getMessagePreviewData(latestPinned);
         const latestPinnedText = latestPinnedPreview.fileName || latestPinnedPreview.text;
         if (!latestPinned.isRecalled) {
@@ -621,7 +617,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           const renderPriorityBadge = () => {
             if (!msg.metadata?.priority) return null;
             const isImportant = msg.metadata.priority === 'IMPORTANT';
-            
+
             const textColor = isImportant
               ? 'text-rose-600 dark:text-rose-300'
               : 'text-amber-600 dark:text-amber-300';
@@ -649,878 +645,861 @@ export const MessageList: React.FC<MessageListProps> = ({
 
           return (
             <React.Fragment key={msg.id}>
-            <div
-              id={`message-${msg.id}`}
-              onMouseEnter={() => setHoveredMessageId(msg.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-              className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${
-                isMentionedCurrentUser
-                  ? 'border-l-2 border-amber-400 pl-2 dark:border-amber-500 hover:bg-white/35 dark:hover:bg-zinc-800/10'
-                  : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
-              } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-right' : 'animate-slide-in-left') : ''}`}
-            >
-              {showDivider && (
-                <div className="flex items-center justify-center my-4 shrink-0 select-none">
-                  <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
-                  <span className="px-3 text-[10px] font-bold text-slate-500 dark:text-discord-muted bg-[#f8faff] dark:bg-discord-dark uppercase tracking-wider">
-                    {formatDividerDate(msg.createdAt)}
-                  </span>
-                  <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
-                </div>
-              )}
+              <div
+                id={`message-${msg.id}`}
+                onMouseEnter={() => setHoveredMessageId(msg.id)}
+                onMouseLeave={() => setHoveredMessageId(null)}
+                className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${isMentionedCurrentUser
+                    ? 'border-l-2 border-amber-400 pl-2 dark:border-amber-500 hover:bg-white/35 dark:hover:bg-zinc-800/10'
+                    : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
+                  } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-bottom' : 'animate-slide-in-left') : ''}`}
+              >
+                {showDivider && (
+                  <div className="flex items-center justify-center my-4 shrink-0 select-none">
+                    <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
+                    <span className="px-3 text-[10px] font-bold text-slate-500 dark:text-discord-muted bg-[#f8faff] dark:bg-discord-dark uppercase tracking-wider">
+                      {formatDividerDate(msg.createdAt)}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-250 dark:bg-zinc-800/80" />
+                  </div>
+                )}
 
-              {msg.messageType === 'SYSTEM' ? (
-                <div className="flex justify-center py-1.5 select-none">
-                  {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
-                    <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
-                      <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                          <Sparkles className="h-4 w-4" />
-                        </span>
-                        <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
+                {msg.messageType === 'SYSTEM' ? (
+                  <div className="flex justify-center py-1.5 select-none">
+                    {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
+                      <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                        <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <Sparkles className="h-4 w-4" />
+                          </span>
+                          <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                          <span>Đang suy nghĩ và chuẩn bị câu trả lời...</span>
+                        </div>
                       </div>
-                      <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
-                        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                        <span>Đang suy nghĩ và chuẩn bị câu trả lời...</span>
+                    ) : msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
+                      <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <Sparkles className="h-4 w-4" />
+                          </span>
+                          <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
+                        </div>
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {stripMessageMarkup(msg.content)}
+                        </div>
                       </div>
-                    </div>
-                  ) : msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
-                    <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
-                      <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                          <Sparkles className="h-4 w-4" />
-                        </span>
-                        <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
-                      </div>
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {stripMessageMarkup(msg.content)}
-                      </div>
-                    </div>
-                  ) : msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
-                    renderReminderSystemMessage(msg)
-                  ) : isCallLog ? (
-                    <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-indigo-500/20 dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
-                        className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
-                        title="Xem chi tiết cuộc gọi"
-                      >
-                        {callMetadata?.callType === 'VIDEO' ? (
-                          <Video className="h-4 w-4 text-indigo-500" />
-                        ) : (
-                          <Phone className="h-4 w-4 text-indigo-500" />
-                        )}
-                        <span className="truncate">{getCallHistorySummary(msg)}</span>
-                      </button>
+                    ) : msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
+                      renderReminderSystemMessage(msg)
+                    ) : isCallLog ? (
+                      <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-indigo-500/20 dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
+                          className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
+                          title="Xem chi tiết cuộc gọi"
+                        >
+                          {callMetadata?.callType === 'VIDEO' ? (
+                            <Video className="h-4 w-4 text-indigo-500" />
+                          ) : (
+                            <Phone className="h-4 w-4 text-indigo-500" />
+                          )}
+                          <span className="truncate">{getCallHistorySummary(msg)}</span>
+                        </button>
 
-                      {expandedCallLogId === msg.id && (
-                        <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <div>
-                              <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
-                              <p className="m-0 mt-0.5">{formatCallLogTime(callMetadata?.startedAt)}</p>
+                        {expandedCallLogId === msg.id && (
+                          <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div>
+                                <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
+                                <p className="m-0 mt-0.5">{formatCallLogTime(callMetadata?.startedAt)}</p>
+                              </div>
+                              <div>
+                                <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời lượng</p>
+                                <p className="m-0 mt-0.5">{getCallHistoryDetailStatus(callMetadata)}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời lượng</p>
-                              <p className="m-0 mt-0.5">{getCallHistoryDetailStatus(callMetadata)}</p>
-                            </div>
-                          </div>
 
-                          <div className="mt-3">
-                            <p className="m-0 mb-2 font-bold text-gray-700 dark:text-zinc-200">
-                              Thành viên đã tham gia ({callMetadata?.participantCount ?? callMetadata?.participants?.length ?? 0})
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {(callMetadata?.participants ?? []).map((participant: any) => (
-                                <span
-                                  key={participant.id}
-                                  className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-300"
-                                >
-                                  {participant.avatarUrl ? (
-                                    <img src={participant.avatarUrl} alt={participant.username} className="h-5 w-5 rounded-full object-cover" />
-                                  ) : (
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
-                                      {(participant.username || '?').charAt(0).toUpperCase()}
-                                    </span>
+                            <div className="mt-3">
+                              <p className="m-0 mb-2 font-bold text-gray-700 dark:text-zinc-200">
+                                Thành viên đã tham gia ({callMetadata?.participantCount ?? callMetadata?.participants?.length ?? 0})
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {(callMetadata?.participants ?? []).map((participant: any) => (
+                                  <span
+                                    key={participant.id}
+                                    className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                  >
+                                    {participant.avatarUrl ? (
+                                      <img src={participant.avatarUrl} alt={participant.username} className="h-5 w-5 rounded-full object-cover" />
+                                    ) : (
+                                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                                        {(participant.username || '?').charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                    <span className="truncate">{participant.username}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {activeConversation && activeCallTarget && (
+                              <div className="mt-3 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => initiateCall(
+                                    activeConversation.id,
+                                    callMetadata?.callType === 'VIDEO' ? 'video' : 'voice',
+                                    activeCallTarget
                                   )}
-                                  <span className="truncate">{participant.username}</span>
-                                </span>
-                              ))}
+                                  className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700"
+                                >
+                                  {callMetadata?.callType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
+                                  <span>Gọi lại</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
+                        <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                        <span className="min-w-0 truncate">
+                          {msg.metadata?.systemType === 'NICKNAME_UPDATED' ? (
+                            getNicknameSystemText(msg)
+                          ) : (
+                            <><span className="font-semibold">{isMe ? 'Bạn' : msg.senderUsername}</span>{' '}{stripMessageMarkup(msg.content)}</>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : msg.messageType === 'POLL' ? (
+                  <div className="flex justify-center py-2">
+                    {(() => {
+                      const metadata = getPollMetadata(msg);
+                      const options = metadata.options ?? [];
+                      const totalVotes = options.reduce((sum: number, option: any) => sum + (option.voterIds?.length ?? 0), 0);
+                      const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
+                      const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
+                      const canManagePoll = msg.senderId === user?.id ||
+                        isGroupModeratorRole(currentGroupMembership?.role);
+
+                      if (msg.isRecalled) {
+                        return (
+                          <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-400">
+                            Bình chọn đã bị xóa
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                          <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                  <ListChecks className="h-3.5 w-3.5" />
+                                  <span>Bình chọn</span>
+                                  {msg.isPinned && <span>• Đã ghim</span>}
+                                </div>
+                                <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">{metadata.question || msg.content}</h4>
+                                <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                                  {metadata.allowMultiple ? 'Có thể chọn nhiều phương án' : 'Chọn một phương án'}
+                                  {metadata.anonymous ? ' • Ẩn danh' : ''}
+                                  {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                {canPinMessage(msg) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                                    className={`rounded-full p-1.5 transition ${msg.isPinned
+                                        ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20'
+                                        : 'bg-gray-100 text-gray-505 hover:bg-gray-202 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                                      }`}
+                                    title={msg.isPinned ? 'Bỏ ghim bình chọn' : 'Ghim bình chọn'}
+                                  >
+                                    {msg.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                                  </button>
+                                )}
+                                {isLocked && (
+                                  <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-505 dark:bg-zinc-800 dark:text-zinc-400">
+                                    Đã khóa
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          {activeConversation && activeCallTarget && (
-                            <div className="mt-3 flex justify-center">
+                          <div className="space-y-2 px-4 py-3">
+                            {options.map((option: any) => {
+                              const voteCount = option.voterIds?.length ?? 0;
+                              const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                              const selected = Boolean(user?.id && option.voterIds?.includes(user.id));
+                              return (
+                                <div key={option.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                                  <div className="flex w-full items-center gap-3 text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() => !isLocked && handlePollVote(msg.id, option.id)}
+                                      disabled={isLocked || pollActionMessageId === msg.id}
+                                      className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+                                    >
+                                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white dark:border-zinc-650 dark:bg-zinc-900'
+                                        }`}>
+                                        {selected && <Check className="h-3.5 w-3.5" />}
+                                      </span>
+                                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-905 dark:text-zinc-100">{option.text}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        if (!metadata.anonymous) {
+                                          setPollVoterDialog({ option, anonymous: Boolean(metadata.anonymous) });
+                                        }
+                                      }}
+                                      className={`shrink-0 text-xs font-bold ${metadata.anonymous ? 'cursor-default text-gray-400' : 'text-indigo-600 hover:underline dark:text-indigo-300'}`}
+                                      disabled={metadata.anonymous}
+                                      title={metadata.anonymous ? 'Bình chọn ẩn danh' : 'Xem người đã chọn'}
+                                    >
+                                      {voteCount} vote
+                                    </button>
+                                  </div>
+                                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
+                                    <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${percent}%` }} />
+                                  </div>
+                                  {!metadata.anonymous && (option.voters?.length ?? 0) > 0 && (
+                                    <div className="mt-2 flex items-center gap-1.5">
+                                      <div className="flex -space-x-2">
+                                        {(option.voters ?? []).slice(-6).map((voter: any) => (
+                                          voter.avatarUrl ? (
+                                            <img
+                                              key={voter.id}
+                                              src={voter.avatarUrl}
+                                              alt={voter.username}
+                                              className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-950"
+                                              title={voter.username}
+                                            />
+                                          ) : (
+                                            <div
+                                              key={voter.id}
+                                              className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-[10px] font-bold text-white shadow-sm dark:border-zinc-950"
+                                              title={voter.username}
+                                            >
+                                              {voter.username.charAt(0).toUpperCase()}
+                                            </div>
+                                          )
+                                        ))}
+                                      </div>
+                                      {(option.voters?.length ?? 0) > 6 && (
+                                        <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
+                                          +{(option.voters?.length ?? 0) - 6}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {metadata.allowAddOptions && !isLocked && (
+                            <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                              <input
+                                value={pollNewOptionText[msg.id] ?? ''}
+                                onChange={(event) => setPollNewOptionText((values) => ({ ...values, [msg.id]: event.target.value }))}
+                                placeholder="Thêm lựa chọn..."
+                                className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                              />
                               <button
                                 type="button"
-                                onClick={() => initiateCall(
-                                  activeConversation.id,
-                                  callMetadata?.callType === 'VIDEO' ? 'video' : 'voice',
-                                  activeCallTarget
-                                )}
-                                className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700"
+                                onClick={() => handleAddPollOption(msg.id)}
+                                disabled={pollActionMessageId === msg.id || !pollNewOptionText[msg.id]?.trim()}
+                                className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
                               >
-                                {callMetadata?.callType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
-                                <span>Gọi lại</span>
+                                Thêm
+                              </button>
+                            </div>
+                          )}
+
+                          {canManagePoll && !isLocked && (
+                            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                              <button
+                                type="button"
+                                onClick={() => handleLockPoll(msg.id)}
+                                disabled={pollActionMessageId === msg.id}
+                                className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-205 dark:hover:bg-zinc-700"
+                              >
+                                Khóa bình chọn
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePoll(msg.id)}
+                                disabled={pollActionMessageId === msg.id}
+                                className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-505/20"
+                              >
+                                Xóa
                               </button>
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
-                      <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
-                      <span className="min-w-0 truncate">
-                        {msg.metadata?.systemType === 'NICKNAME_UPDATED' ? (
-                          getNicknameSystemText(msg)
-                        ) : (
-                          <><span className="font-semibold">{isMe ? 'Bạn' : msg.senderUsername}</span>{' '}{stripMessageMarkup(msg.content)}</>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : msg.messageType === 'POLL' ? (
-                <div className="flex justify-center py-2">
-                  {(() => {
-                    const metadata = getPollMetadata(msg);
-                    const options = metadata.options ?? [];
-                    const totalVotes = options.reduce((sum: number, option: any) => sum + (option.voterIds?.length ?? 0), 0);
-                    const isExpired = Boolean(metadata.expiresAt && new Date(metadata.expiresAt).getTime() <= Date.now());
-                    const isLocked = Boolean(metadata.locked || isExpired || msg.isRecalled);
-                    const canManagePoll = msg.senderId === user?.id ||
-                      isGroupModeratorRole(currentGroupMembership?.role);
-
-                    if (msg.isRecalled) {
-                      return (
-                        <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-sm text-gray-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-400">
-                          Bình chọn đã bị xóa
-                        </div>
                       );
-                    }
-
-                    return (
-                      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                        <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                                <ListChecks className="h-3.5 w-3.5" />
-                                <span>Bình chọn</span>
-                                {msg.isPinned && <span>• Đã ghim</span>}
-                              </div>
-                              <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">{metadata.question || msg.content}</h4>
-                              <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                                {metadata.allowMultiple ? 'Có thể chọn nhiều phương án' : 'Chọn một phương án'}
-                                {metadata.anonymous ? ' • Ẩn danh' : ''}
-                                {metadata.expiresAt ? ` • Hạn ${formatCallLogTime(metadata.expiresAt)}` : ''}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              {canPinMessage(msg) && (
-                                <button
-                                  type="button"
-                                  onClick={() => togglePinMessage(msg.id, !!msg.isPinned)}
-                                  className={`rounded-full p-1.5 transition ${
-                                    msg.isPinned
-                                      ? 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20'
-                                      : 'bg-gray-100 text-gray-505 hover:bg-gray-202 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
-                                  }`}
-                                  title={msg.isPinned ? 'Bỏ ghim bình chọn' : 'Ghim bình chọn'}
-                                >
-                                  {msg.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                                </button>
-                              )}
-                              {isLocked && (
-                                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-505 dark:bg-zinc-800 dark:text-zinc-400">
-                                  Đã khóa
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 px-4 py-3">
-                          {options.map((option: any) => {
-                            const voteCount = option.voterIds?.length ?? 0;
-                            const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-                            const selected = Boolean(user?.id && option.voterIds?.includes(user.id));
-                            return (
-                              <div key={option.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                                <div className="flex w-full items-center gap-3 text-left">
-                                  <button
-                                    type="button"
-                                    onClick={() => !isLocked && handlePollVote(msg.id, option.id)}
-                                    disabled={isLocked || pollActionMessageId === msg.id}
-                                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
-                                  >
-                                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                                      selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white dark:border-zinc-650 dark:bg-zinc-900'
-                                    }`}>
-                                      {selected && <Check className="h-3.5 w-3.5" />}
-                                    </span>
-                                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-905 dark:text-zinc-100">{option.text}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (!metadata.anonymous) {
-                                        setPollVoterDialog({ option, anonymous: Boolean(metadata.anonymous) });
-                                      }
-                                    }}
-                                    className={`shrink-0 text-xs font-bold ${metadata.anonymous ? 'cursor-default text-gray-400' : 'text-indigo-600 hover:underline dark:text-indigo-300'}`}
-                                    disabled={metadata.anonymous}
-                                    title={metadata.anonymous ? 'Bình chọn ẩn danh' : 'Xem người đã chọn'}
-                                  >
-                                    {voteCount} vote
-                                  </button>
-                                </div>
-                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
-                                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${percent}%` }} />
-                                </div>
-                                {!metadata.anonymous && (option.voters?.length ?? 0) > 0 && (
-                                  <div className="mt-2 flex items-center gap-1.5">
-                                    <div className="flex -space-x-2">
-                                      {(option.voters ?? []).slice(-6).map((voter: any) => (
-                                        voter.avatarUrl ? (
-                                          <img
-                                            key={voter.id}
-                                            src={voter.avatarUrl}
-                                            alt={voter.username}
-                                            className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-950"
-                                            title={voter.username}
-                                          />
-                                        ) : (
-                                          <div
-                                            key={voter.id}
-                                            className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-[10px] font-bold text-white shadow-sm dark:border-zinc-950"
-                                            title={voter.username}
-                                          >
-                                            {voter.username.charAt(0).toUpperCase()}
-                                          </div>
-                                        )
-                                      ))}
-                                    </div>
-                                    {(option.voters?.length ?? 0) > 6 && (
-                                      <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
-                                        +{(option.voters?.length ?? 0) - 6}
+                    })()}
+                  </div>
+                ) : (
+                  <>
+                    {/* Quoted Message / Reply Preview */}
+                    {false && msg.parentId && (
+                      <div className={`flex mb-1.5 max-w-[min(85vw,27rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
+                        <div
+                          className={`group/reply flex w-full overflow-hidden rounded-2xl border bg-white/82 shadow-sm ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:bg-zinc-900/78 dark:ring-zinc-800/70 ${isMe ? 'border-indigo-200/80 dark:border-indigo-500/25' : 'border-slate-200/80 dark:border-zinc-800'} cursor-pointer`}
+                          onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
+                        >
+                          <div className="w-1.5 shrink-0 bg-indigo-500/85 dark:bg-indigo-400" />
+                          <div className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 transition group-hover/reply:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300">
+                              <CornerUpLeft className="h-3.5 w-3.5" />
+                            </span>
+                            {renderReplyPreviewCard(parentMessage)}
+                            <span className="hidden">
+                              @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
+                            </span>
+                            <span className="hidden">
+                              {parentMessage ? (
+                                parentMessage.isRecalled ? (
+                                  <span className="truncate">Tin nhắn đã bị thu hồi</span>
+                                ) : (
+                                  <>
+                                    {parentMessage.content && <span className="truncate">{stripMessageMarkup(parentMessage.content)}</span>}
+                                    {parentMessage.attachments && parentMessage.attachments.length > 0 && (
+                                      <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
+                                        {parentMessage.attachments[0].type === 'IMAGE' && (
+                                          <img src={parentMessage.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
+                                        )}
+                                        <span>
+                                          {parentMessage.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : parentMessage.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
+                                        </span>
                                       </span>
                                     )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {metadata.allowAddOptions && !isLocked && (
-                          <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
-                            <input
-                              value={pollNewOptionText[msg.id] ?? ''}
-                              onChange={(event) => setPollNewOptionText((values) => ({ ...values, [msg.id]: event.target.value }))}
-                              placeholder="Thêm lựa chọn..."
-                              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleAddPollOption(msg.id)}
-                              disabled={pollActionMessageId === msg.id || !pollNewOptionText[msg.id]?.trim()}
-                              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-                            >
-                              Thêm
-                            </button>
-                          </div>
-                        )}
-
-                        {canManagePoll && !isLocked && (
-                          <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
-                            <button
-                              type="button"
-                              onClick={() => handleLockPoll(msg.id)}
-                              disabled={pollActionMessageId === msg.id}
-                              className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-205 dark:hover:bg-zinc-700"
-                            >
-                              Khóa bình chọn
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePoll(msg.id)}
-                              disabled={pollActionMessageId === msg.id}
-                              className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-505/20"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              ) : (
-                <>
-                  {/* Quoted Message / Reply Preview */}
-                  {false && msg.parentId && (
-                    <div className={`flex mb-1.5 max-w-[min(85vw,27rem)] ${isMe ? 'self-end mr-11' : 'ml-11'}`}>
-                      <div 
-                        className={`group/reply flex w-full overflow-hidden rounded-2xl border bg-white/82 shadow-sm ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:bg-zinc-900/78 dark:ring-zinc-800/70 ${isMe ? 'border-indigo-200/80 dark:border-indigo-500/25' : 'border-slate-200/80 dark:border-zinc-800'} cursor-pointer`}
-                        onClick={() => msg.parentId && handleJumpToMessage(msg.parentId)}
-                      >
-                        <div className="w-1.5 shrink-0 bg-indigo-500/85 dark:bg-indigo-400" />
-                        <div className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 transition group-hover/reply:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            <CornerUpLeft className="h-3.5 w-3.5" />
-                          </span>
-                          {renderReplyPreviewCard(parentMessage)}
-                          <span className="hidden">
-                            @{parentMessage ? parentMessage.senderUsername : 'tin nhắn cũ'}
-                          </span>
-                          <span className="hidden">
-                            {parentMessage ? (
-                              parentMessage.isRecalled ? (
-                                <span className="truncate">Tin nhắn đã bị thu hồi</span>
+                                  </>
+                                )
                               ) : (
-                                <>
-                                  {parentMessage.content && <span className="truncate">{stripMessageMarkup(parentMessage.content)}</span>}
-                                  {parentMessage.attachments && parentMessage.attachments.length > 0 && (
-                                    <span className="flex items-center gap-1 opacity-80 font-medium shrink-0">
-                                      {parentMessage.attachments[0].type === 'IMAGE' && (
-                                        <img src={parentMessage.attachments[0].url} alt="attachment" className="w-4 h-4 object-cover rounded-sm shrink-0" />
-                                      )}
-                                      <span>
-                                        {parentMessage.attachments[0].type === 'IMAGE' ? '[Hình ảnh]' : parentMessage.attachments[0].type === 'VIDEO' ? '[Video]' : '[Tệp đính kèm]'}
-                                      </span>
-                                    </span>
-                                  )}
-                                </>
-                              )
-                            ) : (
-                              <span className="truncate">tin nhắn đã bị xoá hoặc không tìm thấy</span>
-                            )}
-                          </span>
+                                <span className="truncate">tin nhắn đã bị xoá hoặc không tìm thấy</span>
+                              )}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${isSelectionMode ? 'items-center cursor-pointer transition hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 p-2 -m-2 rounded-xl' : ''}`}
-                    onClick={() => {
-                      if (isSelectionMode) toggleMessageSelection(msg.id);
-                    }}
-                  >
-
-                    {/* Avatar */}
-                    {!isMe && !isSelectionMode && (
-                      <div className="shrink-0 mt-0.5">
-                        {(() => {
-                          const avatarUrl = isGroupConversation
-                            ? getSenderAvatar(msg)
-                            : activeFriend.avatarUrl;
-                          const senderName = isGroupConversation
-                            ? getSenderUsername(msg)
-                            : activeFriend.username;
-                          return avatarUrl ? (
-                            <img
-                              src={avatarUrl}
-                              alt={senderName}
-                              className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                              {senderName.charAt(0).toUpperCase()}
-                            </div>
-                          );
-                        })()}
                       </div>
                     )}
 
-                    <div className={`flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
-                      {showSenderName && (
-                        <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
-                          {getSenderUsername(msg)}
-                        </span>
+                    <div
+                      className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${isSelectionMode ? 'items-center cursor-pointer transition hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 p-2 -m-2 rounded-xl' : ''}`}
+                      onClick={() => {
+                        if (isSelectionMode) toggleMessageSelection(msg.id);
+                      }}
+                    >
+
+                      {/* Avatar */}
+                      {!isMe && !isSelectionMode && (
+                        <div className="shrink-0 mt-0.5">
+                          {(() => {
+                            const avatarUrl = isGroupConversation
+                              ? getSenderAvatar(msg)
+                              : activeFriend.avatarUrl;
+                            const senderName = isGroupConversation
+                              ? getSenderUsername(msg)
+                              : activeFriend.username;
+                            return avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={senderName}
+                                className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                                {senderName.charAt(0).toUpperCase()}
+                              </div>
+                            );
+                          })()}
+                        </div>
                       )}
 
-                      <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isSelectionMode ? 'pointer-events-none' : ''}`}>
-                        {/* Context menu actions bar */}
-                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && !isSelectionMode && (
-                          <div
-                            className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${
-                              isMe 
-                                ? 'right-0 md:right-[calc(100%+8px)] md:left-auto' 
-                                : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
-                            }`}
-                          >
-                            <MessageActionsBar
-                              message={msg}
-                              isMe={isMe}
-                              onReply={() => setReplyTo(msg)}
-                              onEdit={() => {
-                                setEditingMessageId(msg.id);
-                                setEditInputText(stripMessageMarkup(msg.content));
-                              }}
-                              onRecall={() => {
-                                setConfirmState({ isOpen: true, type: 'recall', messageId: msg.id });
-                              }}
-                              onDelete={() => {
-                                setConfirmState({ isOpen: true, type: 'delete', messageId: msg.id });
-                              }}
-                              onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
-                              onShare={() => setSharingMessage(msg)}
-                              onRemind={() => setReminderTargetMessage(msg)}
-                              canPin={canPinMessage(msg)}
-                              canRecall={canRecallMessageInActiveConversation(msg)}
-                              onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
-                            />
-                          </div>
+                      <div className={`flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
+                        {showSenderName && (
+                          <span className="text-[11px] font-bold text-indigo-600 dark:text-discord-blurple mb-1 ml-0.5">
+                            {getSenderUsername(msg)}
+                          </span>
                         )}
 
+                        <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isSelectionMode ? 'pointer-events-none' : ''}`}>
+                          {/* Context menu actions bar */}
+                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && !isSelectionMode && (
+                            <div
+                              className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${isMe
+                                  ? 'right-0 md:right-[calc(100%+8px)] md:left-auto'
+                                  : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
+                                }`}
+                            >
+                              <MessageActionsBar
+                                message={msg}
+                                isMe={isMe}
+                                onReply={() => setReplyTo(msg)}
+                                onEdit={() => {
+                                  setEditingMessageId(msg.id);
+                                  setEditInputText(stripMessageMarkup(msg.content));
+                                }}
+                                onRecall={() => {
+                                  setConfirmState({ isOpen: true, type: 'recall', messageId: msg.id });
+                                }}
+                                onDelete={() => {
+                                  setConfirmState({ isOpen: true, type: 'delete', messageId: msg.id });
+                                }}
+                                onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
+                                onShare={() => setSharingMessage(msg)}
+                                onRemind={() => setReminderTargetMessage(msg)}
+                                canPin={canPinMessage(msg)}
+                                canRecall={canRecallMessageInActiveConversation(msg)}
+                                onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                              />
+                            </div>
+                          )}
 
 
-                        {msg.forwardedFromMessageId && (
-                          <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
-                            <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-555 shrink-0" />
-                            <span className="truncate">
-                              Tin chuyển tiếp{msg.forwardedFromSenderUsername ? ` từ ${msg.forwardedFromSenderUsername}` : ''}
-                            </span>
-                          </div>
-                        )}
 
-                        {msg.isRecalled ? (
-                          <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${
-                            isMe
-                              ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
-                              : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
-                          }`}>
-                            {renderPriorityBadge()}
-                            <span>Tin nhắn đã bị thu hồi</span>
-                          </div>
-                        ) : msg.attachments && msg.attachments.length > 0 ? (
-                          <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${
-                            isMe
-                              ? 'nextalk-themed-bubble rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
-                          }`}>
-                            {renderPriorityBadge()}
-                            <div className={`grid gap-1.5 ${
-                              msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                            }`}>
-                              {msg.attachments.map((attachment: any, idx: number) => {
-                                if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
-                                  const mediaType = attachment.type;
-                                  if (attachment.type === 'IMAGE') {
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={`${attachment.url}-${idx}`}
-                                        onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                        className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${
-                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                        }`}
-                                        title={attachment.name || getFileName(attachment.url)}
-                                      >
-                                        <img
-                                          src={attachment.url}
-                                          alt={attachment.name || 'Shared image'}
-                                          className="w-full max-h-72 object-cover"
-                                        />
-                                      </button>
-                                    );
-                                  } else {
-                                    return (
-                                      <div
-                                        key={`${attachment.url}-${idx}`}
-                                        className={`block overflow-hidden bg-black/10 w-full ${
-                                          msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                        }`}
-                                        title={attachment.name || getFileName(attachment.url)}
-                                      >
-                                        <VideoThumbnail
-                                          src={attachment.url}
+                          {msg.forwardedFromMessageId && (
+                            <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
+                              <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-555 shrink-0" />
+                              <span className="truncate">
+                                Tin chuyển tiếp{msg.forwardedFromSenderUsername ? ` từ ${msg.forwardedFromSenderUsername}` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {msg.isRecalled ? (
+                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
+                                ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
+                                : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
+                              }`}>
+                              {renderPriorityBadge()}
+                              <span>Tin nhắn đã bị thu hồi</span>
+                            </div>
+                          ) : msg.attachments && msg.attachments.length > 0 ? (
+                            <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${isMe
+                                ? 'nextalk-themed-bubble rounded-tr-none'
+                                : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
+                              }`}>
+                              {renderPriorityBadge()}
+                              <div className={`grid gap-1.5 ${msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                                }`}>
+                                {msg.attachments.map((attachment: any, idx: number) => {
+                                  if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
+                                    const mediaType = attachment.type;
+                                    if (attachment.type === 'IMAGE') {
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={`${attachment.url}-${idx}`}
                                           onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                        />
-                                      </div>
-                                    );
-                                  }
-                                } else {
-                                  const fileUrl = attachment.url;
-                                  const fileName = attachment.name || getFileName(attachment.url);
-                                  if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
-                                    return (
-                                      <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
-                                        isMe
-                                          ? 'nextalk-themed-bubble rounded-tr-none'
-                                          : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
-                                      }`}>
-                                        <div className="hidden">
-                                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                            isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                          className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                            }`}
+                                          title={attachment.name || getFileName(attachment.url)}
+                                        >
+                                          <img
+                                            src={attachment.url}
+                                            alt={attachment.name || 'Shared image'}
+                                            className="w-full max-h-72 object-cover"
+                                          />
+                                        </button>
+                                      );
+                                    } else {
+                                      return (
+                                        <div
+                                          key={`${attachment.url}-${idx}`}
+                                          className={`block overflow-hidden bg-black/10 w-full ${msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
+                                            }`}
+                                          title={attachment.name || getFileName(attachment.url)}
+                                        >
+                                          <VideoThumbnail
+                                            src={attachment.url}
+                                            onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
+                                          />
+                                        </div>
+                                      );
+                                    }
+                                  } else {
+                                    const fileUrl = attachment.url;
+                                    const fileName = attachment.name || getFileName(attachment.url);
+                                    if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
+                                      return (
+                                        <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
+                                            ? 'nextalk-themed-bubble rounded-tr-none'
+                                            : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
                                           }`}>
-                                            <Mic className="h-4.5 w-4.5" />
-                                          </span>
-                                          <div className="min-w-0 flex-1 text-left">
-                                            <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
+                                          <div className="hidden">
+                                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                              }`}>
+                                              <Mic className="h-4.5 w-4.5" />
+                                            </span>
+                                            <div className="min-w-0 flex-1 text-left">
+                                              <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
+                                              {attachment.size != null && attachment.size > 0 && (
+                                                <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                                  {formatFileSize(attachment.size)}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
+                                              className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                              title="Tải xuống"
+                                            >
+                                              <Download className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                          <audio
+                                            controls
+                                            preload="metadata"
+                                            src={fileUrl}
+                                            className="block h-9 w-full"
+                                          />
+                                        </div>
+                                      );
+                                    }
+                                    const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+
+                                    return (
+                                      <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
+                                        <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${isMe
+                                            ? 'nextalk-themed-bubble rounded-tr-none'
+                                            : 'bg-white dark:bg-discord-mid border-indigo-100 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
+                                          }`}>
+                                          <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
+                                            <FileIcon className="w-5 h-5" />
+                                          </div>
+                                          <div className="flex-1 min-w-0 text-left">
+                                            <p className="font-semibold text-xs truncate m-0" title={fileName}>
+                                              {fileName}
+                                            </p>
                                             {attachment.size != null && attachment.size > 0 && (
-                                              <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                              <span className={`text-[10px] mt-0.5 block ${isMe ? 'opacity-80' : 'text-gray-500 dark:text-gray-400'}`}>
                                                 {formatFileSize(attachment.size)}
-                                              </p>
+                                              </span>
                                             )}
                                           </div>
                                           <button
                                             type="button"
-                                            onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
-                                            className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                            onClick={() => downloadFile(fileUrl, fileName)}
+                                            className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-slate-600 dark:text-zinc-200' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
                                             title="Tải xuống"
                                           >
-                                            <Download className="h-4 w-4" />
+                                            <Download className="w-4 h-4" />
                                           </button>
                                         </div>
-                                        <audio
-                                          controls
-                                          preload="metadata"
-                                          src={fileUrl}
-                                          className="block h-9 w-full"
-                                        />
                                       </div>
                                     );
                                   }
-                                  const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
-
-                                  return (
-                                    <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
-                                      <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${
-                                        isMe
-                                          ? 'nextalk-themed-bubble rounded-tr-none'
-                                          : 'bg-white dark:bg-discord-mid border-indigo-100 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
-                                      }`}>
-                                        <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
-                                          <FileIcon className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0 text-left">
-                                          <p className="font-semibold text-xs truncate m-0" title={fileName}>
-                                            {fileName}
-                                          </p>
-                                          {attachment.size != null && attachment.size > 0 && (
-                                            <span className={`text-[10px] mt-0.5 block ${isMe ? 'opacity-80' : 'text-gray-500 dark:text-gray-400'}`}>
-                                              {formatFileSize(attachment.size)}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => downloadFile(fileUrl, fileName)}
-                                          className={`p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ${isMe ? 'text-slate-600 dark:text-zinc-200' : 'text-gray-550 hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white'}`}
-                                          title="Tải xuống"
-                                        >
-                                          <Download className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                              })}
-                            </div>
-                            {msg.content && (
-                              <div className="mt-2 px-1">
-                                {renderFormattedMessage(msg.content)}
+                                })}
                               </div>
-                            )}
-                          </div>
-                        ) : msg.messageType === 'STICKER' ? (
-                          <div className="w-[130px] h-[130px] shrink-0 select-none">
-                            <img
-                              src={msg.content}
-                              alt="Sticker"
-                              className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
-                              loading="lazy"
-                            />
-                          </div>
-                        ) : msg.messageType === 'IMAGE' ? (
-                          <div className="relative rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
-                            <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
-                              {renderPriorityBadge()}
+                              {msg.content && (
+                                <div className="mt-2 px-1">
+                                  {renderFormattedMessage(msg.content)}
+                                </div>
+                              )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
-                              className="w-full h-full p-0 border-0 outline-none"
-                            >
+                          ) : msg.messageType === 'STICKER' ? (
+                            <div className="w-[130px] h-[130px] shrink-0 select-none">
                               <img
                                 src={msg.content}
-                                alt="Shared Image"
-                                className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
+                                alt="Sticker"
+                                className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
+                                loading="lazy"
                               />
-                            </button>
-                          </div>
-                        ) : msg.messageType === 'VIDEO' ? (
-                          <div className={`relative flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${
-                            isMe
-                              ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
-                              : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
-                          }`}>
-                            <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
-                              {renderPriorityBadge()}
                             </div>
-                            {(() => {
-                              const attachment = msg.attachments?.[0];
-                              const fileUrl = attachment?.url || msg.content;
-                              return (
-                                <VideoThumbnail 
-                                  src={fileUrl} 
-                                  onClick={() => setActiveMedia({ url: fileUrl, type: 'VIDEO' })}
-                                />
-                              );
-                            })()}
-                            {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
-                              <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
-                                {renderFormattedMessage(msg.content)}
+                          ) : msg.messageType === 'IMAGE' ? (
+                            <div className="relative rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                              <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
+                                {renderPriorityBadge()}
                               </div>
-                            )}
-                          </div>
-                        ) : isAudioMessage(msg) ? (
-                          <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${
-                            isMe
-                              ? 'nextalk-themed-bubble rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
-                          }`}>
-                            {renderPriorityBadge()}
-                            {(() => {
-                              const attachment = msg.attachments?.[0];
-                              const audioUrl = attachment?.url || msg.content;
-                              const audioName = attachment?.name || 'Tin nhắn thoại';
-                              return (
-                                <>
-                                  <div className="hidden">
-                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                      isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
-                                    }`}>
-                                      <Mic className="h-4.5 w-4.5" />
-                                    </span>
-                                    <div className="min-w-0 flex-1 text-left">
-                                      <p className="m-0 truncate text-[13px] font-bold">{audioName}</p>
-                                      {attachment?.size != null && attachment.size > 0 && (
-                                        <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
-                                          {formatFileSize(attachment.size)}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => downloadFile(audioUrl, audioName)}
-                                      className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
-                                      title="Tải xuống"
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                  <audio
-                                    controls
-                                    preload="metadata"
-                                    src={audioUrl}
-                                    className="block h-9 w-full"
-                                  />
-                                  {msg.content && (
-                                    <div className="px-1 text-sm">
-                                      {renderFormattedMessage(msg.content)}
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ) : msg.messageType === 'FILE' ? (
-                          <div className="flex flex-col gap-1 w-full max-w-sm">
-                            <div className={`flex flex-col p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${
-                              isMe
-                                ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
+                              <button
+                                type="button"
+                                onClick={() => setActiveMedia({ url: msg.content, type: 'IMAGE' })}
+                                className="w-full h-full p-0 border-0 outline-none"
+                              >
+                                <img
+                                  src={msg.content}
+                                  alt="Shared Image"
+                                  className="max-h-72 w-full object-contain hover:opacity-95 transition-opacity cursor-zoom-in"
+                                />
+                              </button>
+                            </div>
+                          ) : msg.messageType === 'VIDEO' ? (
+                            <div className={`relative flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${isMe
+                                ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
                                 : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
-                            }`}>
-                              {renderPriorityBadge()}
-                              <div className="flex items-center gap-3">
+                              }`}>
+                              <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
+                                {renderPriorityBadge()}
+                              </div>
                               {(() => {
                                 const attachment = msg.attachments?.[0];
                                 const fileUrl = attachment?.url || msg.content;
-                                const fileName = attachment?.name || getFileName(fileUrl);
-                                const fileSize = attachment?.size;
-                                const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
-
+                                return (
+                                  <VideoThumbnail
+                                    src={fileUrl}
+                                    onClick={() => setActiveMedia({ url: fileUrl, type: 'VIDEO' })}
+                                  />
+                                );
+                              })()}
+                              {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
+                                <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
+                                  {renderFormattedMessage(msg.content)}
+                                </div>
+                              )}
+                            </div>
+                          ) : isAudioMessage(msg) ? (
+                            <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
+                                ? 'nextalk-themed-bubble rounded-tr-none'
+                                : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
+                              }`}>
+                              {renderPriorityBadge()}
+                              {(() => {
+                                const attachment = msg.attachments?.[0];
+                                const audioUrl = attachment?.url || msg.content;
+                                const audioName = attachment?.name || 'Tin nhắn thoại';
                                 return (
                                   <>
-                                    <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
-                                      <FileIcon className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 text-left flex flex-col justify-center">
-                                      <p className="font-semibold text-[13px] text-gray-900 dark:text-white truncate m-0 leading-tight" title={fileName}>
-                                        {fileName}
-                                      </p>
-                                      {fileSize != null && fileSize > 0 && (
-                                        <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                          {formatFileSize(fileSize)}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
+                                    <div className="hidden">
+                                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                        }`}>
+                                        <Mic className="h-4.5 w-4.5" />
+                                      </span>
+                                      <div className="min-w-0 flex-1 text-left">
+                                        <p className="m-0 truncate text-[13px] font-bold">{audioName}</p>
+                                        {attachment?.size != null && attachment.size > 0 && (
+                                          <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                            {formatFileSize(attachment.size)}
+                                          </p>
+                                        )}
+                                      </div>
                                       <button
                                         type="button"
-                                        onClick={() => window.open(fileUrl, '_blank')}
-                                        className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
-                                        title="Mở"
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => downloadFile(fileUrl, fileName)}
-                                        className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
+                                        onClick={() => downloadFile(audioUrl, audioName)}
+                                        className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
                                         title="Tải xuống"
                                       >
-                                        <Download className="w-4 h-4" />
+                                        <Download className="h-4 w-4" />
                                       </button>
                                     </div>
+                                    <audio
+                                      controls
+                                      preload="metadata"
+                                      src={audioUrl}
+                                      className="block h-9 w-full"
+                                    />
+                                    {msg.content && (
+                                      <div className="px-1 text-sm">
+                                        {renderFormattedMessage(msg.content)}
+                                      </div>
+                                    )}
                                   </>
                                 );
                               })()}
                             </div>
-                          </div>
-                            {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
-                              <div className={`px-2 py-1 text-sm ${isMe ? 'text-indigo-900 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {renderFormattedMessage(msg.content)}
+                          ) : msg.messageType === 'FILE' ? (
+                            <div className="flex flex-col gap-1 w-full max-w-sm">
+                              <div className={`flex flex-col p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${isMe
+                                  ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
+                                  : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
+                                }`}>
+                                {renderPriorityBadge()}
+                                <div className="flex items-center gap-3">
+                                  {(() => {
+                                    const attachment = msg.attachments?.[0];
+                                    const fileUrl = attachment?.url || msg.content;
+                                    const fileName = attachment?.name || getFileName(fileUrl);
+                                    const fileSize = attachment?.size;
+                                    const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+
+                                    return (
+                                      <>
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
+                                          <FileIcon className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-left flex flex-col justify-center">
+                                          <p className="font-semibold text-[13px] text-gray-900 dark:text-white truncate m-0 leading-tight" title={fileName}>
+                                            {fileName}
+                                          </p>
+                                          {fileSize != null && fileSize > 0 && (
+                                            <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                              {formatFileSize(fileSize)}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => window.open(fileUrl, '_blank')}
+                                            className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
+                                            title="Mở"
+                                          >
+                                            <ExternalLink className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => downloadFile(fileUrl, fileName)}
+                                            className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors"
+                                            title="Tải xuống"
+                                          >
+                                            <Download className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ) : editingMessageId === msg.id ? (
-                          /* Edit Mode */
-                          <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
-                            <textarea
-                              value={editInputText}
-                              onChange={(e) => {
-                                setEditInputText(e.target.value);
-                                e.target.style.height = 'auto';
-                                e.target.style.height = `${e.target.scrollHeight}px`;
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleSaveEdit(msg.id);
-                                } else if (e.key === 'Escape') {
-                                  setEditingMessageId(null);
-                                }
-                              }}
-                              rows={2}
-                              className="w-full bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-xl px-3 py-2 text-sm text-gray-905 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 resize-none shadow-sm transition-colors leading-relaxed"
-                              autoFocus
-                            />
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setEditingMessageId(null)}
-                                className="px-3 py-1.5 text-xs font-semibold text-gray-650 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 rounded-lg transition-colors"
-                              >
-                                Huỷ
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveEdit(msg.id)}
-                                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 rounded-lg transition-colors shadow-sm"
-                              >
-                                Lưu
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${
-                            isMe
-                              ? msg.parentId
-                                ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
-                                : 'nextalk-themed-bubble rounded-tr-none'
-                              : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
-                          }`}>
-                            {renderPriorityBadge()}
-                            <div className="m-0">
-                              {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
-                              {renderFormattedMessage(msg.content)}
-                              {renderLinkPreviewCard(msg, isMe)}
-                              {msg.isEdited && (
-                                <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
-                                  (đã chỉnh sửa)
-                                </span>
+                              {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
+                                <div className={`px-2 py-1 text-sm ${isMe ? 'text-indigo-900 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                  {renderFormattedMessage(msg.content)}
+                                </div>
                               )}
                             </div>
-                          </div>
-                        )}
+                          ) : editingMessageId === msg.id ? (
+                            /* Edit Mode */
+                            <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
+                              <textarea
+                                value={editInputText}
+                                onChange={(e) => {
+                                  setEditInputText(e.target.value);
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSaveEdit(msg.id);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingMessageId(null);
+                                  }
+                                }}
+                                rows={2}
+                                className="w-full bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-xl px-3 py-2 text-sm text-gray-905 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 resize-none shadow-sm transition-colors leading-relaxed"
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingMessageId(null)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-gray-650 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 rounded-lg transition-colors"
+                                >
+                                  Huỷ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEdit(msg.id)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 rounded-lg transition-colors shadow-sm"
+                                >
+                                  Lưu
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
+                                ? msg.parentId
+                                  ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
+                                  : 'nextalk-themed-bubble rounded-tr-none'
+                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
+                              }`}>
+                              {renderPriorityBadge()}
+                              <div className="m-0">
+                                {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
+                                {renderFormattedMessage(msg.content)}
+                                {renderLinkPreviewCard(msg, isMe)}
+                                {msg.isEdited && (
+                                  <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
+                                    (đã chỉnh sửa)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                        {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
-                          <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                            <MessageReactionButton
-                              onReact={(emoji) => reactToMessage(msg.id, emoji)}
-                              align={isMe ? 'right' : 'left'}
-                              onOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
-                            />
-                          </div>
-                        )}
+                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                            <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                              <MessageReactionButton
+                                onReact={(emoji) => reactToMessage(msg.id, emoji)}
+                                align={isMe ? 'right' : 'left'}
+                                onOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}
+                              />
+                            </div>
+                          )}
 
-                        {/* Reactions list */}
-                        {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
-                          <div className={`mt-1 max-w-[min(72vw,360px)] ${isMe ? 'self-end pr-1' : 'self-start pl-1'}`}>
-                            <MessageReactions
-                              reactions={msg.reactions}
-                              currentUserId={user?.id ?? ''}
-                              onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
-                              isMe={isMe}
-                            />
-                          </div>
-                        )}
+                          {/* Reactions list */}
+                          {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
+                            <div className={`mt-1 max-w-[min(72vw,360px)] ${isMe ? 'self-end pr-1' : 'self-start pl-1'}`}>
+                              <MessageReactions
+                                reactions={msg.reactions}
+                                currentUserId={user?.id ?? ''}
+                                onReactToggle={(emoji) => reactToMessage(msg.id, emoji)}
+                                isMe={isMe}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status block */}
+                        <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          {msg.isPinned && (
+                            <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
+                          )}
+                          <span>{formatMessageTime(msg.createdAt)}</span>
+                          {isMe && (
+                            <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
+                              {getMessageStatus(msg) === 'SEEN' && (
+                                <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
+                              )}
+                              {getMessageStatus(msg) === 'DELIVERED' && (
+                                <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
+                              )}
+                              {getMessageStatus(msg) === 'SENT' && (
+                                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                              )}
+                              <span>{getMessageStatusLabel(msg)}</span>
+                            </span>
+                          )}
+                        </span>
                       </div>
-
-                      {/* Status block */}
-                      <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        {msg.isPinned && (
-                          <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
-                        )}
-                        <span>{formatMessageTime(msg.createdAt)}</span>
-                        {isMe && (
-                          <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
-                            {getMessageStatus(msg) === 'SEEN' && (
-                              <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
-                            )}
-                            {getMessageStatus(msg) === 'DELIVERED' && (
-                              <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
-                            )}
-                            {getMessageStatus(msg) === 'SENT' && (
-                              <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
-                            )}
-                            <span>{getMessageStatusLabel(msg)}</span>
-                          </span>
-                        )}
-                      </span>
+                      {isSelectionMode && (
+                        <div className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-indigo-600 bg-white dark:bg-zinc-900 transition-colors" style={{ backgroundColor: selectedMessageIds.includes(msg.id) ? '#4f46e5' : undefined }}>
+                          {selectedMessageIds.includes(msg.id) && <Check className="h-3.5 w-3.5 text-white" />}
+                        </div>
+                      )}
                     </div>
-                    {isSelectionMode && (
-                      <div className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-indigo-600 bg-white dark:bg-zinc-900 transition-colors" style={{ backgroundColor: selectedMessageIds.includes(msg.id) ? '#4f46e5' : undefined }}>
-                        {selectedMessageIds.includes(msg.id) && <Check className="h-3.5 w-3.5 text-white" />}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            {isUnreadMarkerTarget && (
-              <div className="flex items-center gap-3 py-1.5 shrink-0 select-none">
-                <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
-                <button
-                  type="button"
-                  onClick={onDismissUnreadMarker}
-                  className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-sky-700 shadow-sm transition hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/20"
-                  title="Ẩn dấu tin nhắn mới"
-                >
-                  <span>{unreadMarker.count > 1 ? `${unreadMarker.count} tin nhắn mới` : 'Tin nhắn mới'}</span>
-                  <X className="h-3 w-3" />
-                </button>
-                <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
+                  </>
+                )}
               </div>
-            )}
+              {isUnreadMarkerTarget && (
+                <div className="flex items-center gap-3 py-1.5 shrink-0 select-none">
+                  <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
+                  <button
+                    type="button"
+                    onClick={onDismissUnreadMarker}
+                    className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-sky-700 shadow-sm transition hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/20"
+                    title="Ẩn dấu tin nhắn mới"
+                  >
+                    <span>{unreadMarker.count > 1 ? `${unreadMarker.count} tin nhắn mới` : 'Tin nhắn mới'}</span>
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="h-px flex-1 bg-sky-200 dark:bg-sky-500/30" />
+                </div>
+              )}
             </React.Fragment>
           );
         })}

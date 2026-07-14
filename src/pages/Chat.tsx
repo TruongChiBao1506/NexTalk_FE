@@ -244,6 +244,18 @@ export const Chat = () => {
     ?? group.channels?.[0]?.conversationId
     ?? null;
 
+  const getLatestGroupMessage = (group: GroupResponse) =>
+    (group.channels ?? [])
+      .map((channel) => lastMessages[channel.conversationId])
+      .filter(Boolean)
+      .reduce<typeof lastMessages[string] | undefined>((latest, message) =>
+        !latest || new Date(message.createdAt).getTime() > new Date(latest.createdAt).getTime()
+          ? message
+          : latest, undefined);
+
+  const getGroupPreviewConversationId = (group: GroupResponse) =>
+    getLatestGroupMessage(group)?.conversationId ?? getGroupConversationId(group);
+
   const [conversationTab, setConversationTab] = useState<'chats' | 'requests'>('chats');
   const [selectedChatRequest, setSelectedChatRequest] = useState<ChatRequestResponse | null>(null);
   const isSendingBlockedChatRequest = false;
@@ -427,6 +439,7 @@ export const Chat = () => {
     globalConversationResults,
     isGlobalSearching,
     globalSearchError,
+    pinUnlockStatus,
     groupMemberSearchQuery, setGroupMemberSearchQuery,
     normalizeSearchTerm,
     handleOpenSearchMessage
@@ -1987,7 +2000,7 @@ export const Chat = () => {
   };
 
   const handleOpenGroup = (group: GroupResponse) => {
-    const groupConversationId = getGroupConversationId(group);
+    const groupConversationId = getGroupPreviewConversationId(group);
     if (groupConversationId) {
       selectConversation(groupConversationId);
     }
@@ -2725,8 +2738,7 @@ export const Chat = () => {
       const lm = lastMessages[item.conv.id];
       return lm ? new Date(lm.createdAt).getTime() : new Date(item.conv.updatedAt).getTime();
     }
-    const groupConversationId = getGroupConversationId(item.group);
-    const lm = groupConversationId ? lastMessages[groupConversationId] : undefined;
+    const lm = getLatestGroupMessage(item.group);
     return lm ? new Date(lm.createdAt).getTime() : 0;
   };
 
@@ -2907,6 +2919,7 @@ export const Chat = () => {
           isSearchActive={isSearchActive}
           isGlobalSearching={isGlobalSearching}
           globalSearchError={globalSearchError}
+          pinUnlockStatus={pinUnlockStatus}
           globalUserResults={globalUserResults}
           isExistingFriend={isExistingFriend}
           sentFriendRequestIds={sentFriendRequestIds}
@@ -2939,6 +2952,7 @@ export const Chat = () => {
           handleToggleConversationPin={handleToggleConversationPin}
           handleHideClick={handleHideClick}
           getGroupConversationId={getGroupConversationId}
+          getLatestGroupMessage={getLatestGroupMessage}
           expandedGroups={expandedGroups}
           handleOpenGroup={handleOpenGroup}
           toggleGroupExpand={toggleGroupExpand}

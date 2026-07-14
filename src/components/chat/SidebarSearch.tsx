@@ -1,4 +1,5 @@
-import { Search } from 'lucide-react';
+import { Lock, Search } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 interface SidebarSearchProps {
   searchQuery: string;
@@ -6,12 +7,18 @@ interface SidebarSearchProps {
 }
 
 export const SidebarSearch = ({ searchQuery, setSearchQuery }: SidebarSearchProps) => {
+  const hasChatPin = useAuthStore((state) => state.user?.hasChatPin);
+  const isChatPinEntry = Boolean(hasChatPin && /^\d{1,4}$/.test(searchQuery));
+
   return (
     <div className="px-3 py-2.5 shrink-0">
       <div className="relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        {isChatPinEntry
+          ? <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          : <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />}
         <input
-          type="text"
+          type={isChatPinEntry ? 'password' : 'text'}
+          autoComplete="off"
           placeholder="Tìm người, nhóm, tin nhắn..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
