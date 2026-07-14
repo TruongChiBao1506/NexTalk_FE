@@ -7,6 +7,10 @@ import type {
   AddMemberRequest,
   UpdateMemberRoleRequest,
   ChannelResponse,
+  ChannelTaskResponse,
+  ChannelTaskStatus,
+  CreateChannelTaskRequest,
+  UpdateChannelTaskRequest,
   GroupInvitationResponse,
   InviteUserRequest,
   PublicGroupInfoResponse,
@@ -70,6 +74,31 @@ export const groupService = {
 
   async getChannels(groupId: string): Promise<ApiResponse<ChannelResponse[]>> {
     const response = await apiClient.get<ApiResponse<ChannelResponse[]>>(`/groups/${groupId}/channels`);
+    return response.data;
+  },
+
+  async getChannelTasks(groupId: string, channelId: string): Promise<ApiResponse<ChannelTaskResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ChannelTaskResponse[]>>(`/groups/${groupId}/channels/${channelId}/tasks`);
+    return response.data;
+  },
+
+  async createChannelTask(groupId: string, channelId: string, data: CreateChannelTaskRequest): Promise<ApiResponse<ChannelTaskResponse>> {
+    const response = await apiClient.post<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks`, data);
+    return response.data;
+  },
+
+  async updateChannelTask(groupId: string, channelId: string, taskId: string, data: UpdateChannelTaskRequest): Promise<ApiResponse<ChannelTaskResponse>> {
+    const response = await apiClient.put<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}`, data);
+    return response.data;
+  },
+
+  async updateChannelTaskStatus(groupId: string, channelId: string, taskId: string, status: ChannelTaskStatus): Promise<ApiResponse<ChannelTaskResponse>> {
+    const response = await apiClient.patch<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}/status`, { status });
+    return response.data;
+  },
+
+  async deleteChannelTask(groupId: string, channelId: string, taskId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}`);
     return response.data;
   },
 

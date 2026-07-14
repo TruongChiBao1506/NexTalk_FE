@@ -67,6 +67,7 @@ import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel'
 import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
 import { MyQrModal } from '../components/chat/MyQrModal';
 import { QrScannerModal } from '../components/chat/QrScannerModal';
+import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
@@ -225,6 +226,9 @@ export const Chat = () => {
   useEffect(() => {
     reloadMessageDrafts();
   }, [user?.id, reloadMessageDrafts]);
+  useEffect(() => {
+    setChannelView('chat');
+  }, [activeConversation?.id]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
   const [createChannelGroupId, setCreateChannelGroupId] = useState<string | null>(null);
@@ -294,6 +298,7 @@ export const Chat = () => {
   const [triggeredReminder, setTriggeredReminder] = useState<MessageReminder | null>(null);
   const [pendingAiReplies, setPendingAiReplies] = useState<PendingAiReply[]>([]);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [channelView, setChannelView] = useState<'chat' | 'tasks'>('chat');
 
 
   const [inputMessage, setInputMessage] = useState('');
@@ -3134,6 +3139,25 @@ export const Chat = () => {
               isGroupModerator={canModerateActiveGroup}
             />
 
+            {isGroupConversation && activeGroup && activeChannel && activeChannel.type !== 'VOICE' && (
+              <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-discord-mid">
+                {(['chat', 'tasks'] as const).map((view) => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setChannelView(view)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
+                      channelView === view
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
+                    }`}
+                  >
+                    {view === 'chat' ? 'Chat' : 'Tasks'}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
               <StrangerWarningBanner
                 messagingRestricted={activePrivateChatRequiresFriendship}
@@ -3146,7 +3170,13 @@ export const Chat = () => {
               />
             )}
 
-            {activeChannel?.type === 'VOICE' ? (
+            {channelView === 'tasks' && activeGroup && activeChannel && activeChannel.type !== 'VOICE' ? (
+              <ChannelTasksPanel
+                group={activeGroup}
+                channel={activeChannel}
+                currentUserId={user?.id}
+              />
+            ) : activeChannel?.type === 'VOICE' ? (
               <div className="flex flex-col items-center justify-center flex-1 h-full bg-gray-100 dark:bg-discord-dark">
                 {activeVoiceChannelId === activeChannel.id ? (
                   <VoiceChannelGrid />

@@ -2,6 +2,8 @@ export type GroupRole = 'OWNER' | 'LEADER' | 'DEPUTY' | 'ADMIN' | 'MEMBER';
 export type InvitationStatus = 'PENDING' | 'WAITING_APPROVAL';
 
 export type ChannelType = 'TEXT' | 'FORUM' | 'VOICE';
+export type ChannelTaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+export type ChannelTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface ChannelResponse {
   id: string;
@@ -12,6 +14,47 @@ export interface ChannelResponse {
   conversationId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChannelTaskAssigneeResponse {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+}
+
+export interface ChannelTaskResponse {
+  id: string;
+  groupId: string;
+  channelId: string;
+  title: string;
+  description: string | null;
+  status: ChannelTaskStatus;
+  priority: ChannelTaskPriority;
+  createdById: string;
+  createdByUsername: string;
+  assignees: ChannelTaskAssigneeResponse[];
+  dueAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChannelTaskRequest {
+  title: string;
+  description?: string;
+  status?: ChannelTaskStatus;
+  priority?: ChannelTaskPriority;
+  dueAt?: string;
+  assigneeIds?: string[];
+}
+
+export interface UpdateChannelTaskRequest {
+  title?: string;
+  description?: string;
+  status?: ChannelTaskStatus;
+  priority?: ChannelTaskPriority;
+  dueAt?: string;
+  assigneeIds?: string[];
 }
 
 export interface GroupMemberResponse {
