@@ -1,18 +1,21 @@
-import { X, Download } from 'lucide-react';
+import { X, Download, Trash2 } from 'lucide-react';
 import { downloadFile } from '../../utils/fileUtils';
 
 export type ActiveMediaProps = {
   url: string;
   type: 'IMAGE' | 'VIDEO';
   name?: string;
+  messageId?: string;
+  canRecall?: boolean;
 };
 
 interface MediaViewerModalProps {
   activeMedia: ActiveMediaProps;
   onClose: () => void;
+  onRecallAttachment?: (messageId: string, url: string) => void;
 }
 
-export const MediaViewerModal = ({ activeMedia, onClose }: MediaViewerModalProps) => {
+export const MediaViewerModal = ({ activeMedia, onClose, onRecallAttachment }: MediaViewerModalProps) => {
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
@@ -20,6 +23,22 @@ export const MediaViewerModal = ({ activeMedia, onClose }: MediaViewerModalProps
     >
       {/* Top bar with buttons */}
       <div className="absolute top-4 right-4 z-[110] flex items-center gap-3">
+        {activeMedia.canRecall && activeMedia.messageId && onRecallAttachment && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm('Bạn có chắc chắn muốn thu hồi tệp này khỏi cuộc trò chuyện?')) {
+                onRecallAttachment(activeMedia.messageId!, activeMedia.url);
+                onClose();
+              }
+            }}
+            className="rounded-full bg-red-500/20 text-red-400 p-2.5 backdrop-blur-md transition hover:bg-red-500/30 hover:scale-105"
+            title="Thu hồi ảnh/tệp này"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => {

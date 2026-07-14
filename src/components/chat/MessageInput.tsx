@@ -37,7 +37,8 @@ import {
   Clock,
   Mic,
   MicOff,
-  Square
+  Square,
+  Eye
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
@@ -192,6 +193,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [activePackId, setActivePackId] = React.useState<string | null>(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
   const [showToolbar, setShowToolbar] = React.useState(false);
+  const [previewModalUrl, setPreviewModalUrl] = React.useState<string | null>(null);
   const moreMenuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -282,7 +284,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 title={attachment.name}
               >
                 {attachment.type === 'IMAGE' && attachment.previewUrl ? (
-                  <img src={attachment.previewUrl} alt={attachment.name} className="w-full h-full object-cover" />
+                  <>
+                    <img src={attachment.previewUrl} alt={attachment.name} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalUrl(attachment.previewUrl)}
+                      className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Xem phóng to"
+                    >
+                      <Eye className="w-5 h-5 drop-shadow" />
+                    </button>
+                  </>
                 ) : attachment.type === 'VIDEO' ? (
                   <div className="w-full h-full flex items-center justify-center text-indigo-600 dark:text-discord-blurple">
                     <Video className="w-7 h-7" />
@@ -304,17 +316,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 <button
                   type="button"
                   onClick={() => removePendingAttachment(attachment.id)}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-rose-600"
                   title="Xóa"
                 >
                   <X className="w-3 h-3" />
                 </button>
 
                 {attachment.isUploading && (
-                  <div className="absolute inset-x-1 bottom-1 h-1 rounded-full bg-black/20 overflow-hidden">
+                  <div className="absolute inset-x-1 bottom-1 h-1.5 rounded-full bg-black/30 overflow-hidden z-10">
                     <div
-                      className="h-full bg-indigo-500 transition-all"
-                      style={{ width: `${attachment.progress}%` }}
+                      className="h-full bg-indigo-500 transition-all duration-200"
+                      style={{ width: `${attachment.progress ?? 10}%` }}
                     />
                   </div>
                 )}
@@ -336,6 +348,33 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             >
               <Plus className="w-7 h-7" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Attachment Fullscreen Preview Modal */}
+      {previewModalUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setPreviewModalUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[85vh] bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-zinc-700/60 p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewModalUrl(null)}
+              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-rose-600 transition"
+              title="Đóng"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={previewModalUrl}
+              alt="Xem trước"
+              className="w-full h-full max-h-[80vh] object-contain rounded-xl"
+            />
           </div>
         </div>
       )}

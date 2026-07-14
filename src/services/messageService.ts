@@ -58,6 +58,13 @@ export const messageService = {
     return response.data;
   },
 
+  async recallAttachment(id: string, attachmentUrl: string): Promise<ApiResponse<MessageResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageResponse>>(`/messages/${id}/attachment/recall`, null, {
+      params: { attachmentUrl }
+    });
+    return response.data;
+  },
+
   async deleteMessage(id: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/messages/${id}`);
     return response.data;

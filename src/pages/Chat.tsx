@@ -21,7 +21,7 @@ import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
-  Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2
+  Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2, UploadCloud
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -177,6 +177,8 @@ export const Chat = () => {
     clearMessageDraft,
     reloadMessageDrafts,
     clearUnreadMarker,
+    addOptimisticMessage,
+    updateOptimisticMessage,
     isSelectionMode,
     selectedMessageIds,
     clearSelection,
@@ -277,6 +279,8 @@ export const Chat = () => {
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
   const [isSpeechListening, setIsSpeechListening] = useState(false);
   const [speechInputError, setSpeechInputError] = useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
@@ -304,6 +308,7 @@ export const Chat = () => {
   type PendingAttachment = {
     id: string;
     url: string | null;
+    sourceFile?: File;
     type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
     name: string;
     size?: number;
@@ -752,40 +757,15 @@ export const Chat = () => {
       {
         id,
         url: null,
+        sourceFile: file,
         type,
         name: file.name,
         size: file.size,
         previewUrl,
         progress: 0,
-        isUploading: true,
+        isUploading: false,
       },
     ]);
-
-    try {
-      const response = await fileService.uploadFile(file, (progress) => {
-        setPendingAttachments((attachments) =>
-          attachments.map((attachment) =>
-            attachment.id === id ? { ...attachment, progress } : attachment
-          )
-        );
-      });
-
-      if (response.success && response.data) {
-        setPendingAttachments((attachments) =>
-          attachments.map((attachment) =>
-            attachment.id === id
-              ? { ...attachment, url: response.data.url, progress: 100, isUploading: false }
-              : attachment
-          )
-        );
-      } else {
-        removePendingAttachment(id);
-        showAlertDialog('Failed to upload file: ' + response.message, 'Thông báo', 'danger');
-      }
-    } catch (err: any) {
-      removePendingAttachment(id);
-      showAlertDialog('Error uploading file: ' + (err.response?.data?.message || err.message), 'Thông báo', 'danger');
-    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1886,6 +1866,46 @@ export const Chat = () => {
     }
   };
 
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingFile(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingFile(false);
+
+    if (!canSendInActiveConversation) {
+      return;
+    }
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) {
+      files.forEach((file) => addUploadedFile(file));
+    }
+  };
+
   const isAiBotMentionMessage = (content: string) => {
     if (!content) return false;
     if (/data-id=["']bot["']/i.test(content)) return true;
@@ -1917,27 +1937,123 @@ export const Chat = () => {
     }
 
     const currentMessage = getCurrentInputMessage();
-    const readyAttachments = pendingAttachments.filter((attachment) => attachment.url && !attachment.isUploading);
-    if (readyAttachments.length !== pendingAttachments.length) {
-      return;
-    }
-
-    if (readyAttachments.length > 0) {
-      const attachments: MessageAttachment[] = readyAttachments
-        .filter((attachment): attachment is PendingAttachment & { url: string } => Boolean(attachment.url))
-        .map((attachment) => ({
-          url: attachment.url,
-          type: attachment.type,
-          name: attachment.name,
-          size: attachment.size,
-      }));
+    if (pendingAttachments.length > 0) {
+      const attachmentsToUpload = [...pendingAttachments];
       const caption = currentMessage.trim();
-      const messageType = attachments.length > 1 ? 'ALBUM' : attachments[0]?.type ?? 'ALBUM';
+      const clientMessageId = `client-media-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const activeConvo = activeConversation;
+      const currentUser = user;
+
+      if (!activeConvo || !currentUser) return;
+
+      // The picker preview URLs are revoked when its state is cleared. Give the
+      // timeline its own object URLs so the optimistic thumbnails stay valid
+      // while the files are uploading in the background.
+      const optimisticPreviewUrls: string[] = [];
+      const optimisticAttachments: MessageAttachment[] = attachmentsToUpload.map((item) => {
+        const optimisticUrl = item.sourceFile
+          ? URL.createObjectURL(item.sourceFile)
+          : (item.previewUrl || item.url || '');
+        if (optimisticUrl.startsWith('blob:')) optimisticPreviewUrls.push(optimisticUrl);
+        return {
+        url: optimisticUrl,
+        type: item.type,
+        name: item.name,
+        size: item.size,
+        };
+      });
+
+      const messageType = optimisticAttachments.length > 1 ? 'ALBUM' : (optimisticAttachments[0]?.type ?? 'ALBUM');
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+      const optimisticMsg: MessageResponse = {
+        id: tempId,
+        conversationId: activeConvo.id,
+        senderId: currentUser.id,
+        senderUsername: currentUser.username,
+        content: caption,
+        messageType: messageType as any,
+        attachments: optimisticAttachments,
+        createdAt: new Date().toISOString(),
+        metadata: {
+          optimistic: true,
+          deliveryState: 'sending',
+          clientMessageId,
+          progress: 0
+        }
+      };
+
+      // 1. Instantly push optimistic message to Chat UI (0ms delay)
+      addOptimisticMessage(optimisticMsg);
+
+      // 2. Clear input & attachments UI immediately (0ms delay)
       sendTypingStopped();
-      sendStompMessage(caption, messageType, replyTo?.id ?? undefined, attachments, messagePriority || undefined);
       resetUploadState();
       clearQuillInput();
       setMessagePriority(null);
+      if (replyTo) setReplyTo(null);
+      setIsEmojiStickerOpen(false);
+
+      // 3. Perform upload in background non-blocking task
+      (async () => {
+        try {
+          const finalAttachments: MessageAttachment[] = [];
+          for (let i = 0; i < attachmentsToUpload.length; i++) {
+            const item = attachmentsToUpload[i];
+            if (item.url) {
+              finalAttachments.push({
+                url: item.url,
+                type: item.type,
+                name: item.name,
+                size: item.size
+              });
+            } else if (item.sourceFile) {
+              const res = await fileService.uploadFile(item.sourceFile, (percent) => {
+                const totalProgress = Math.round(((i + percent / 100) / attachmentsToUpload.length) * 100);
+                updateOptimisticMessage(clientMessageId, {
+                  metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: totalProgress }
+                });
+              });
+
+              if (res.success && res.data) {
+                finalAttachments.push({
+                  url: res.data.url,
+                  type: item.type,
+                  name: item.name,
+                  size: item.size
+                });
+              } else {
+                throw new Error(res.message || 'Lỗi tải ảnh lên server.');
+              }
+            }
+          }
+
+          // Swap local blob previews for durable server URLs before publishing.
+          // This also prevents a broken thumbnail if the websocket ACK is slow.
+          updateOptimisticMessage(clientMessageId, {
+            attachments: finalAttachments,
+            metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: 100 }
+          });
+          optimisticPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+
+          // Dispatch real message via STOMP with clientMessageId for overwrite matching
+          sendStompMessage(
+            caption,
+            messageType as any,
+            replyTo?.id ?? undefined,
+            finalAttachments,
+            messagePriority || undefined,
+            clientMessageId
+          );
+        } catch (err: any) {
+          console.error('[Optimistic Media Upload Error]', err);
+          updateOptimisticMessage(clientMessageId, {
+            metadata: { clientMessageId, optimistic: true, deliveryState: 'failed' }
+          });
+        }
+      })();
+
+      return;
     } else if (currentMessage.trim()) {
       // Send text if typed without attachments
       const trimmedMessage = currentMessage.trim();
@@ -2879,9 +2995,25 @@ export const Chat = () => {
 
   return (
     <div 
-      className="nextalk-chat-shell h-dvh w-screen flex overflow-hidden text-slate-900 dark:text-discord-text transition-colors duration-300"
+      className="nextalk-chat-shell relative h-dvh w-screen flex overflow-hidden text-slate-900 dark:text-discord-text transition-colors duration-300"
       style={activeConversation?.themeColor ? { '--theme-color': activeConversation.themeColor } as React.CSSProperties : {}}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* Drag & Drop Overlay */}
+      {isDraggingFile && canSendInActiveConversation && (
+        <div className="fixed inset-0 z-50 bg-indigo-600/30 dark:bg-discord-blurple/40 border-4 border-dashed border-indigo-500 dark:border-discord-blurple flex flex-col items-center justify-center backdrop-blur-md pointer-events-none animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-3 border border-indigo-100 dark:border-zinc-700 max-w-md text-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-discord-blurple/20 flex items-center justify-center text-indigo-600 dark:text-discord-blurple animate-bounce">
+              <UploadCloud className="w-9 h-9" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Thả tệp vào đây để gửi</h3>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">NexTalk sẽ tự động nén ảnh và tối ưu tốc độ tải tệp cho bạn</p>
+          </div>
+        </div>
+      )}
 
       {/* Column 1: Sidebar Navigation */}
       <SidebarNavigation
@@ -3688,6 +3820,9 @@ export const Chat = () => {
         <MediaViewerModal
           activeMedia={activeMedia}
           onClose={() => setActiveMedia(null)}
+          onRecallAttachment={(messageId, url) => {
+            void messageService.recallAttachment(messageId, url);
+          }}
         />
       )}
 

@@ -50,6 +50,7 @@ import { MessageReactions } from './MessageReactions';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { getMessagePreviewData } from '../../utils/messagePreview';
 import { Skeleton } from '../common/Skeleton';
+import { messageService } from '../../services/messageService';
 import { useChatStore } from '../../store/chatStore';
 
 interface MessageListProps {
@@ -1095,89 +1096,133 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
                               }`}>
                               {renderPriorityBadge()}
-                              <div className={`grid gap-1.5 ${msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                                }`}>
-                                {msg.attachments.map((attachment: any, idx: number) => {
-                                  if (attachment.type === 'IMAGE' || attachment.type === 'VIDEO') {
-                                    const mediaType = attachment.type;
-                                    if (attachment.type === 'IMAGE') {
-                                      return (
-                                        <button
-                                          type="button"
-                                          key={`${attachment.url}-${idx}`}
-                                          onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                          className={`block text-left overflow-hidden bg-black/10 w-full cursor-zoom-in ${msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                            }`}
-                                          title={attachment.name || getFileName(attachment.url)}
-                                        >
-                                          <img
-                                            src={attachment.url}
-                                            alt={attachment.name || 'Shared image'}
-                                            className="w-full max-h-72 object-cover"
-                                          />
-                                        </button>
-                                      );
-                                    } else {
-                                      return (
-                                        <div
-                                          key={`${attachment.url}-${idx}`}
-                                          className={`block overflow-hidden bg-black/10 w-full ${msg.attachments!.length === 1 ? 'rounded-xl' : 'rounded-lg'
-                                            }`}
-                                          title={attachment.name || getFileName(attachment.url)}
-                                        >
-                                          <VideoThumbnail
-                                            src={attachment.url}
-                                            onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined })}
-                                          />
-                                        </div>
-                                      );
-                                    }
-                                  } else {
-                                    const fileUrl = attachment.url;
-                                    const fileName = attachment.name || getFileName(attachment.url);
-                                    if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
-                                      return (
-                                        <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
-                                            ? 'nextalk-themed-bubble rounded-tr-none'
-                                            : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
-                                          }`}>
-                                          <div className="hidden">
-                                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
-                                              }`}>
-                                              <Mic className="h-4.5 w-4.5" />
-                                            </span>
-                                            <div className="min-w-0 flex-1 text-left">
-                                              <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
-                                              {attachment.size != null && attachment.size > 0 && (
-                                                <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
-                                                  {formatFileSize(attachment.size)}
-                                                </p>
+                              {(() => {
+                                const mediaAttachments = msg.attachments.filter((a: any) => a.type === 'IMAGE' || a.type === 'VIDEO');
+                                const fileAttachments = msg.attachments.filter((a: any) => a.type !== 'IMAGE' && a.type !== 'VIDEO');
+                                const mediaCount = mediaAttachments.length;
+                                const visibleMedia = mediaAttachments.slice(0, 4);
+
+                                return (
+                                  <div className="flex flex-col gap-1.5">
+                                    {mediaCount > 0 && (
+                                      <div className={`grid gap-1.5 ${mediaCount === 1 ? 'grid-cols-1 max-w-[340px]' : 'grid-cols-2 max-w-[420px]'}`}>
+                                        {visibleMedia.map((attachment: any, idx: number) => {
+                                          const mediaType = attachment.type;
+                                          let tileClass = 'col-span-1 h-36';
+                                          if (mediaCount === 1) tileClass = 'col-span-1 max-h-80 min-h-[140px]';
+                                          else if (mediaCount === 2) tileClass = 'col-span-1 h-44';
+                                          else if (mediaCount === 3) tileClass = idx === 0 ? 'col-span-2 h-44' : 'col-span-1 h-32';
+                                          else tileClass = 'col-span-1 h-32';
+
+                                          const isFourthWithMore = idx === 3 && mediaCount > 4;
+
+                                          return (
+                                            <div
+                                              key={`${attachment.url}-${idx}`}
+                                              className={`relative overflow-hidden bg-black/10 w-full rounded-xl cursor-pointer group ${tileClass}`}
+                                              onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined, messageId: msg.id, canRecall: isMe })}
+                                              title={attachment.name || getFileName(attachment.url)}
+                                            >
+                                              {attachment.type === 'IMAGE' ? (
+                                                <img
+                                                  src={attachment.url}
+                                                  alt={attachment.name || 'Shared image'}
+                                                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                                />
+                                              ) : (
+                                                <VideoThumbnail
+                                                  src={attachment.url}
+                                                  onClick={() => setActiveMedia({ url: attachment.url, type: mediaType, name: attachment.name ?? undefined, messageId: msg.id, canRecall: isMe })}
+                                                />
+                                              )}
+
+                                              {isMe && !isFourthWithMore && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm('Thu hồi ảnh này khỏi tin nhắn?')) {
+                                                      void messageService.recallAttachment(msg.id, attachment.url);
+                                                    }
+                                                  }}
+                                                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-black/60 hover:bg-red-600 text-white backdrop-blur-sm z-10"
+                                                  title="Thu hồi ảnh này"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              )}
+
+                                              {msg.metadata?.optimistic && (
+                                                <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex flex-col items-center justify-center text-white z-20 pointer-events-none">
+                                                  <Loader2 className="w-5 h-5 animate-spin mb-1 text-white" />
+                                                  <span className="text-[11px] font-extrabold">{msg.metadata?.progress ?? 0}%</span>
+                                                </div>
+                                              )}
+
+                                              {msg.metadata?.deliveryState === 'failed' && (
+                                                <div className="absolute inset-0 bg-rose-950/80 backdrop-blur-[1px] flex flex-col items-center justify-center text-white p-2 z-20">
+                                                  <AlertCircle className="w-6 h-6 text-rose-400 mb-1" />
+                                                  <span className="text-[11px] font-bold text-rose-200 text-center">Gửi thất bại</span>
+                                                </div>
+                                              )}
+
+                                              {isFourthWithMore && (
+                                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center text-white text-2xl font-extrabold rounded-xl transition-all group-hover:bg-black/70">
+                                                  +{mediaCount - 3}
+                                                </div>
                                               )}
                                             </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
-                                              className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
-                                              title="Tải xuống"
-                                            >
-                                              <Download className="h-4 w-4" />
-                                            </button>
-                                          </div>
-                                          <audio
-                                            controls
-                                            preload="metadata"
-                                            src={fileUrl}
-                                            className="block h-9 w-full"
-                                          />
-                                        </div>
-                                      );
-                                    }
-                                    const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+                                          );
+                                        })}
+                                      </div>
+                                    )}
 
-                                    return (
-                                      <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
-                                        <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${isMe
-                                            ? 'nextalk-themed-bubble rounded-tr-none'
+                                    {fileAttachments.map((attachment: any, idx: number) => {
+                                      const fileUrl = attachment.url;
+                                      const fileName = attachment.name || getFileName(attachment.url);
+                                      if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
+                                        return (
+                                          <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
+                                              ? 'nextalk-themed-bubble rounded-tr-none'
+                                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
+                                            }`}>
+                                            <div className="hidden">
+                                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                                }`}>
+                                                <Mic className="h-4.5 w-4.5" />
+                                              </span>
+                                              <div className="min-w-0 flex-1 text-left">
+                                                <p className="m-0 truncate text-[13px] font-bold">{fileName || 'Tin nhắn thoại'}</p>
+                                                {attachment.size != null && attachment.size > 0 && (
+                                                  <p className={`m-0 text-[11px] ${isMe ? 'text-slate-500 dark:text-zinc-300' : 'text-gray-500 dark:text-zinc-400'}`}>
+                                                    {formatFileSize(attachment.size)}
+                                                  </p>
+                                                )}
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => downloadFile(fileUrl, fileName || 'voice-message.webm')}
+                                                className={`rounded-lg p-2 transition ${isMe ? 'text-slate-600 hover:bg-blue-200/60 dark:text-zinc-200 dark:hover:bg-white/10' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300'}`}
+                                                title="Tải xuống"
+                                              >
+                                                <Download className="h-4 w-4" />
+                                              </button>
+                                            </div>
+                                            <audio
+                                              controls
+                                              preload="metadata"
+                                              src={fileUrl}
+                                              className="block h-9 w-full"
+                                            />
+                                          </div>
+                                        );
+                                      }
+                                      const { icon: FileIcon, colorClass, bgColorClass } = getFileIconConfig(fileName);
+
+                                      return (
+                                        <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
+                                          <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${isMe
+                                              ? 'nextalk-themed-bubble rounded-tr-none'
                                             : 'bg-white dark:bg-discord-mid border-indigo-100 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                                           }`}>
                                           <div className={`p-2.5 rounded-xl shrink-0 ${bgColorClass} ${colorClass}`}>
@@ -1204,9 +1249,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                         </div>
                                       </div>
                                     );
-                                  }
-                                })}
-                              </div>
+                                  })}
+                                </div>
+                                );
+                              })()}
                               {msg.content && (
                                 <div className="mt-2 px-1">
                                   {renderFormattedMessage(msg.content)}

@@ -46,9 +46,22 @@ const sortConversations = (conversations: ConversationResponse[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
+const getClientMessageId = (message: MessageResponse): string | undefined =>
+  message.clientMessageId ?? message.metadata?.clientMessageId;
+
 const mergeMessagesNewestFirst = (current: MessageResponse[], incoming: MessageResponse[]) => {
   const byId = new Map(current.map((message) => [message.id, message]));
+  const optimisticIdByClientId = new Map(
+    current
+      .map((message) => [getClientMessageId(message), message.id] as const)
+      .filter((entry): entry is readonly [string, string] => Boolean(entry[0]))
+  );
   incoming.forEach((message) => {
+    const clientMessageId = getClientMessageId(message);
+    const optimisticId = clientMessageId ? optimisticIdByClientId.get(clientMessageId) : undefined;
+    if (optimisticId && optimisticId !== message.id) {
+      byId.delete(optimisticId);
+    }
     const existing = byId.get(message.id);
     byId.set(message.id, existing ? { ...existing, ...message } : message);
   });
@@ -139,7 +152,7 @@ interface ChatState {
   selectConversation: (conversationId: string | null) => Promise<void>;
   updateConversation: (conversation: ConversationResponse) => void;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => void;
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => void;
   sendTypingIndicator: (typing: boolean, conversationId?: string) => void;
   setMessageDraft: (conversationId: string, content: string) => void;
   clearMessageDraft: (conversationId: string) => void;
@@ -174,6 +187,8 @@ interface ChatState {
   batchDeleteMessages: () => Promise<void>;
   batchRecallMessages: () => Promise<void>;
   batchShareMessages: (targetConversationIds: string[]) => Promise<void>;
+  addOptimisticMessage: (message: MessageResponse) => void;
+  updateOptimisticMessage: (clientMessageId: string, updates: Partial<MessageResponse> & { metadata?: Record<string, any> }) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -502,21 +517,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string) => {
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => {
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
       return;
     }
 
-      const messageRequest = {
-        conversationId: activeConversation.id,
-        content,
-        messageType: messageType || 'TEXT',
-        parentId: parentId || undefined,
-        attachments: attachments && attachments.length > 0 ? attachments : undefined,
-        priority: priority || undefined,
-      };
+    const messageRequest = {
+      conversationId: activeConversation.id,
+      content,
+      messageType: messageType || 'TEXT',
+      parentId: parentId || undefined,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
+      priority: priority || undefined,
+      clientMessageId: clientMessageId || undefined,
+    };
 
     stompClient.publish({
       destination: '/app/chat.send',
@@ -819,7 +835,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addIncomingMessage: (message: MessageResponse) => {
-    const { activeConversation, conversations, messages } = get();
+    const { activeConversation, conversations } = get();
     const currentUser = useAuthStore.getState().user;
 
     // Update lastMessages registry
@@ -835,25 +851,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // If belongs to the active conversation
     if (activeConversation && activeConversation.id === message.conversationId) {
-      const existingMsgIndex = messages.findIndex((m) => m.id === message.id);
-      if (existingMsgIndex > -1) {
-        // Update existing message
-        set((state) => {
-          const updatedMessages = [...state.messages];
-          updatedMessages[existingMsgIndex] = message;
-          return { messages: updatedMessages };
-        });
-      } else {
-        // Prepend new message
-        set((state) => ({
-          messages: [message, ...state.messages],
-        }));
-        // If we are not the sender, mark it as SEEN
-        if (currentUser && message.senderId !== currentUser.id) {
-          messageService.markAsSeen(message.conversationId).catch(() => {});
-        }
+      const incomingClientMsgId = getClientMessageId(message);
+
+      set((state) => {
+        const matchingIndexes = state.messages.reduce<number[]>((indexes, item, index) => {
+          if (item.id === message.id || (incomingClientMsgId && getClientMessageId(item) === incomingClientMsgId)) {
+            indexes.push(index);
+          }
+          return indexes;
+        }, []);
+        const insertAt = matchingIndexes.length > 0 ? Math.min(...matchingIndexes) : 0;
+        const updatedMessages = state.messages.filter((_, index) => !matchingIndexes.includes(index));
+        updatedMessages.splice(insertAt, 0, message);
+        return { messages: updatedMessages };
+      });
+
+      if (currentUser && message.senderId !== currentUser.id) {
+        messageService.markAsSeen(message.conversationId).catch(() => {});
       }
 
+      // Also update messagesCache if present
+      set((state) => {
+        const cached = state.messagesCache[message.conversationId];
+        if (!cached) return state;
+        const matchingIndexes = cached.reduce<number[]>((indexes, item, index) => {
+          if (item.id === message.id || (incomingClientMsgId && getClientMessageId(item) === incomingClientMsgId)) {
+            indexes.push(index);
+          }
+          return indexes;
+        }, []);
+        const insertAt = matchingIndexes.length > 0 ? Math.min(...matchingIndexes) : 0;
+        const updatedCache = cached.filter((_, index) => !matchingIndexes.includes(index));
+        updatedCache.splice(insertAt, 0, message);
+        return {
+          messagesCache: {
+            ...state.messagesCache,
+            [message.conversationId]: updatedCache
+          }
+        };
+      });
       // Handle update pinned messages in local state
       if (message.isPinned) {
         set((state) => {
@@ -1309,5 +1345,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to update conversation hidden status:', err);
     }
     return false;
+  },
+
+  addOptimisticMessage: (message: MessageResponse) => {
+    set((state) => {
+      const activeConvoId = state.activeConversation?.id;
+      const isCurrentConvo = activeConvoId === message.conversationId;
+      const newMessages = isCurrentConvo ? [message, ...state.messages] : state.messages;
+
+      const cached = state.messagesCache[message.conversationId];
+      const newCache = cached
+        ? { ...state.messagesCache, [message.conversationId]: [message, ...cached] }
+        : state.messagesCache;
+
+      return {
+        messages: newMessages,
+        messagesCache: newCache,
+        lastMessages: {
+          ...state.lastMessages,
+          [message.conversationId]: message
+        }
+      };
+    });
+  },
+
+  updateOptimisticMessage: (clientMessageId: string, updates: Partial<MessageResponse> & { metadata?: Record<string, any> }) => {
+    set((state) => {
+      const updateList = (list: MessageResponse[]) =>
+        list.map((m) => {
+          if (m.metadata?.clientMessageId === clientMessageId) {
+            return {
+              ...m,
+              ...updates,
+              metadata: {
+                ...m.metadata,
+                ...updates.metadata
+              }
+            };
+          }
+          return m;
+        });
+
+      return {
+        messages: updateList(state.messages),
+        messagesCache: Object.fromEntries(
+          Object.entries(state.messagesCache).map(([cid, list]) => [cid, updateList(list)])
+        )
+      };
+    });
   },
 }));

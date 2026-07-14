@@ -25,6 +25,7 @@ export interface MessageRequest {
   messageType?: MessageType;
   attachments?: MessageAttachment[];
   parentId?: string;
+  clientMessageId?: string;
 }
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER';
@@ -136,6 +137,7 @@ export interface MessageResponse {
   conversationId: string;
   senderId: string;
   senderUsername: string;
+  clientMessageId?: string | null;
   content: string;
   messageType: MessageType;
   attachments?: MessageAttachment[];
