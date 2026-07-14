@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Circle, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import type {
   ChannelResponse,
@@ -51,12 +51,19 @@ const formatDueDate = (value?: string | null) => {
 };
 
 export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
+  const userRole = group.members.find((m) => m.userId === currentUserId)?.role;
+  const isLeader = userRole === 'OWNER' || userRole === 'LEADER' || userRole === 'ADMIN';
+  const canModifyStatus = (task: ChannelTaskResponse) => task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader;
+  const canDeleteTask = (task: ChannelTaskResponse) => task.createdById === currentUserId || isLeader;
+
   const [tasks, setTasks] = useState<ChannelTaskResponse[]>([]);
   const [filter, setFilter] = useState<'all' | 'mine' | ChannelTaskStatus>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [confirmStatusTask, setConfirmStatusTask] = useState<{ task: ChannelTaskResponse; nextStatus: ChannelTaskStatus } | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<ChannelTaskPriority>('MEDIUM');
@@ -83,7 +90,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (filter === 'all') return true;
-      if (filter === 'mine') return task.assignees.some((assignee) => assignee.userId === currentUserId) || task.createdById === currentUserId;
+      if (filter === 'mine') return task.assignees.some((assignee) => assignee.userId === currentUserId);
       return task.status === filter;
     });
   }, [currentUserId, filter, tasks]);
@@ -114,8 +121,8 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
     }
   };
 
-  const updateStatus = async (task: ChannelTaskResponse) => {
-    const nextStatus: ChannelTaskStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+  const updateStatusValue = async (task: ChannelTaskResponse, nextStatus: ChannelTaskStatus) => {
+    if (task.status === nextStatus) return;
     const previous = tasks;
     setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: nextStatus } : item));
     try {
@@ -126,6 +133,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
     } catch {
       setTasks(previous);
     }
+  };
+
+  const confirmStatusChange = (task: ChannelTaskResponse, nextStatus: ChannelTaskStatus) => {
+    if (task.status === nextStatus) return;
+    setConfirmStatusTask({ task, nextStatus });
   };
 
   const deleteTask = async (taskId: string) => {
@@ -143,6 +155,10 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
       ? current.filter((id) => id !== userId)
       : [...current, userId]);
   };
+
+  const currentUserRole = group.members.find((m) => m.userId === currentUserId)?.role;
+  const canAssignToOthers = currentUserRole === 'OWNER' || currentUserRole === 'LEADER';
+  const assignableMembers = canAssignToOthers ? group.members : group.members.filter((m) => m.userId === currentUserId);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-gray-100 dark:bg-discord-dark">
@@ -196,18 +212,48 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
             {filteredTasks.map((task) => (
-              <div key={task.id} className="grid grid-cols-[32px_1fr_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-zinc-800">
-                <button type="button" onClick={() => updateStatus(task)} className="text-gray-400 hover:text-emerald-600">
-                  {task.status === 'DONE' ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5" />}
-                </button>
+              <div key={task.id} className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl dark:border-zinc-800">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className={`m-0 truncate text-sm font-black ${task.status === 'DONE' ? 'text-gray-400 line-through' : 'text-gray-950 dark:text-white'}`}>
                       {task.title}
                     </h3>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${statusClass[task.status]}`}>{statusLabels[task.status]}</span>
+                    {canModifyStatus(task) ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenDropdownId(openDropdownId === task.id ? null : task.id)}
+                          className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${statusClass[task.status]} hover:opacity-80`}
+                        >
+                          <span className="text-[10px] font-black">{statusLabels[task.status]}</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                        {openDropdownId === task.id && (
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setOpenDropdownId(null)} />
+                            <div className="absolute left-0 top-full z-40 mt-1 w-32 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-discord-dark">
+                              {(['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'] as ChannelTaskStatus[]).map((st) => (
+                                <button
+                                  key={st}
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    confirmStatusChange(task, st);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-xs font-bold text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-zinc-800"
+                                >
+                                  {statusLabels[st]}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${statusClass[task.status]}`}>{statusLabels[task.status]}</span>
+                    )}
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${priorityClass[task.priority]}`}>{priorityLabels[task.priority]}</span>
                   </div>
                   {task.description && <p className="m-0 mt-1 line-clamp-2 text-xs text-gray-500 dark:text-zinc-400">{task.description}</p>}
@@ -215,9 +261,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                     {formatDueDate(task.dueAt)} · {task.assignees.length ? task.assignees.map((a) => a.username).join(', ') : 'Chưa giao'}
                   </p>
                 </div>
-                <button type="button" onClick={() => deleteTask(task.id)} className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {canDeleteTask(task) && (
+                  <button type="button" onClick={() => deleteTask(task.id)} className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -248,7 +296,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
               <div>
                 <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Giao cho</p>
                 <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
-                  {group.members.map((member) => (
+                  {assignableMembers.map((member) => (
                     <button
                       key={member.userId}
                       type="button"
@@ -261,11 +309,40 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                 </div>
               </div>
             </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800">Hủy</button>
-              <button type="button" onClick={createTask} disabled={!title.trim() || isSaving} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white hover:bg-indigo-700 disabled:opacity-50">
-                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Tạo task
+            <button disabled={!title.trim() || isSaving} type="button" onClick={createTask} className="mt-2 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+              {isSaving ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : 'Tạo task'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmStatusTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-discord-mid">
+            <h3 className="m-0 mb-2 text-lg font-black text-gray-950 dark:text-white">Xác nhận</h3>
+            <p className="m-0 mb-6 text-sm text-gray-500 dark:text-zinc-400">
+              Bạn có chắc muốn chuyển trạng thái công việc này thành "{statusLabels[confirmStatusTask.nextStatus]}"?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmStatusTask(null);
+                  setTasks([...tasks]);
+                }}
+                className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateStatusValue(confirmStatusTask.task, confirmStatusTask.nextStatus);
+                  setConfirmStatusTask(null);
+                }}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700"
+              >
+                Đồng ý
               </button>
             </div>
           </div>

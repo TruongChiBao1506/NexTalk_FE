@@ -278,6 +278,7 @@ export const Chat = () => {
   const [editingGroupName, setEditingGroupName] = useState('');
   const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [isTogglingApproval, setIsTogglingApproval] = useState(false);
+  const [isTogglingTasks, setIsTogglingTasks] = useState(false);
   const [isRefreshingInviteCode, setIsRefreshingInviteCode] = useState(false);
   const [messagePriority, setMessagePriority] = useState<string | null>(null);
   const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
@@ -2705,6 +2706,23 @@ export const Chat = () => {
     }
   };
 
+  const handleToggleTaskEnabled = async () => {
+    if (!activeGroup || isTogglingTasks) return;
+    setIsTogglingTasks(true);
+    try {
+      const response = await groupService.toggleGroupTasks(activeGroup.id, !activeGroup.isTaskEnabled);
+      if (response.success && response.data) {
+        await fetchGroups();
+      } else {
+        showAlertDialog('Không thể thay đổi cài đặt công việc. Vui lòng thử lại.', 'Thông báo', 'danger');
+      }
+    } catch (err: any) {
+      showAlertDialog(err.message || 'Lỗi khi cập nhật nhóm', 'Thông báo', 'danger');
+    } finally {
+      setIsTogglingTasks(false);
+    }
+  };
+
   const handleRefreshInviteCode = async () => {
     if (!activeGroup || isRefreshingInviteCode) return;
     setIsRefreshingInviteCode(true);
@@ -3137,15 +3155,17 @@ export const Chat = () => {
               setIsInviteMembersOpen={setIsInviteMembersOpen}
               activeChannel={activeChannel}
               isGroupModerator={canModerateActiveGroup}
+              isTogglingTasks={isTogglingTasks}
+              handleToggleTaskEnabled={handleToggleTaskEnabled}
             />
-
-            {isGroupConversation && activeGroup && activeChannel && activeChannel.type !== 'VOICE' && (
+            
+            {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? true) && activeChannel && activeChannel.type !== 'VOICE' && (
               <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-discord-mid">
-                {(['chat', 'tasks'] as const).map((view) => (
+                {(['chat', ...((activeChannel?.isTaskEnabled ?? true) ? ['tasks'] : [])] as const).map((view) => (
                   <button
                     key={view}
                     type="button"
-                    onClick={() => setChannelView(view)}
+                    onClick={() => setChannelView(view as 'chat' | 'tasks')}
                     className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
                       channelView === view
                         ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
@@ -3170,7 +3190,7 @@ export const Chat = () => {
               />
             )}
 
-            {channelView === 'tasks' && activeGroup && activeChannel && activeChannel.type !== 'VOICE' ? (
+            {channelView === 'tasks' && activeGroup && (activeChannel?.isTaskEnabled ?? true) && activeChannel && activeChannel.type !== 'VOICE' ? (
               <ChannelTasksPanel
                 group={activeGroup}
                 channel={activeChannel}
@@ -3794,6 +3814,8 @@ export const Chat = () => {
           handleRenameGroup={handleRenameGroup}
           isTogglingApproval={isTogglingApproval}
           handleToggleRequiresApproval={handleToggleRequiresApproval}
+          isTogglingTasks={isTogglingTasks}
+          handleToggleTaskEnabled={handleToggleTaskEnabled}
           handleLeaveActiveGroup={handleLeaveActiveGroup}
           profileActionLoading={profileActionLoading}
           canInviteToActiveGroup={canInviteToActiveGroup}

@@ -13,6 +13,7 @@ const schema = z.object({
   name: z.string().min(1, 'Tên kênh không được để trống').max(50, 'Tên kênh quá dài'),
   type: z.enum(['TEXT', 'VOICE']),
   isPrivate: z.boolean(),
+  isTaskEnabled: z.boolean().optional(),
   memberIds: z.array(z.string()).optional(),
 });
 
@@ -55,6 +56,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       name: channel.name,
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
+      isTaskEnabled: Boolean(channel.isTaskEnabled ?? true),
       memberIds: existingMemberIds,
     },
   });
@@ -64,6 +66,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       name: channel.name,
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
+      isTaskEnabled: Boolean(channel.isTaskEnabled ?? true),
       memberIds: existingMemberIds,
     });
   }, [channel, reset, existingMemberIds.length]);
@@ -199,6 +202,28 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
                 />
                 <div className={`h-6 w-11 rounded-full transition-colors ${isPrivate ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-200 dark:bg-zinc-700'}`}></div>
                 <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${isPrivate ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </div>
+            </label>
+          </div>
+
+          <div>
+            <label className="flex items-center justify-between cursor-pointer group">
+              <div>
+                <span className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+                  Quản lý công việc
+                </span>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 max-w-[280px]">
+                  Bật tab Công việc cho riêng kênh này.
+                </p>
+              </div>
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 dark:focus-within:ring-discord-blurple dark:focus-within:ring-offset-zinc-900">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  {...register('isTaskEnabled')}
+                />
+                <div className={`h-6 w-11 rounded-full transition-colors ${watch('isTaskEnabled') ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-200 dark:bg-zinc-700'}`}></div>
+                <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${watch('isTaskEnabled') ? 'translate-x-5' : 'translate-x-0'}`}></div>
               </div>
             </label>
           </div>

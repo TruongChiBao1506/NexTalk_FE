@@ -27,6 +27,11 @@ export const groupService = {
     return response.data;
   },
 
+  async toggleGroupTasks(id: string, enabled: boolean): Promise<ApiResponse<GroupResponse>> {
+    const response = await apiClient.patch<ApiResponse<GroupResponse>>(`/groups/${id}/settings/tasks?enabled=${enabled}`);
+    return response.data;
+  },
+
   async deleteGroup(id: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/groups/${id}`);
     return response.data;

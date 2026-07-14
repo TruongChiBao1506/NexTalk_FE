@@ -10,6 +10,7 @@ export interface ChannelResponse {
   name: string;
   type: ChannelType;
   isPrivate: boolean;
+  isTaskEnabled?: boolean;
   groupId: string;
   conversationId: string;
   createdAt: string;
@@ -87,6 +88,7 @@ export interface GroupResponse {
   ownerUsername: string;
   channels: ChannelResponse[];
   requiresApproval: boolean;
+  isTaskEnabled: boolean;
   inviteCode: string;
   pendingApprovalCount?: number;
   members: GroupMemberResponse[];

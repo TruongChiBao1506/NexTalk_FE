@@ -22,8 +22,11 @@ import {
   Pencil
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
+import type { ChannelResponse } from '../../types/group';
 import { GroupQrModal } from './GroupQrModal';
 import { GroupAvatar } from './GroupAvatar';
+import { groupService } from '../../services/groupService';
+import { useGroupStore } from '../../store/groupStore';
 import { downloadFile } from '../../utils/fileUtils';
 
 interface ConversationInfoPanelProps {
@@ -33,6 +36,10 @@ interface ConversationInfoPanelProps {
   activeGroup: any;
   activeFriend: any;
   activeConversation: ConversationResponse;
+  activeChannel?: ChannelResponse | null;
+  isGroupModerator?: boolean;
+  isTogglingTasks?: boolean;
+  handleToggleTaskEnabled?: () => void;
   setIsProfileModalOpen: (open: boolean) => void;
   onOpenSearch: () => void;
   onToggleMuted: () => Promise<void>;
@@ -78,6 +85,10 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeGroup,
   activeFriend,
   activeConversation,
+  activeChannel,
+  isGroupModerator,
+  isTogglingTasks,
+  handleToggleTaskEnabled,
   setIsProfileModalOpen,
   onOpenSearch,
   onToggleMuted,
@@ -259,6 +270,45 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
             </div>
             <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-zinc-400">Mọi thành viên đều có thể thay đổi biệt danh. Thay đổi sẽ được thông báo trong cuộc trò chuyện.</p>
           </section>
+
+          {isGroupConversation && activeGroup && activeChannel && (isGroupModerator || activeGroup.members.find((m: any) => m.userId === currentUserId)?.role === 'OWNER') && (
+            <section className="mt-6 px-4">
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-50 p-3 text-left dark:bg-discord-black/35">
+                <div>
+                  <p className="m-0 text-sm font-semibold">Quản lý công việc kênh #{activeChannel.name}</p>
+                  <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">Bật/tắt tính năng quản lý công việc cho kênh này.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const nextState = !(activeChannel.isTaskEnabled ?? true);
+                      await groupService.updateChannel(activeGroup.id, activeChannel.id, { isTaskEnabled: nextState });
+                      const updatedGroup = await groupService.getGroup(activeGroup.id);
+                      if (updatedGroup.success && updatedGroup.data) {
+                        useGroupStore.getState().upsertGroup(updatedGroup.data);
+                      }
+                    } catch (e) {
+                      console.error('Failed to update channel task setting:', e);
+                    }
+                  }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${
+                    (activeChannel.isTaskEnabled ?? true) ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-300 dark:bg-zinc-700'
+                  }`}
+                  role="switch"
+                  aria-checked={activeChannel.isTaskEnabled ?? true}
+                >
+                  <span className="sr-only">Toggle channel tasks</span>
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (activeChannel.isTaskEnabled ?? true) ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </section>
+          )}
 
           <section className="mt-6">
             <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Lối tắt nhanh</h4>
