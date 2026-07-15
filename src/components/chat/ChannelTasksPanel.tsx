@@ -24,6 +24,8 @@ type Props = {
   sourceMessageDraft?: MessageResponse | null;
   onSourceMessageDraftConsumed?: () => void;
   onJumpToSourceMessage?: (messageId: string) => void;
+  focusedTaskId?: string | null;
+  onFocusedTaskHandled?: () => void;
 };
 
 const statusLabels: Record<ChannelTaskStatus, string> = {
@@ -82,7 +84,7 @@ const ChannelTasksSkeleton = () => (
   </div>
 );
 
-export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessageDraft, onSourceMessageDraftConsumed, onJumpToSourceMessage }: Props) {
+export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessageDraft, onSourceMessageDraftConsumed, onJumpToSourceMessage, focusedTaskId, onFocusedTaskHandled }: Props) {
   const userRole = group.members.find((m) => m.userId === currentUserId)?.role;
   const isLeader = userRole === 'OWNER' || userRole === 'LEADER' || userRole === 'ADMIN';
   const canModifyStatus = (task: ChannelTaskResponse) => task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader;
@@ -146,6 +148,17 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
     setIsCreateOpen(true);
     onSourceMessageDraftConsumed?.();
   }, [sourceMessageDraft, onSourceMessageDraftConsumed]);
+
+  useEffect(() => {
+    if (!focusedTaskId || isLoading) return;
+    setFilter('all');
+    setViewMode('list');
+    setExpandedTaskIds((current) => current.includes(focusedTaskId) ? current : [...current, focusedTaskId]);
+    window.setTimeout(() => {
+      document.getElementById(`channel-task-${focusedTaskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      onFocusedTaskHandled?.();
+    }, 100);
+  }, [focusedTaskId, isLoading, onFocusedTaskHandled]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -492,7 +505,8 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
               return (
                 <div
                   key={task.id}
-                  className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl transition ${
+                  id={`channel-task-${task.id}`}
+                  className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl transition ${focusedTaskId === task.id ? 'relative z-10 ring-2 ring-inset ring-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/10' : ''} ${
                     overdue
                       ? 'border-rose-200 bg-rose-50/40 dark:border-rose-500/30 dark:bg-rose-500/5'
                       : 'border-gray-100 dark:border-zinc-800'

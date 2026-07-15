@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Mention from '@tiptap/extension-mention';
+import { PluginKey } from '@tiptap/pm/state';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -34,7 +35,7 @@ import { formatRelativeTime } from '../utils/time';
 import { useStickerStore } from '../store/stickerStore';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata } from '../types/chat';
-import type { ChannelResponse, GroupResponse, GroupRole } from '../types/group';
+import type { ChannelResponse, ChannelTaskResponse, GroupResponse, GroupRole } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
 
@@ -305,6 +306,9 @@ export const Chat = () => {
   const [channelView, setChannelView] = useState<'chat' | 'tasks' | 'notifications'>('chat');
   const [taskDraftFromMessage, setTaskDraftFromMessage] = useState<MessageResponse | null>(null);
   const [taskUnreadCount, setTaskUnreadCount] = useState(0);
+  const [sharedTaskCards, setSharedTaskCards] = useState<ChannelTaskResponse[]>([]);
+  const sharedTaskCardsRef = useRef<ChannelTaskResponse[]>([]);
+  const [focusedSharedTaskId, setFocusedSharedTaskId] = useState<string | null>(null);
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -1251,7 +1255,20 @@ export const Chat = () => {
 
   const getCurrentInputMessage = () => {
     if (!editor || editor.isEmpty) return editor ? '' : inputMessage;
-    return editor.getHTML();
+    const container = document.createElement('div');
+    container.innerHTML = editor.getHTML();
+    const replacements: Array<{ placeholder: string; tag: string }> = [];
+    container.querySelectorAll<HTMLElement>('[data-task-id]').forEach((node, index) => {
+      const taskId = node.dataset.taskId;
+      if (!taskId) return;
+      const placeholder = `__NEXTALK_TASK_${index}__`;
+      replacements.push({ placeholder, tag: `<#task:${taskId}>` });
+      node.replaceWith(document.createTextNode(placeholder));
+    });
+    return replacements.reduce(
+      (html, replacement) => html.replace(replacement.placeholder, replacement.tag),
+      container.innerHTML,
+    );
   };
 
   const insertTextToInput = (value: string) => {
@@ -1467,6 +1484,46 @@ export const Chat = () => {
     editor?.chain().focus().unsetAllMarks().clearNodes().run();
   };
 
+  const taskMentionGroup = activeConversation?.type === 'GROUP'
+    ? groups.find((group) => group.channels?.some((channel) => channel.conversationId === activeConversation.id))
+    : undefined;
+  const taskMentionChannel = taskMentionGroup?.channels?.find((channel) => channel.conversationId === activeConversation?.id);
+
+  useEffect(() => {
+    if (!taskMentionGroup || !taskMentionChannel?.isTaskEnabled || taskMentionChannel.type === 'VOICE') {
+      sharedTaskCardsRef.current = [];
+      setSharedTaskCards([]);
+      return;
+    }
+
+    let active = true;
+    const loadTasks = async () => {
+      try {
+        const response = await groupService.getChannelTasks(taskMentionGroup.id, taskMentionChannel.id);
+        if (!active) return;
+        const tasks = response.data ?? [];
+        sharedTaskCardsRef.current = tasks;
+        setSharedTaskCards(tasks);
+      } catch {
+        if (active) {
+          sharedTaskCardsRef.current = [];
+          setSharedTaskCards([]);
+        }
+      }
+    };
+    void loadTasks();
+
+    const stompClient = (useChatStore.getState() as any).stompClient;
+    let subscription: any;
+    if (stompClient?.connected) {
+      subscription = stompClient.subscribe(`/topic/channel.${taskMentionChannel.id}.task-activities`, () => void loadTasks());
+    }
+    return () => {
+      active = false;
+      try { subscription?.unsubscribe(); } catch {}
+    };
+  }, [taskMentionGroup?.id, taskMentionChannel?.id, taskMentionChannel?.isTaskEnabled, isConnected]);
+
   const mentionSource = useCallback((searchTerm: string, renderList: (list: any[], term: string) => void) => {
     const currentConversation = useChatStore.getState().activeConversation;
     const currentUser = useAuthStore.getState().user;
@@ -1628,6 +1685,94 @@ export const Chat = () => {
           },
         },
       }),
+      Mention.extend({ name: 'taskMention' }).configure({
+        HTMLAttributes: { class: 'task-mention' },
+        renderText: ({ node }) => `#${node.attrs.label ?? node.attrs.id}`,
+        renderHTML: ({ node }) => [
+          'span',
+          { class: 'task-mention', 'data-task-id': node.attrs.id, 'data-task-label': node.attrs.label },
+          `#${node.attrs.label ?? node.attrs.id}`,
+        ],
+        suggestion: {
+          pluginKey: new PluginKey('taskMentionSuggestion'),
+          char: '#',
+          allowSpaces: true,
+          items: ({ query }: { query: string }) => {
+            const term = query.trim().toLowerCase();
+            return sharedTaskCardsRef.current
+              .filter((task) => !term || task.title.toLowerCase().includes(term) || task.id.toLowerCase().includes(term))
+              .slice(0, 8)
+              .map((task) => ({ id: task.id, label: task.title, task }));
+          },
+          render: () => {
+            let popup: HTMLDivElement | null = null;
+            let items: any[] = [];
+            let selectedIndex = 0;
+            let command: ((item: any) => void) | null = null;
+
+            const paint = () => {
+              if (!popup) return;
+              popup.replaceChildren();
+              items.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `nextalk-mention-item${index === selectedIndex ? ' is-selected' : ''}`;
+                const title = document.createElement('span');
+                title.className = 'block truncate font-bold';
+                title.textContent = `#${item.label}`;
+                const meta = document.createElement('span');
+                meta.className = 'block truncate text-[10px] opacity-60';
+                meta.textContent = `${item.task.status} · ${item.task.assignees?.map((a: any) => a.username).join(', ') || 'Chưa giao'}`;
+                button.append(title, meta);
+                button.addEventListener('mousedown', (event) => {
+                  event.preventDefault();
+                  command?.(item);
+                });
+                popup?.appendChild(button);
+              });
+            };
+            const position = (clientRect?: (() => DOMRect | null) | null) => {
+              const rect = clientRect?.();
+              if (!popup || !rect) return;
+              popup.style.left = `${Math.min(Math.max(8, rect.left), window.innerWidth - popup.offsetWidth - 8)}px`;
+              popup.style.top = `${rect.bottom + 6}px`;
+            };
+            return {
+              onStart: (props: any) => {
+                items = props.items;
+                command = props.command;
+                selectedIndex = 0;
+                popup = document.createElement('div');
+                popup.className = 'nextalk-mention-list';
+                document.body.appendChild(popup);
+                paint();
+                position(props.clientRect);
+              },
+              onUpdate: (props: any) => {
+                items = props.items;
+                command = props.command;
+                selectedIndex = Math.min(selectedIndex, Math.max(0, items.length - 1));
+                paint();
+                position(props.clientRect);
+              },
+              onKeyDown: ({ event }: any) => {
+                if (event.key === 'Escape') { popup?.remove(); popup = null; return true; }
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                  if (!items.length) return true;
+                  selectedIndex = event.key === 'ArrowUp'
+                    ? (selectedIndex + items.length - 1) % items.length
+                    : (selectedIndex + 1) % items.length;
+                  paint();
+                  return true;
+                }
+                if (event.key === 'Enter' && items[selectedIndex]) { command?.(items[selectedIndex]); return true; }
+                return false;
+              },
+              onExit: () => { popup?.remove(); popup = null; },
+            };
+          },
+        },
+      }),
     ],
     content: activeConversation?.id ? (messageDrafts[activeConversation.id] ?? '') : '',
     editorProps: {
@@ -1698,6 +1843,51 @@ export const Chat = () => {
   };
 
   const renderFormattedMessage = (content: string) => {
+    const taskTagPattern = /(?:<#task:([^>]+)>|&lt;#task:([^&]+)&gt;)/g;
+    if (taskTagPattern.test(content)) {
+      taskTagPattern.lastIndex = 0;
+      const nodes: ReactNode[] = [];
+      let cursor = 0;
+      let match: RegExpExecArray | null;
+      while ((match = taskTagPattern.exec(content)) !== null) {
+        if (match.index > cursor) {
+          const before = content.slice(cursor, match.index);
+          nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(before)}</div>);
+        }
+        const taskId = match[1] || match[2];
+        const task = sharedTaskCards.find((item) => item.id === taskId);
+        const statusLabel = task?.status === 'TODO' ? 'To Do'
+          : task?.status === 'IN_PROGRESS' ? 'In Progress'
+            : task?.status === 'DONE' ? 'Done'
+              : task?.status === 'CANCELLED' ? 'Cancelled' : 'Không khả dụng';
+        nodes.push(
+          <button
+            key={`task-${taskId}-${match.index}`}
+            type="button"
+            onClick={() => {
+              setFocusedSharedTaskId(taskId);
+              setChannelView('tasks');
+            }}
+            className="my-1.5 flex w-full max-w-sm items-start gap-3 rounded-xl border border-indigo-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow dark:border-indigo-500/30 dark:bg-zinc-900"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-sm font-black text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">#</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-black text-gray-900 dark:text-white">{task?.title || `Task ${taskId}`}</span>
+              <span className="mt-1 block truncate text-[11px] text-gray-500 dark:text-zinc-400">
+                {task?.assignees?.length ? task.assignees.map((assignee) => assignee.username).join(', ') : 'Chưa giao'}
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{statusLabel}</span>
+          </button>,
+        );
+        cursor = taskTagPattern.lastIndex;
+      }
+      if (cursor < content.length) {
+        nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(content.slice(cursor))}</div>);
+      }
+      return <div className="space-y-1">{nodes}</div>;
+    }
+
     // Rich-text messages use block elements, while mobile mention messages can start with an inline span.
     if (/^\s*<(p|div|ul|ol|h[1-6]|blockquote|span)\b/i.test(content) || /<span\b[^>]*\bclass=["'][^"']*\bmention\b/i.test(content)) {
       return (
@@ -3210,6 +3400,8 @@ export const Chat = () => {
                   setChannelView('chat');
                   window.setTimeout(() => handleJumpToMessage(messageId), 150);
                 }}
+                focusedTaskId={focusedSharedTaskId}
+                onFocusedTaskHandled={() => setFocusedSharedTaskId(null)}
               />
             ) : channelView === 'notifications' && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' ? (
               <ChannelTaskNotificationsPanel
