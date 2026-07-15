@@ -11,6 +11,7 @@ export interface ChannelResponse {
   type: ChannelType;
   isPrivate: boolean;
   isTaskEnabled?: boolean;
+  isPostingRestricted?: boolean;
   groupId: string;
   conversationId: string;
   createdAt: string;
@@ -94,6 +95,7 @@ export interface ChannelTaskResponse {
   createdById: string;
   createdByUsername: string;
   assignees: ChannelTaskAssigneeResponse[];
+  startAt?: string | null;
   dueAt: string | null;
   completedAt: string | null;
   subtasks?: SubtaskResponse[];
@@ -110,6 +112,7 @@ export interface CreateChannelTaskRequest {
   description?: string;
   status?: ChannelTaskStatus;
   priority?: ChannelTaskPriority;
+  startAt?: string;
   dueAt?: string;
   assigneeIds?: string[];
   subtasks?: SubtaskRequest[];
@@ -122,6 +125,7 @@ export interface UpdateChannelTaskRequest {
   description?: string;
   status?: ChannelTaskStatus;
   priority?: ChannelTaskPriority;
+  startAt?: string;
   dueAt?: string;
   assigneeIds?: string[];
   subtasks?: SubtaskRequest[];

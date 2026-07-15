@@ -3,7 +3,7 @@ import { useChannelTaskStore } from '../store/channelTaskStore';
 
 const urlPattern = /https?:\/\/[^\s<>"']+/gi;
 
-export type MessagePreviewKind = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'RECALLED';
+export type MessagePreviewKind = 'TEXT' | 'TASK' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'RECALLED';
 
 export interface MessagePreviewData {
   kind: MessagePreviewKind;
@@ -54,6 +54,14 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
       kind: 'RECALLED',
       label: 'Đã thu hồi',
       text: 'Tin nhắn đã bị thu hồi',
+    };
+  }
+
+  if (/(?:<#task:[^>]+>|&lt;#task:[^&]+&gt;)/.test(message.content || '')) {
+    return {
+      kind: 'TASK',
+      label: 'Task',
+      text: stripMessageHtml(message.content) || 'Task không khả dụng',
     };
   }
 

@@ -14,6 +14,7 @@ const schema = z.object({
   type: z.enum(['TEXT', 'VOICE']),
   isPrivate: z.boolean(),
   isTaskEnabled: z.boolean().optional(),
+  isPostingRestricted: z.boolean().optional(),
   memberIds: z.array(z.string()).optional(),
 });
 
@@ -57,6 +58,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
       isTaskEnabled: Boolean(channel.isTaskEnabled ?? false),
+      isPostingRestricted: Boolean(channel.isPostingRestricted ?? false),
       memberIds: existingMemberIds,
     },
   });
@@ -67,6 +69,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
       isTaskEnabled: Boolean(channel.isTaskEnabled ?? false),
+      isPostingRestricted: Boolean(channel.isPostingRestricted ?? false),
       memberIds: existingMemberIds,
     });
   }, [channel, reset, existingMemberIds.length]);
@@ -111,8 +114,8 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-[scaleIn_0.2s_ease-out]">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-zinc-800">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-[scaleIn_0.2s_ease-out] dark:bg-zinc-900">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-5 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">Cài đặt kênh</h2>
             <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1 m-0">Chỉnh sửa thông tin hoặc xóa kênh</p>
@@ -126,7 +129,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-5 flex flex-col gap-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="min-h-0 flex-1 overflow-y-auto p-5 flex flex-col gap-5 overscroll-contain">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-sm">
               {error}
@@ -137,29 +140,29 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
             <label className="block text-xs font-bold text-gray-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
               Loại kênh
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setValue('type', 'TEXT')}
-                className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition ${
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 transition ${
                   channelType === 'TEXT'
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-discord-blurple dark:bg-discord-blurple/10 dark:text-discord-blurple'
                     : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300 dark:hover:border-zinc-600'
                 }`}
               >
-                <Hash className="w-6 h-6" />
+                <Hash className="h-5 w-5" />
                 <span className="font-semibold text-sm">Kênh Text</span>
               </button>
               <button
                 type="button"
                 onClick={() => setValue('type', 'VOICE')}
-                className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition ${
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 transition ${
                   channelType === 'VOICE'
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-discord-blurple dark:bg-discord-blurple/10 dark:text-discord-blurple'
                     : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300 dark:hover:border-zinc-600'
                 }`}
               >
-                <Volume2 className="w-6 h-6" />
+                <Volume2 className="h-5 w-5" />
                 <span className="font-semibold text-sm">Kênh Voice</span>
               </button>
             </div>
@@ -205,6 +208,26 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
               </div>
             </label>
           </div>
+
+          {channelType === 'TEXT' && (
+            <div>
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div>
+                  <span className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+                    Chỉ quản lý được nhắn
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1 max-w-[280px]">
+                    Chỉ Trưởng nhóm và Phó nhóm có thể gửi tin nhắn trong kênh này.
+                  </p>
+                </div>
+                <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors">
+                  <input type="checkbox" className="peer sr-only" {...register('isPostingRestricted')} />
+                  <div className={`h-6 w-11 rounded-full transition-colors ${watch('isPostingRestricted') ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-200 dark:bg-zinc-700'}`}></div>
+                  <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${watch('isPostingRestricted') ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                </div>
+              </label>
+            </div>
+          )}
 
           <div>
             <label className="flex items-center justify-between cursor-pointer group">
@@ -282,7 +305,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
             </div>
           )}
 
-          <div className="mt-4 flex gap-3">
+          <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex gap-3 border-t border-gray-100 bg-white px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900">
             <button
               type="button"
               onClick={handleDelete}

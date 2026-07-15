@@ -93,6 +93,7 @@ interface MessageInputProps {
   setReplyTo: (reply: any) => void;
   activePrivateChatBlocked: boolean;
   activePrivateChatBlockedByMe: boolean;
+  channelPostingRestricted: boolean;
   canSendInActiveConversation: boolean;
   pendingAttachments: any[];
   resetUploadState: () => void;
@@ -146,6 +147,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   setReplyTo,
   activePrivateChatBlocked,
   activePrivateChatBlockedByMe,
+  channelPostingRestricted,
   canSendInActiveConversation,
   pendingAttachments,
   resetUploadState,
@@ -234,6 +236,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         </div>
       </form>
+    );
+  }
+
+  if (channelPostingRestricted) {
+    return (
+      <div className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100">
+          <div className="font-semibold">Kênh đang giới hạn quyền gửi tin nhắn.</div>
+          <div className="mt-0.5 text-xs text-indigo-700 dark:text-indigo-200/80">
+            Chỉ Trưởng nhóm và Phó nhóm có thể gửi tin nhắn trong kênh này.
+          </div>
+        </div>
+      </div>
     );
   }
 

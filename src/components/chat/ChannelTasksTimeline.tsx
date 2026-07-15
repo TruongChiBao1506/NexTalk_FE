@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User } from 'lucide-react';
 import type { ChannelTaskResponse, ChannelTaskStatus } from '../../types/group';
 
 type Props = {
   tasks: ChannelTaskResponse[];
-  onStatusChange: (task: ChannelTaskResponse, nextStatus: ChannelTaskStatus) => void;
-  canModifyStatus: (task: ChannelTaskResponse) => boolean;
+  onTaskOpen: (task: ChannelTaskResponse) => void;
 };
 
 const statusColors: Record<ChannelTaskStatus, string> = {
@@ -22,7 +21,7 @@ const statusLabels: Record<ChannelTaskStatus, string> = {
   CANCELLED: 'Cancelled',
 };
 
-export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }: Props) {
+export function ChannelTasksTimeline({ tasks, onTaskOpen }: Props) {
   const [baseDate, setBaseDate] = useState<Date>(new Date());
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
 
@@ -45,6 +44,13 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
     const t = new Date();
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   }, []);
+
+  const sortedTasks = useMemo(() => [...tasks].sort((a, b) => {
+    if (!a.dueAt && !b.dueAt) return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (!a.dueAt) return 1;
+    if (!b.dueAt) return -1;
+    return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+  }), [tasks]);
 
   const formatDateKey = (d: Date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -105,6 +111,13 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-500 dark:text-zinc-400">
+          {Object.entries(statusLabels).map(([status, label]) => (
+            <span key={status} className="inline-flex items-center gap-1">
+              <span className={`h-2 w-2 rounded-full ${statusColors[status as ChannelTaskStatus].split(' ')[0]}`} />{label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Main Gantt Grid Container */}
@@ -147,15 +160,14 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
           </div>
 
           {/* Task Rows */}
-          {tasks.length === 0 ? (
+          {sortedTasks.length === 0 ? (
             <div className="flex h-40 items-center justify-center text-xs font-bold text-gray-400 dark:text-zinc-500">
               Chưa có công việc nào để hiển thị trên Timeline.
             </div>
           ) : (
-            tasks.map((task) => {
-              // Calculate start date (createdAt) and end date (dueAt or createdAt + 1 day)
-              const createdDate = new Date(task.createdAt);
-              const dueDate = task.dueAt ? new Date(task.dueAt) : new Date(createdDate.getTime() + 86400000 * 2);
+            sortedTasks.map((task) => {
+              const startDate = new Date(task.startAt || task.createdAt);
+              const dueDate = task.dueAt ? new Date(task.dueAt) : startDate;
 
               const isOverdue =
                 task.dueAt &&
@@ -171,7 +183,11 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
                   onMouseLeave={() => setHoveredTaskId(null)}
                 >
                   {/* Fixed Task Title Column */}
-                  <div className="sticky left-0 z-10 flex w-64 shrink-0 flex-col justify-center border-r border-gray-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-discord-mid">
+                  <button
+                    type="button"
+                    onClick={() => onTaskOpen(task)}
+                    className="sticky left-0 z-10 flex w-64 shrink-0 flex-col justify-center border-r border-gray-200 bg-white px-4 py-3 text-left hover:bg-gray-50 dark:border-zinc-800 dark:bg-discord-mid dark:hover:bg-zinc-900"
+                  >
                     <span
                       className={`truncate text-xs font-black ${
                         task.status === 'DONE'
@@ -192,8 +208,13 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
                           ({task.subtasks.filter((s) => s.isCompleted).length}/{task.subtasks.length})
                         </span>
                       )}
+                      {!task.dueAt && (
+                        <span className="rounded-full border border-dashed border-slate-400 px-1.5 py-0.5 font-bold text-slate-500 dark:border-zinc-500 dark:text-zinc-400">
+                          Chưa có hạn
+                        </span>
+                      )}
                     </div>
-                  </div>
+                  </button>
 
                   {/* Date Grid Columns with Task Bar Overlay */}
                   <div className="relative flex flex-1 items-center">
@@ -204,11 +225,19 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
                         <div
                           key={dateKey}
                           className={`h-full w-24 shrink-0 border-r border-gray-100 dark:border-zinc-800/40 ${
-                            isToday ? 'bg-indigo-50/30 dark:bg-indigo-500/5' : ''
+                            isToday ? 'border-x-2 border-x-indigo-300 bg-indigo-50/50 dark:border-x-indigo-500/40 dark:bg-indigo-500/10' : ''
                           }`}
                         />
                       );
                     })}
+
+                    {days.findIndex((day) => formatDateKey(day) === todayStr) >= 0 && (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-indigo-500 shadow-[0_0_0_1px_rgba(255,255,255,0.65)] dark:bg-indigo-400"
+                        style={{ left: `${days.findIndex((day) => formatDateKey(day) === todayStr) * 96 + 48}px` }}
+                      />
+                    )}
 
                     {/* Colored Task Timeline Bar */}
                     <div className="absolute inset-y-0 flex items-center px-1 py-1.5 w-full">
@@ -217,10 +246,10 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
                         const dayEnd = dayStart + 86400000;
 
                         // Check if task falls within this day cell
-                        const isCovered =
-                          createdDate.getTime() <= dayEnd && dueDate.getTime() >= dayStart;
+                        const isCovered = Boolean(task.dueAt) &&
+                          startDate.getTime() <= dayEnd && dueDate.getTime() >= dayStart;
 
-                        const isFirstDay = idx === 0 || createdDate.getTime() >= dayStart && createdDate.getTime() < dayEnd;
+                        const isFirstDay = idx === 0 || startDate.getTime() >= dayStart && startDate.getTime() < dayEnd;
                         const isLastDay = idx === days.length - 1 || dueDate.getTime() >= dayStart && dueDate.getTime() < dayEnd;
 
                         if (!isCovered) return <div key={idx} className="w-24 shrink-0" />;
@@ -228,36 +257,24 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
                         return (
                           <div
                             key={idx}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => onTaskOpen(task)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') onTaskOpen(task);
+                            }}
                             className={`group relative h-7 w-24 shrink-0 px-0.5 flex items-center justify-between text-[11px] font-bold shadow-sm transition-all ${
-                              isOverdue
+                              !task.dueAt
+                                ? 'border border-dashed border-slate-400 bg-slate-100 text-slate-600 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-300'
+                                : isOverdue
                                 ? 'bg-rose-500 text-white'
                                 : statusColors[task.status]
                             } ${isFirstDay ? 'rounded-l-lg' : ''} ${isLastDay ? 'rounded-r-lg' : ''}`}
                           >
                             {isFirstDay && (
                               <span className="truncate px-2 text-[10px] font-black" title={task.title}>
-                                {task.title}
+                                {task.dueAt ? task.title : 'Chưa có hạn'}
                               </span>
-                            )}
-
-                            {/* Dropdown status update on click if allowed */}
-                            {canModifyStatus(task) && isLastDay && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const next: Record<ChannelTaskStatus, ChannelTaskStatus> = {
-                                    TODO: 'IN_PROGRESS',
-                                    IN_PROGRESS: 'DONE',
-                                    DONE: 'TODO',
-                                    CANCELLED: 'TODO',
-                                  };
-                                  onStatusChange(task, next[task.status]);
-                                }}
-                                className="mr-1 rounded p-0.5 opacity-80 hover:opacity-100 hover:bg-black/20"
-                                title={`Đổi trạng thái (Hiện tại: ${statusLabels[task.status]})`}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                              </button>
                             )}
 
                             {/* Tooltip on Hover */}

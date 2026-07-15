@@ -25,7 +25,7 @@ import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
-  Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2, UploadCloud
+  Shield, Lock, Headphones, Mic, BellRing, Bell, CheckCircle2, Copy, Trash2, Undo2, UploadCloud
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
@@ -1237,11 +1237,20 @@ export const Chat = () => {
   const activePrivateChatRequiresFriendship = activeConversation?.type === 'PRIVATE'
     && activeConversation.canSendMessages === false
     && !activePrivateChatBlocked;
+  const postingGroup = activeConversation
+    ? groups.find((group) => group.channels?.some((channel) => channel.conversationId === activeConversation.id))
+    : null;
+  const postingChannel = postingGroup?.channels?.find((channel) => channel.conversationId === activeConversation?.id);
+  const postingRole = postingGroup?.members.find((member) => member.userId === user?.id)?.role;
+  const channelPostingRestricted = Boolean(
+    postingChannel?.isPostingRestricted &&
+    !['OWNER', 'LEADER', 'ADMIN', 'DEPUTY'].includes(postingRole || '')
+  );
   const canSendInActiveConversation = !activeConversation ||
     (
       activeConversation.type === 'PRIVATE'
         ? !activePrivateChatBlocked && activeConversation.canSendMessages !== false
-        : true
+        : !channelPostingRestricted
     );
   const messagePlaceholder = activePrivateChatBlockedByMe
     ? 'Bạn đã chặn người này. Bỏ chặn để tiếp tục nhắn tin.'
@@ -3393,6 +3402,13 @@ export const Chat = () => {
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
+                      {view === 'chat' ? (
+                        <MessageSquare className="h-4 w-4 shrink-0" />
+                      ) : view === 'tasks' ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <Bell className="h-4 w-4 shrink-0" />
+                      )}
                       {view === 'chat' ? 'Chat' : view === 'tasks' ? 'Tasks' : 'Thông báo'}
                       {view === 'notifications' && taskUnreadCount > 0 && (
                         <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-black text-white leading-none">
@@ -3737,6 +3753,7 @@ export const Chat = () => {
                   setReplyTo={setReplyTo}
                   activePrivateChatBlocked={activePrivateChatBlocked}
                   activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
+                  channelPostingRestricted={channelPostingRestricted}
                   canSendInActiveConversation={canSendInActiveConversation}
                   pendingAttachments={pendingAttachments}
                   resetUploadState={resetUploadState}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, LayoutList, CalendarRange, Pin, AlertTriangle, KanbanSquare, Paperclip, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, List, ChartNoAxesGantt, Columns3, Pin, AlertTriangle, Paperclip, ExternalLink } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { fileService } from '../../services/fileService';
 import { Skeleton } from '../common/Skeleton';
@@ -110,6 +110,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<ChannelTaskPriority>('MEDIUM');
+  const [startAt, setStartAt] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [newSubtasks, setNewSubtasks] = useState<{ title: string }[]>([]);
@@ -181,6 +182,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
+        startAt: startAt ? new Date(startAt).toISOString() : undefined,
         dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
         assigneeIds,
         subtasks: newSubtasks.filter(s => s.title.trim()).map(s => ({ title: s.title.trim() })),
@@ -191,6 +193,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
+      setStartAt('');
       setDueAt('');
       setAssigneeIds([]);
       setNewSubtasks([]);
@@ -410,7 +413,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                   : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
-              <LayoutList className="h-3.5 w-3.5" />
+              <List className="h-4 w-4" />
               Danh sách
             </button>
             <button
@@ -422,7 +425,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                   : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
-              <KanbanSquare className="h-3.5 w-3.5" />
+              <Columns3 className="h-4 w-4" />
               Bảng công việc
             </button>
             <button
@@ -434,7 +437,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                   : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
-              <CalendarRange className="h-3.5 w-3.5" />
+              <ChartNoAxesGantt className="h-4 w-4" />
               Timeline
             </button>
           </div>
@@ -477,8 +480,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
       ) : viewMode === 'timeline' ? (
         <ChannelTasksTimeline
           tasks={filteredTasks}
-          onStatusChange={updateStatusValue}
-          canModifyStatus={canModifyStatus}
+          onTaskOpen={(task) => {
+            setViewMode('list');
+            setFilter('all');
+            setExpandedTaskIds((current) => current.includes(task.id) ? current : [...current, task.id]);
+          }}
         />
       ) : viewMode === 'kanban' ? (
         <ChannelTasksKanban
@@ -491,6 +497,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
           onUploadAttachment={uploadAttachmentToTask}
           uploadingTaskId={uploadingTaskId}
           onJumpToSourceMessage={onJumpToSourceMessage}
+          onToggleSubtask={toggleSubtask}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -818,14 +825,21 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
               )}
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Tên task" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả" rows={3} className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <select value={priority} onChange={(e) => setPriority(e.target.value as ChannelTaskPriority)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
                   <option value="HIGH">High</option>
                   <option value="CRITICAL">Critical</option>
                 </select>
-                <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
+                  Ngày bắt đầu
+                  <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
+                  Hạn chót
+                  <input type="datetime-local" value={dueAt} min={startAt || undefined} onChange={(e) => setDueAt(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
+                </label>
               </div>
               <div>
                 <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Giao cho</p>

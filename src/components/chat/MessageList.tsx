@@ -247,6 +247,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     if (kind === 'FILE') return FileText;
     if (kind === 'LINK') return Link;
     if (kind === 'POLL') return BarChart3;
+    if (kind === 'TASK') return ListChecks;
     if (kind === 'STICKER') return Sticker;
     return MessageSquare;
   };
@@ -327,8 +328,15 @@ export const MessageList: React.FC<MessageListProps> = ({
       >
         <span className="flex min-w-0 border-l-4 border-blue-500 px-3 py-2 dark:border-indigo-400">
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-black text-slate-700 dark:text-zinc-100">
-              {message?.senderUsername ?? 'Tin nhắn cũ'}
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[13px] font-black text-slate-700 dark:text-zinc-100">
+                {message?.senderUsername ?? 'Tin nhắn cũ'}
+              </span>
+              {preview.kind === 'TASK' && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">
+                  <ListChecks className="h-2.5 w-2.5" /> Task
+                </span>
+              )}
             </span>
             <span className="mt-1 block truncate text-[13px] font-medium text-slate-600 dark:text-zinc-300">
               {previewText}

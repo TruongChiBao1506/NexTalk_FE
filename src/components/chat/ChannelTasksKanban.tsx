@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pin, AlertTriangle, Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react';
+import { Pin, AlertTriangle, Trash2, Paperclip, ExternalLink, Loader2, CheckSquare, Square } from 'lucide-react';
 import type { ChannelTaskPriority, ChannelTaskResponse, ChannelTaskStatus } from '../../types/group';
 
 type Props = {
@@ -12,6 +12,7 @@ type Props = {
   onUploadAttachment?: (task: ChannelTaskResponse, file: File) => void;
   uploadingTaskId?: string | null;
   onJumpToSourceMessage?: (messageId: string) => void;
+  onToggleSubtask: (task: ChannelTaskResponse, subtaskId: string) => void;
 };
 
 const columns: { status: ChannelTaskStatus; label: string; headerColor: string; badgeBg: string }[] = [
@@ -45,7 +46,7 @@ const isTaskOverdue = (task: ChannelTaskResponse) => {
   return Boolean(task.dueAt && task.status !== 'DONE' && task.status !== 'CANCELLED' && new Date(task.dueAt).getTime() < Date.now());
 };
 
-export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onDeleteTask, onUploadAttachment, uploadingTaskId, onJumpToSourceMessage }: Props) {
+export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onDeleteTask, onUploadAttachment, uploadingTaskId, onJumpToSourceMessage, onToggleSubtask }: Props) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   return (
@@ -129,6 +130,29 @@ export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, can
                         <button type="button" onClick={() => onJumpToSourceMessage(task.sourceMessage!.messageId)} className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:underline dark:text-indigo-300">
                           <ExternalLink className="h-3 w-3" /> Tin nhắn gốc
                         </button>
+                      )}
+
+                      {task.subtasks && task.subtasks.length > 0 && (
+                        <div className="mt-2.5 rounded-lg border border-gray-100 bg-gray-50/80 p-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+                          <div className="mb-1.5 flex items-center justify-between text-[10px] font-extrabold text-gray-500 dark:text-zinc-400">
+                            <span>Checklist</span>
+                            <span>{task.subtasks.filter((subtask) => subtask.isCompleted).length}/{task.subtasks.length}</span>
+                          </div>
+                          <div className="space-y-1">
+                            {task.subtasks.map((subtask) => (
+                              <button
+                                key={subtask.id}
+                                type="button"
+                                disabled={!canModifyStatus(task)}
+                                onClick={() => onToggleSubtask(task, subtask.id)}
+                                className="flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left disabled:cursor-default"
+                              >
+                                {subtask.isCompleted ? <CheckSquare className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" /> : <Square className="mt-0.5 h-3 w-3 shrink-0 text-gray-400" />}
+                                <span className={`text-[10px] font-semibold leading-4 ${subtask.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-zinc-200'}`}>{subtask.title}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
 
                       {/* Attachments */}

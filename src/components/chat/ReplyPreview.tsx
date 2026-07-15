@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, CornerUpLeft, FileText, Image, Link, MessageSquare, Sticker, Video, X } from 'lucide-react';
+import { BarChart3, CornerUpLeft, FileText, Image, Link, ListChecks, MessageSquare, Sticker, Video, X } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { formatFileSize } from '../../utils/fileUtils';
 import { getMessagePreviewData } from '../../utils/messagePreview';
@@ -15,6 +15,7 @@ const getPreviewIcon = (kind: ReturnType<typeof getMessagePreviewData>['kind']) 
   if (kind === 'FILE') return FileText;
   if (kind === 'LINK') return Link;
   if (kind === 'POLL') return BarChart3;
+  if (kind === 'TASK') return ListChecks;
   if (kind === 'STICKER') return Sticker;
   return MessageSquare;
 };
