@@ -11,6 +11,7 @@ type Props = {
   onDeleteTask: (taskId: string) => void;
   onUploadAttachment?: (task: ChannelTaskResponse, file: File) => void;
   uploadingTaskId?: string | null;
+  onJumpToSourceMessage?: (messageId: string) => void;
 };
 
 const columns: { status: ChannelTaskStatus; label: string; headerColor: string; badgeBg: string }[] = [
@@ -44,7 +45,7 @@ const isTaskOverdue = (task: ChannelTaskResponse) => {
   return Boolean(task.dueAt && task.status !== 'DONE' && task.status !== 'CANCELLED' && new Date(task.dueAt).getTime() < Date.now());
 };
 
-export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onDeleteTask, onUploadAttachment, uploadingTaskId }: Props) {
+export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onDeleteTask, onUploadAttachment, uploadingTaskId, onJumpToSourceMessage }: Props) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   return (
@@ -124,6 +125,11 @@ export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, can
                       <h4 className={`m-0 text-xs font-black ${task.status === 'DONE' ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
                         {task.title}
                       </h4>
+                      {task.sourceMessage && onJumpToSourceMessage && (
+                        <button type="button" onClick={() => onJumpToSourceMessage(task.sourceMessage!.messageId)} className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:underline dark:text-indigo-300">
+                          <ExternalLink className="h-3 w-3" /> Tin nhắn gốc
+                        </button>
+                      )}
 
                       {/* Attachments */}
                       <div className="mt-2 flex flex-wrap items-center gap-1">

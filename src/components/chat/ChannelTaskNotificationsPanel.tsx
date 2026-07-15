@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, AlertTriangle, PlusCircle, RefreshCw, CheckCircle2, CheckCheck, Loader2, Info } from 'lucide-react';
+import { BellRing, AlertTriangle, PlusCircle, RefreshCw, CheckCircle2, CheckCheck, Info } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { useChatStore } from '../../store/chatStore';
+import { Skeleton } from '../common/Skeleton';
 import type { ChannelResponse, GroupResponse, TaskActivityResponse, TaskActivityType } from '../../types/group';
 
 type Props = {
@@ -38,6 +39,23 @@ const formatTimeAgo = (isoStr: string) => {
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
   return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
+
+const ChannelNotificationsSkeleton = () => (
+  <div className="space-y-2" aria-label="Đang tải thông báo công việc">
+    {Array.from({ length: 5 }).map((_, index) => (
+      <div key={index} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-3.5 dark:border-zinc-800 dark:bg-discord-mid">
+        <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <Skeleton className={`h-3 ${index % 2 === 0 ? 'w-4/5' : 'w-2/3'}`} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 export function ChannelTaskNotificationsPanel({ group, channel, currentUserId, onReadStateChanged }: Props) {
   const [activities, setActivities] = useState<TaskActivityResponse[]>([]);
@@ -159,9 +177,7 @@ export function ChannelTaskNotificationsPanel({ group, channel, currentUserId, o
       {/* Content List */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {isLoading ? (
-          <div className="flex h-full items-center justify-center text-indigo-600">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+          <ChannelNotificationsSkeleton />
         ) : filteredActivities.length === 0 ? (
           <div className="flex h-full items-center justify-center text-center">
             <div>

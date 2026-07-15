@@ -73,6 +73,16 @@ export interface TaskAttachmentRequest {
   size?: number | null;
 }
 
+export interface TaskSourceMessageResponse {
+  messageId: string;
+  conversationId: string;
+  channelId: string;
+  senderId?: string | null;
+  senderUsername?: string | null;
+  preview: string;
+  createdAt: string;
+}
+
 export interface ChannelTaskResponse {
   id: string;
   groupId: string;
@@ -88,6 +98,7 @@ export interface ChannelTaskResponse {
   completedAt: string | null;
   subtasks?: SubtaskResponse[];
   attachments?: TaskAttachmentResponse[];
+  sourceMessage?: TaskSourceMessageResponse | null;
   isPinned?: boolean;
   pinnedAt?: string | null;
   createdAt: string;
@@ -103,6 +114,7 @@ export interface CreateChannelTaskRequest {
   assigneeIds?: string[];
   subtasks?: SubtaskRequest[];
   attachments?: TaskAttachmentRequest[];
+  sourceMessageId?: string;
 }
 
 export interface UpdateChannelTaskRequest {

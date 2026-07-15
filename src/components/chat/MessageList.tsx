@@ -124,6 +124,8 @@ interface MessageListProps {
   editingMessageId: string | null;
   editInputText: string;
   handleSaveEdit: (msgId: string) => void;
+  onCreateTaskFromMessage?: (message: any) => void;
+  canCreateTaskFromMessage?: boolean;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -197,6 +199,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   editingMessageId,
   editInputText,
   handleSaveEdit,
+  onCreateTaskFromMessage,
+  canCreateTaskFromMessage,
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const getMessageStatusLabel = (msg: any) => {
@@ -1064,6 +1068,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onPinToggle={() => togglePinMessage(msg.id, !!msg.isPinned)}
                                 onShare={() => setSharingMessage(msg)}
                                 onRemind={() => setReminderTargetMessage(msg)}
+                                onCreateTask={() => onCreateTaskFromMessage?.(msg)}
+                                canCreateTask={canCreateTaskFromMessage}
                                 canPin={canPinMessage(msg)}
                                 canRecall={canRecallMessageInActiveConversation(msg)}
                                 onMenuOpenChange={(isOpen) => setActiveMenuMessageId(isOpen ? msg.id : null)}

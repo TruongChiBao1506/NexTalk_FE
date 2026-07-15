@@ -303,6 +303,7 @@ export const Chat = () => {
   const [pendingAiReplies, setPendingAiReplies] = useState<PendingAiReply[]>([]);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [channelView, setChannelView] = useState<'chat' | 'tasks' | 'notifications'>('chat');
+  const [taskDraftFromMessage, setTaskDraftFromMessage] = useState<MessageResponse | null>(null);
   const [taskUnreadCount, setTaskUnreadCount] = useState(0);
 
   const [inputMessage, setInputMessage] = useState('');
@@ -3177,6 +3178,12 @@ export const Chat = () => {
                 group={activeGroup}
                 channel={activeChannel}
                 currentUserId={user?.id}
+                sourceMessageDraft={taskDraftFromMessage}
+                onSourceMessageDraftConsumed={() => setTaskDraftFromMessage(null)}
+                onJumpToSourceMessage={(messageId) => {
+                  setChannelView('chat');
+                  window.setTimeout(() => handleJumpToMessage(messageId), 150);
+                }}
               />
             ) : channelView === 'notifications' && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' ? (
               <ChannelTaskNotificationsPanel
@@ -3297,6 +3304,12 @@ export const Chat = () => {
                     editingMessageId={editingMessageId}
                     editInputText={editInputText}
                     handleSaveEdit={handleSaveEdit}
+                    canCreateTaskFromMessage={Boolean(activeChannel?.isTaskEnabled && activeChannel.type !== 'VOICE')}
+                    onCreateTaskFromMessage={(message) => {
+                      setTaskDraftFromMessage(message);
+                      setChannelView('tasks');
+                      setActiveMenuMessageId(null);
+                    }}
                   />
                 </div>
 

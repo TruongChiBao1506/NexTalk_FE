@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, LayoutList, CalendarRange, Pin, AlertTriangle, KanbanSquare, Paperclip, ExternalLink } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { fileService } from '../../services/fileService';
+import { Skeleton } from '../common/Skeleton';
+import { stripHtml } from '../../utils/text';
+import type { MessageResponse } from '../../types/chat';
 import { ChannelTasksTimeline } from './ChannelTasksTimeline';
 import { ChannelTasksKanban } from './ChannelTasksKanban';
 import type {
@@ -18,6 +21,9 @@ type Props = {
   group: GroupResponse;
   channel: ChannelResponse;
   currentUserId?: string;
+  sourceMessageDraft?: MessageResponse | null;
+  onSourceMessageDraftConsumed?: () => void;
+  onJumpToSourceMessage?: (messageId: string) => void;
 };
 
 const statusLabels: Record<ChannelTaskStatus, string> = {
@@ -55,7 +61,28 @@ const formatDueDate = (value?: string | null) => {
   return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
-export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
+const ChannelTasksSkeleton = () => (
+  <div className="min-h-0 flex-1 overflow-hidden p-4" aria-label="Đang tải công việc">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-discord-mid">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4 border-b border-gray-100 px-4 py-4 last:border-b-0 dark:border-zinc-800">
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-14 rounded-full" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className={`h-4 ${index % 2 === 0 ? 'w-2/3' : 'w-1/2'}`} />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-9 w-9 rounded-xl" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessageDraft, onSourceMessageDraftConsumed, onJumpToSourceMessage }: Props) {
   const userRole = group.members.find((m) => m.userId === currentUserId)?.role;
   const isLeader = userRole === 'OWNER' || userRole === 'LEADER' || userRole === 'ADMIN';
   const canModifyStatus = (task: ChannelTaskResponse) => task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader;
@@ -78,6 +105,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const [newSubtasks, setNewSubtasks] = useState<{ title: string }[]>([]);
   const [subtaskInput, setSubtaskInput] = useState('');
   const [newAttachments, setNewAttachments] = useState<TaskAttachmentRequest[]>([]);
+  const [sourceMessage, setSourceMessage] = useState<MessageResponse | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
   const [attachmentFeedback, setAttachmentFeedback] = useState<string | null>(null);
@@ -102,6 +130,23 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
     void loadTasks();
   }, [group.id, channel.id]);
 
+  useEffect(() => {
+    if (!sourceMessageDraft) return;
+    const plainText = stripHtml(sourceMessageDraft.content || '').trim();
+    const fallback = sourceMessageDraft.attachments?.[0]?.name || 'Công việc từ tin nhắn';
+    setTitle((plainText || fallback).slice(0, 100));
+    setDescription(plainText);
+    setNewAttachments((sourceMessageDraft.attachments || []).map((attachment) => ({
+      url: attachment.url,
+      name: attachment.name || 'File',
+      type: attachment.type || 'FILE',
+      size: attachment.size,
+    })));
+    setSourceMessage(sourceMessageDraft);
+    setIsCreateOpen(true);
+    onSourceMessageDraftConsumed?.();
+  }, [sourceMessageDraft, onSourceMessageDraftConsumed]);
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (filter === 'all') return true;
@@ -123,6 +168,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
         assigneeIds,
         subtasks: newSubtasks.filter(s => s.title.trim()).map(s => ({ title: s.title.trim() })),
         attachments: newAttachments,
+        sourceMessageId: sourceMessage?.id,
       });
       if (response.data) setTasks((current) => [response.data!, ...current]);
       setTitle('');
@@ -133,6 +179,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
       setNewSubtasks([]);
       setSubtaskInput('');
       setNewAttachments([]);
+      setSourceMessage(null);
       setIsCreateOpen(false);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Không thể tạo công việc');
@@ -408,7 +455,9 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
         </div>
       )}
 
-      {viewMode === 'timeline' ? (
+      {isLoading ? (
+        <ChannelTasksSkeleton />
+      ) : viewMode === 'timeline' ? (
         <ChannelTasksTimeline
           tasks={filteredTasks}
           onStatusChange={updateStatusValue}
@@ -424,14 +473,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
           onDeleteTask={deleteTask}
           onUploadAttachment={uploadAttachmentToTask}
           uploadingTaskId={uploadingTaskId}
+          onJumpToSourceMessage={onJumpToSourceMessage}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center text-indigo-600">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : filteredTasks.length === 0 ? (
+          {filteredTasks.length === 0 ? (
           <div className="flex h-full items-center justify-center text-center">
             <div>
               <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-500" />
@@ -469,6 +515,17 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                     <h3 className={`m-0 truncate text-sm font-black ${task.status === 'DONE' ? 'text-gray-400 line-through' : 'text-gray-950 dark:text-white'}`}>
                       {task.title}
                     </h3>
+                    {task.sourceMessage && onJumpToSourceMessage && (
+                      <button
+                        type="button"
+                        onClick={() => onJumpToSourceMessage(task.sourceMessage!.messageId)}
+                        className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300"
+                        title={task.sourceMessage.preview}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Tin nhắn gốc
+                      </button>
+                    )}
                     {canModifyStatus(task) ? (
                       <div className="relative">
                         <button
@@ -730,6 +787,17 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
               </button>
             </div>
             <div className="space-y-3">
+              {sourceMessage && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-500/30 dark:bg-indigo-500/10">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-300">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Tạo từ tin nhắn của {sourceMessage.senderUsername || 'thành viên'}
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-zinc-300">
+                    {stripHtml(sourceMessage.content || '') || sourceMessage.attachments?.[0]?.name || 'Tệp đính kèm'}
+                  </p>
+                </div>
+              )}
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Tên task" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả" rows={3} className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
               <div className="grid grid-cols-2 gap-3">
