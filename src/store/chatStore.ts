@@ -152,7 +152,7 @@ interface ChatState {
   selectConversation: (conversationId: string | null) => Promise<void>;
   updateConversation: (conversation: ConversationResponse) => void;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => void;
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => boolean;
   sendTypingIndicator: (typing: boolean, conversationId?: string) => void;
   setMessageDraft: (conversationId: string, content: string) => void;
   clearMessageDraft: (conversationId: string) => void;
@@ -521,7 +521,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
-      return;
+      return false;
     }
 
     const messageRequest = {
@@ -534,10 +534,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       clientMessageId: clientMessageId || undefined,
     };
 
-    stompClient.publish({
-      destination: '/app/chat.send',
-      body: JSON.stringify(messageRequest),
-    });
+    try {
+      stompClient.publish({
+        destination: '/app/chat.send',
+        body: JSON.stringify(messageRequest),
+      });
+      return true;
+    } catch (error) {
+      console.error('[STOMP] Failed to publish message:', error);
+      return false;
+    }
   },
 
   sendTypingIndicator: (typing: boolean, conversationId?: string) => {

@@ -204,6 +204,8 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const getMessageStatusLabel = (msg: any) => {
+    if (msg.metadata?.deliveryState === 'failed') return 'Gửi thất bại';
+    if (msg.metadata?.optimistic) return 'Đang gửi';
     const status = getMessageStatus(msg);
     if (status === 'SEEN') {
       if (isGroupConversation) {
@@ -1521,7 +1523,11 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
                               )}
                               {getMessageStatus(msg) === 'SENT' && (
-                                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                                msg.metadata?.deliveryState === 'failed'
+                                  ? <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                  : msg.metadata?.optimistic
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                                    : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
                               )}
                               <span>{getMessageStatusLabel(msg)}</span>
                             </span>

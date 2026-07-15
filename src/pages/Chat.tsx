@@ -2025,9 +2025,35 @@ export const Chat = () => {
           name: pastedMediaType === 'IMAGE' ? 'Ảnh từ liên kết' : 'Video từ liên kết',
         }]);
       } else {
-        sendStompMessage(trimmedMessage, 'TEXT', replyTo?.id ?? undefined, undefined, messagePriority || undefined);
+        if (!activeConversation || !user) return;
+        const clientMessageId = `client-text-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        addOptimisticMessage({
+          id: `temp-${clientMessageId}`,
+          conversationId: activeConversation.id,
+          senderId: user.id,
+          senderUsername: user.username,
+          content: trimmedMessage,
+          messageType: 'TEXT',
+          parentId: replyTo?.id ?? null,
+          createdAt: new Date().toISOString(),
+          metadata: { clientMessageId, optimistic: true, deliveryState: 'sending' },
+        });
+        const published = sendStompMessage(
+          trimmedMessage,
+          'TEXT',
+          replyTo?.id ?? undefined,
+          undefined,
+          messagePriority || undefined,
+          clientMessageId,
+        );
+        if (!published) {
+          updateOptimisticMessage(clientMessageId, {
+            metadata: { clientMessageId, optimistic: true, deliveryState: 'failed' },
+          });
+          return;
+        }
         if (isAiBotMentionMessage(trimmedMessage)) {
-          addPendingAiReply(activeConversation?.id);
+          addPendingAiReply(activeConversation.id);
         }
       }
       clearEditorInput();
