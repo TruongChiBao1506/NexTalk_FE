@@ -13,19 +13,22 @@ import {
   X,
 } from 'lucide-react';
 import { fileService } from '../../services/fileService';
+import type { UpdateProfilePayload } from '../../services/userService';
 import { useUserStore } from '../../store/userStore';
 import type { User } from '../../types/auth';
 
 const editProfileSchema = z.object({
-  username: z.string()
-    .min(3, 'Username cần ít nhất 3 ký tự')
-    .max(30, 'Username không vượt quá 30 ký tự')
-    .regex(/^[a-zA-Z0-9._-]+$/, 'Username chỉ được chứa chữ, số, dấu chấm, gạch dưới và gạch ngang'),
+  username: z.string(),
   avatarUrl: z.string().min(1, 'Vui lòng chọn ảnh đại diện'),
   bio: z.string().max(160, 'Giới thiệu không vượt quá 160 ký tự').optional().or(z.literal('')),
   birthday: z.string().optional().or(z.literal('')),
   enableBirthdayNotification: z.boolean().optional(),
 });
+
+const usernameSchema = z.string()
+  .trim()
+  .min(3, 'Username cần ít nhất 3 ký tự')
+  .max(50, 'Username không vượt quá 50 ký tự');
 
 type EditProfileInput = z.infer<typeof editProfileSchema>;
 
@@ -62,7 +65,8 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    setError,
+    formState: { errors, dirtyFields, isDirty },
   } = useForm<EditProfileInput>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
@@ -75,8 +79,11 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
   });
 
   useEffect(() => {
-    setValue('avatarUrl', selectedAvatar, { shouldValidate: true });
-  }, [selectedAvatar, setValue]);
+    setValue('avatarUrl', selectedAvatar, {
+      shouldValidate: true,
+      shouldDirty: selectedAvatar !== (user.avatarUrl || AVATAR_PRESETS[0]),
+    });
+  }, [selectedAvatar, setValue, user.avatarUrl]);
 
   const setAvatar = (url: string) => {
     setAvatarUploadError(null);
@@ -126,7 +133,29 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
 
   const onSubmit = async (data: EditProfileInput) => {
     if (isUploadingAvatar) return;
-    const success = await updateProfile(data);
+    const payload: UpdateProfilePayload = {};
+
+    if (dirtyFields.username) {
+      const result = usernameSchema.safeParse(data.username);
+      if (!result.success) {
+        setError('username', { type: 'validate', message: result.error.issues[0]?.message });
+        return;
+      }
+      if (result.data !== user.username) payload.username = result.data;
+    }
+    if (dirtyFields.avatarUrl) payload.avatarUrl = data.avatarUrl;
+    if (dirtyFields.bio) payload.bio = data.bio || '';
+    if (dirtyFields.birthday) payload.birthday = data.birthday || '';
+    if (dirtyFields.enableBirthdayNotification) {
+      payload.enableBirthdayNotification = Boolean(data.enableBirthdayNotification);
+    }
+
+    if (Object.keys(payload).length === 0) {
+      onClose();
+      return;
+    }
+
+    const success = await updateProfile(payload);
     if (success) {
       onClose();
     }
@@ -341,7 +370,7 @@ export const EditProfileModal = ({ user, onClose }: EditProfileModalProps) => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isDirty}
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
