@@ -300,7 +300,8 @@ export const Chat = () => {
   const [triggeredReminder, setTriggeredReminder] = useState<MessageReminder | null>(null);
   const [pendingAiReplies, setPendingAiReplies] = useState<PendingAiReply[]>([]);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
-  const [channelView, setChannelView] = useState<'chat' | 'tasks'>('chat');
+  const [channelView, setChannelView] = useState<'chat' | 'tasks' | 'notifications'>('chat');
+  const [taskUnreadCount, setTaskUnreadCount] = useState(0);
 
 
   const [inputMessage, setInputMessage] = useState('');
@@ -3017,6 +3018,22 @@ export const Chat = () => {
   const activeTypingUsers = activeConversation ? typingUsersByConversation[activeConversation.id] ?? [] : [];
   const activeUnreadMarker = activeConversation ? unreadMarkersByConversation[activeConversation.id] ?? null : null;
 
+  useEffect(() => {
+    if (!activeGroup || !activeChannel || !activeChannel.isTaskEnabled) {
+      setTaskUnreadCount(0);
+      return;
+    }
+    let isSubscribed = true;
+    groupService.getTaskActivities(activeGroup.id, activeChannel.id)
+      .then((res) => {
+        if (isSubscribed && res.data) {
+          setTaskUnreadCount(res.data.filter((a) => !a.isRead).length);
+        }
+      })
+      .catch(() => {});
+    return () => { isSubscribed = false; };
+  }, [activeGroup?.id, activeChannel?.id, activeChannel?.isTaskEnabled]);
+
   return (
     <div 
       className="nextalk-chat-shell relative h-dvh w-screen flex overflow-hidden text-slate-900 dark:text-discord-text transition-colors duration-300"
@@ -3166,14 +3183,24 @@ export const Chat = () => {
                   <button
                     key={view}
                     type="button"
-                    onClick={() => setChannelView(view as 'chat' | 'tasks' | 'notifications')}
+                    onClick={() => {
+                      setChannelView(view as 'chat' | 'tasks' | 'notifications');
+                      if (view === 'notifications') setTaskUnreadCount(0);
+                    }}
                     className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
                       channelView === view
                         ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
                     }`}
                   >
-                    {view === 'chat' ? 'Chat' : view === 'tasks' ? 'Tasks' : 'Thông báo'}
+                    <span className="flex items-center gap-1.5">
+                      {view === 'chat' ? 'Chat' : view === 'tasks' ? 'Tasks' : 'Thông báo'}
+                      {view === 'notifications' && taskUnreadCount > 0 && (
+                        <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-black text-white leading-none">
+                          {taskUnreadCount > 99 ? '99+' : taskUnreadCount}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>

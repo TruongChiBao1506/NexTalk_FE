@@ -194,7 +194,11 @@ export function ChannelTaskNotificationsPanel({ group, channel, currentUserId, o
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-black text-gray-900 dark:text-white">
-                        {act.actorUsername}
+                        {act.actorUsername && act.actorUsername.trim() !== ''
+                          ? act.actorUsername
+                          : act.type === 'DUE_APPROACHING' || act.type === 'TASK_OVERDUE'
+                          ? 'Cảnh báo Deadline'
+                          : 'Hệ thống'}
                       </span>
                       <span className="text-[10px] font-bold text-gray-400">
                         {formatTimeAgo(act.createdAt)}
