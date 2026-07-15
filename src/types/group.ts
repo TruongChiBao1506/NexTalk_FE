@@ -17,6 +17,40 @@ export interface ChannelResponse {
   updatedAt: string;
 }
 
+export interface SubtaskResponse {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+}
+
+export interface SubtaskRequest {
+  id?: string;
+  title: string;
+  isCompleted?: boolean;
+}
+
+export type TaskActivityType =
+  | 'TASK_CREATED'
+  | 'STATUS_CHANGED'
+  | 'SUBTASK_COMPLETED'
+  | 'ASSIGNEE_UPDATED'
+  | 'DUE_APPROACHING'
+  | 'TASK_OVERDUE';
+
+export interface TaskActivityResponse {
+  id: string;
+  groupId: string;
+  channelId: string;
+  taskId: string;
+  actorId: string | null;
+  actorUsername: string;
+  actorAvatarUrl: string | null;
+  type: TaskActivityType;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface ChannelTaskAssigneeResponse {
   userId: string;
   username: string;
@@ -36,6 +70,7 @@ export interface ChannelTaskResponse {
   assignees: ChannelTaskAssigneeResponse[];
   dueAt: string | null;
   completedAt: string | null;
+  subtasks?: SubtaskResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +82,7 @@ export interface CreateChannelTaskRequest {
   priority?: ChannelTaskPriority;
   dueAt?: string;
   assigneeIds?: string[];
+  subtasks?: SubtaskRequest[];
 }
 
 export interface UpdateChannelTaskRequest {
@@ -56,6 +92,7 @@ export interface UpdateChannelTaskRequest {
   priority?: ChannelTaskPriority;
   dueAt?: string;
   assigneeIds?: string[];
+  subtasks?: SubtaskRequest[];
 }
 
 export interface GroupMemberResponse {

@@ -43,6 +43,7 @@ import { ShareMessageModal } from '../components/chat/ShareMessageModal';
 import { MessageReminderModal } from '../components/chat/MessageReminderModal';
 import InviteGroupMembersModal from '../components/chat/InviteGroupMembersModal';
 import GroupApprovalsModal from '../components/chat/GroupApprovalsModal';
+import { ChannelTaskNotificationsPanel } from '../components/chat/ChannelTaskNotificationsPanel';
 import { ConversationList } from '../components/chat/ConversationList';
 import { SidebarNavigation } from '../components/chat/SidebarNavigation';
 import { SidebarHeader } from '../components/chat/SidebarHeader';
@@ -3159,20 +3160,20 @@ export const Chat = () => {
               handleToggleTaskEnabled={handleToggleTaskEnabled}
             />
             
-            {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? true) && activeChannel && activeChannel.type !== 'VOICE' && (
+            {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' && (
               <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-discord-mid">
-                {(['chat', ...((activeChannel?.isTaskEnabled ?? true) ? ['tasks'] : [])] as const).map((view) => (
+                {(['chat', 'tasks', 'notifications'] as const).map((view) => (
                   <button
                     key={view}
                     type="button"
-                    onClick={() => setChannelView(view as 'chat' | 'tasks')}
+                    onClick={() => setChannelView(view as 'chat' | 'tasks' | 'notifications')}
                     className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
                       channelView === view
                         ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
                     }`}
                   >
-                    {view === 'chat' ? 'Chat' : 'Tasks'}
+                    {view === 'chat' ? 'Chat' : view === 'tasks' ? 'Tasks' : 'Thông báo'}
                   </button>
                 ))}
               </div>
@@ -3190,8 +3191,14 @@ export const Chat = () => {
               />
             )}
 
-            {channelView === 'tasks' && activeGroup && (activeChannel?.isTaskEnabled ?? true) && activeChannel && activeChannel.type !== 'VOICE' ? (
+            {channelView === 'tasks' && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' ? (
               <ChannelTasksPanel
+                group={activeGroup}
+                channel={activeChannel}
+                currentUserId={user?.id}
+              />
+            ) : channelView === 'notifications' && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' ? (
+              <ChannelTaskNotificationsPanel
                 group={activeGroup}
                 channel={activeChannel}
                 currentUserId={user?.id}

@@ -56,7 +56,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       name: channel.name,
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
-      isTaskEnabled: Boolean(channel.isTaskEnabled ?? true),
+      isTaskEnabled: Boolean(channel.isTaskEnabled ?? false),
       memberIds: existingMemberIds,
     },
   });
@@ -66,7 +66,7 @@ export default function ChannelSettingsModal({ groupId, channel, onClose }: Chan
       name: channel.name,
       type: channel.type === 'VOICE' ? 'VOICE' : 'TEXT',
       isPrivate: Boolean(channel.isPrivate ?? (channel as any).private),
-      isTaskEnabled: Boolean(channel.isTaskEnabled ?? true),
+      isTaskEnabled: Boolean(channel.isTaskEnabled ?? false),
       memberIds: existingMemberIds,
     });
   }, [channel, reset, existingMemberIds.length]);

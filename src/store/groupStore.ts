@@ -24,8 +24,8 @@ interface GroupState {
   removeMember: (groupId: string, userId: string) => Promise<boolean>;
   updateMemberRole: (groupId: string, userId: string, role: GroupRole) => Promise<boolean>;
   upsertGroup: (group: GroupResponse) => void;
-  createChannel: (groupId: string, data: { name: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
-  updateChannel: (groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean }) => Promise<boolean>;
+  createChannel: (groupId: string, data: { name: string; type?: string; isPrivate?: boolean; isTaskEnabled?: boolean; memberIds?: string[] }) => Promise<boolean>;
+  updateChannel: (groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean; isTaskEnabled?: boolean; memberIds?: string[] }) => Promise<boolean>;
   deleteChannel: (groupId: string, channelId: string) => Promise<boolean>;
 
   fetchPendingInvitations: () => Promise<void>;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, LayoutList, CalendarRange } from 'lucide-react';
 import { groupService } from '../../services/groupService';
+import { ChannelTasksTimeline } from './ChannelTasksTimeline';
 import type {
   ChannelResponse,
   ChannelTaskPriority,
@@ -58,6 +59,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
 
   const [tasks, setTasks] = useState<ChannelTaskResponse[]>([]);
   const [filter, setFilter] = useState<'all' | 'mine' | ChannelTaskStatus>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,10 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const [priority, setPriority] = useState<ChannelTaskPriority>('MEDIUM');
   const [dueAt, setDueAt] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [newSubtasks, setNewSubtasks] = useState<{ title: string }[]>([]);
+  const [subtaskInput, setSubtaskInput] = useState('');
+  const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
+  const [inlineSubtaskInputs, setInlineSubtaskInputs] = useState<Record<string, string>>({});
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -106,6 +112,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
         priority,
         dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
         assigneeIds,
+        subtasks: newSubtasks.filter(s => s.title.trim()).map(s => ({ title: s.title.trim() })),
       });
       if (response.data) setTasks((current) => [response.data!, ...current]);
       setTitle('');
@@ -113,6 +120,8 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
       setPriority('MEDIUM');
       setDueAt('');
       setAssigneeIds([]);
+      setNewSubtasks([]);
+      setSubtaskInput('');
       setIsCreateOpen(false);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Không thể tạo công việc');
@@ -138,6 +147,76 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const confirmStatusChange = (task: ChannelTaskResponse, nextStatus: ChannelTaskStatus) => {
     if (task.status === nextStatus) return;
     setConfirmStatusTask({ task, nextStatus });
+  };
+
+  const toggleSubtask = async (task: ChannelTaskResponse, subtaskId: string) => {
+    if (!task.subtasks) return;
+    const updatedSubtasks = task.subtasks.map((s) =>
+      s.id === subtaskId ? { id: s.id, title: s.title, isCompleted: !s.isCompleted } : { id: s.id, title: s.title, isCompleted: s.isCompleted }
+    );
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, subtasks: updatedSubtasks } : item))
+    );
+    try {
+      const response = await groupService.updateChannelTask(group.id, channel.id, task.id, {
+        subtasks: updatedSubtasks,
+      });
+      if (response.data) {
+        setTasks((current) => current.map((item) => (item.id === task.id ? response.data! : item)));
+      }
+    } catch {
+      setTasks(previous);
+    }
+  };
+
+  const toggleTaskExpand = (taskId: string) => {
+    setExpandedTaskIds((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]
+    );
+  };
+
+  const addSubtaskToTask = async (task: ChannelTaskResponse) => {
+    const inputTitle = (inlineSubtaskInputs[task.id] || '').trim();
+    if (!inputTitle) return;
+    const existing = task.subtasks || [];
+    const updatedSubtasks = [...existing.map(s => ({ id: s.id, title: s.title, isCompleted: s.isCompleted })), { title: inputTitle, isCompleted: false }];
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, subtasks: updatedSubtasks as any } : item))
+    );
+    setInlineSubtaskInputs((prev) => ({ ...prev, [task.id]: '' }));
+    try {
+      const response = await groupService.updateChannelTask(group.id, channel.id, task.id, {
+        subtasks: updatedSubtasks,
+      });
+      if (response.data) {
+        setTasks((current) => current.map((item) => (item.id === task.id ? response.data! : item)));
+      }
+    } catch {
+      setTasks(previous);
+    }
+  };
+
+  const deleteSubtaskFromTask = async (task: ChannelTaskResponse, subtaskId: string) => {
+    if (!task.subtasks) return;
+    const updatedSubtasks = task.subtasks
+      .filter((s) => s.id !== subtaskId)
+      .map((s) => ({ id: s.id, title: s.title, isCompleted: s.isCompleted }));
+    const previous = tasks;
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, subtasks: updatedSubtasks as any } : item))
+    );
+    try {
+      const response = await groupService.updateChannelTask(group.id, channel.id, task.id, {
+        subtasks: updatedSubtasks,
+      });
+      if (response.data) {
+        setTasks((current) => current.map((item) => (item.id === task.id ? response.data! : item)));
+      }
+    } catch {
+      setTasks(previous);
+    }
   };
 
   const deleteTask = async (taskId: string) => {
@@ -170,6 +249,32 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl bg-gray-100 p-1 dark:bg-zinc-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                viewMode === 'list'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              Danh sách
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                viewMode === 'timeline'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              <CalendarRange className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+          </div>
           <select
             value={filter}
             onChange={(event) => setFilter(event.target.value as typeof filter)}
@@ -198,12 +303,19 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex h-full items-center justify-center text-indigo-600">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : filteredTasks.length === 0 ? (
+      {viewMode === 'timeline' ? (
+        <ChannelTasksTimeline
+          tasks={filteredTasks}
+          onStatusChange={updateStatusValue}
+          canModifyStatus={canModifyStatus}
+        />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center text-indigo-600">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : filteredTasks.length === 0 ? (
           <div className="flex h-full items-center justify-center text-center">
             <div>
               <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-500" />
@@ -257,6 +369,144 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${priorityClass[task.priority]}`}>{priorityLabels[task.priority]}</span>
                   </div>
                   {task.description && <p className="m-0 mt-1 line-clamp-2 text-xs text-gray-500 dark:text-zinc-400">{task.description}</p>}
+
+                  {/* Checklist Subtasks Accordion Dropdown (Only when subtasks exist) */}
+                  {task.subtasks && task.subtasks.length > 0 && (
+                    <div className="mt-2 rounded-xl border border-gray-100 bg-gray-50/50 p-2 dark:border-zinc-800/60 dark:bg-zinc-900/40">
+                      <button
+                        type="button"
+                        onClick={() => toggleTaskExpand(task.id)}
+                        className="flex w-full items-center justify-between text-left text-[11px] font-black text-gray-600 hover:text-indigo-600 dark:text-zinc-300 dark:hover:text-indigo-400"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {expandedTaskIds.includes(task.id) ? (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          )}
+                          <span>
+                            Checklist ({task.subtasks.filter((s) => s.isCompleted).length}/{task.subtasks.length})
+                          </span>
+                        </div>
+                        <span>
+                          {Math.round((task.subtasks.filter((s) => s.isCompleted).length / task.subtasks.length) * 100)}%
+                        </span>
+                      </button>
+
+                      {expandedTaskIds.includes(task.id) && (
+                        <div className="mt-2 space-y-2 pt-1 border-t border-gray-200/60 dark:border-zinc-800/80">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
+                            <div
+                              className="h-full bg-indigo-600 transition-all duration-300 dark:bg-indigo-400"
+                              style={{
+                                width: `${(task.subtasks.filter((s) => s.isCompleted).length / task.subtasks.length) * 100}%`,
+                              }}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            {task.subtasks.map((st) => (
+                              <div key={st.id} className="flex items-center justify-between group rounded-lg px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-zinc-800">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSubtask(task, st.id)}
+                                  className="flex flex-1 items-center gap-2 text-left text-xs font-medium text-gray-700 dark:text-zinc-300"
+                                >
+                                  {st.isCompleted ? (
+                                    <CheckSquare className="h-4 w-4 shrink-0 text-emerald-500" />
+                                  ) : (
+                                    <Square className="h-4 w-4 shrink-0 text-gray-400 dark:text-zinc-500" />
+                                  )}
+                                  <span className={st.isCompleted ? 'line-through opacity-60' : ''}>{st.title}</span>
+                                </button>
+                                {canModifyStatus(task) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubtaskFromTask(task, st.id)}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-rose-500 p-1 transition"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {canModifyStatus(task) && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <input
+                                value={inlineSubtaskInputs[task.id] || ''}
+                                onChange={(e) =>
+                                  setInlineSubtaskInputs((prev) => ({ ...prev, [task.id]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void addSubtaskToTask(task);
+                                  }
+                                }}
+                                placeholder="Thêm công việc con mới..."
+                                className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs outline-none focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void addSubtaskToTask(task)}
+                                className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-indigo-700"
+                              >
+                                Thêm
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Add subtask trigger when task has 0 subtasks */}
+                  {(!task.subtasks || task.subtasks.length === 0) && canModifyStatus(task) && (
+                    <div className="mt-1.5">
+                      {!expandedTaskIds.includes(task.id) ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleTaskExpand(task.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:underline dark:text-indigo-400"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Thêm công việc con
+                        </button>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50/50 p-2 dark:border-zinc-800/60 dark:bg-zinc-900/40">
+                          <input
+                            value={inlineSubtaskInputs[task.id] || ''}
+                            onChange={(e) => setInlineSubtaskInputs((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void addSubtaskToTask(task);
+                              }
+                            }}
+                            placeholder="Nhập tên công việc con..."
+                            className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs outline-none focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void addSubtaskToTask(task)}
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-indigo-700"
+                          >
+                            Thêm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskExpand(task.id)}
+                            className="rounded-lg p-1 text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <p className="m-0 mt-1 text-[11px] font-bold text-gray-400">
                     {formatDueDate(task.dueAt)} · {task.assignees.length ? task.assignees.map((a) => a.username).join(', ') : 'Chưa giao'}
                   </p>
@@ -271,6 +521,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
           </div>
         )}
       </div>
+      )}
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -307,6 +558,54 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Checklist công việc phụ</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    value={subtaskInput}
+                    onChange={(e) => setSubtaskInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (subtaskInput.trim()) {
+                          setNewSubtasks((prev) => [...prev, { title: subtaskInput.trim() }]);
+                          setSubtaskInput('');
+                        }
+                      }
+                    }}
+                    placeholder="Thêm công việc con..."
+                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (subtaskInput.trim()) {
+                        setNewSubtasks((prev) => [...prev, { title: subtaskInput.trim() }]);
+                        setSubtaskInput('');
+                      }
+                    }}
+                    className="rounded-xl bg-gray-100 p-2 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                {newSubtasks.length > 0 && (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {newSubtasks.map((st, index) => (
+                      <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium dark:bg-zinc-900">
+                        <span className="dark:text-zinc-200">{st.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewSubtasks((prev) => prev.filter((_, i) => i !== index))}
+                          className="text-gray-400 hover:text-rose-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <button disabled={!title.trim() || isSaving} type="button" onClick={createTask} className="mt-2 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">

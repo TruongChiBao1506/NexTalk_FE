@@ -62,12 +62,12 @@ export const groupService = {
     return response.data;
   },
 
-  async createChannel(groupId: string, data: { name: string; type?: string; isPrivate?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
+  async createChannel(groupId: string, data: { name: string; type?: string; isPrivate?: boolean; isTaskEnabled?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
     const response = await apiClient.post<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels`, data);
     return response.data;
   },
 
-  async updateChannel(groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
+  async updateChannel(groupId: string, channelId: string, data: { name?: string; type?: string; isPrivate?: boolean; isTaskEnabled?: boolean; memberIds?: string[] }): Promise<ApiResponse<ChannelResponse>> {
     const response = await apiClient.put<ApiResponse<ChannelResponse>>(`/groups/${groupId}/channels/${channelId}`, data);
     return response.data;
   },
@@ -104,6 +104,16 @@ export const groupService = {
 
   async deleteChannelTask(groupId: string, channelId: string, taskId: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}`);
+    return response.data;
+  },
+
+  async getTaskActivities(groupId: string, channelId: string): Promise<ApiResponse<import('../types/group').TaskActivityResponse[]>> {
+    const response = await apiClient.get<ApiResponse<import('../types/group').TaskActivityResponse[]>>(`/groups/${groupId}/channels/${channelId}/task-activities`);
+    return response.data;
+  },
+
+  async markTaskActivitiesAsRead(groupId: string, channelId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/groups/${groupId}/channels/${channelId}/task-activities/read`);
     return response.data;
   },
 

@@ -282,7 +282,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   type="button"
                   onClick={async () => {
                     try {
-                      const nextState = !(activeChannel.isTaskEnabled ?? true);
+                      const nextState = !(activeChannel.isTaskEnabled ?? false);
                       await groupService.updateChannel(activeGroup.id, activeChannel.id, { isTaskEnabled: nextState });
                       const updatedGroup = await groupService.getGroup(activeGroup.id);
                       if (updatedGroup.success && updatedGroup.data) {
@@ -293,16 +293,16 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                     }
                   }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${
-                    (activeChannel.isTaskEnabled ?? true) ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-300 dark:bg-zinc-700'
+                    (activeChannel.isTaskEnabled ?? false) ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-300 dark:bg-zinc-700'
                   }`}
                   role="switch"
-                  aria-checked={activeChannel.isTaskEnabled ?? true}
+                  aria-checked={activeChannel.isTaskEnabled ?? false}
                 >
                   <span className="sr-only">Toggle channel tasks</span>
                   <span
                     aria-hidden="true"
                     className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (activeChannel.isTaskEnabled ?? true) ? 'translate-x-4' : 'translate-x-0'
+                      (activeChannel.isTaskEnabled ?? false) ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
