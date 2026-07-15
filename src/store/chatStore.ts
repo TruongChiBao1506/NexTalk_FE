@@ -426,7 +426,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const history = response.data;
         
         // Mark messages as seen
-        messageService.markAsSeen(conversationId).catch((e) => console.error('Failed to mark seen:', e));
+        messageService.markAsSeen(conversationId)
+          .then(() => get().fetchUnreadCounts())
+          .catch((e) => {
+            console.error('Failed to mark seen:', e);
+            void get().fetchUnreadCounts();
+          });
 
         // Fetch pinned messages in background
         get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
@@ -873,7 +878,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       if (currentUser && message.senderId !== currentUser.id) {
-        messageService.markAsSeen(message.conversationId).catch(() => {});
+        messageService.markAsSeen(message.conversationId)
+          .then(() => get().fetchUnreadCounts())
+          .catch(() => get().fetchUnreadCounts());
       }
 
       // Also update messagesCache if present

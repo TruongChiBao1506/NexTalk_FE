@@ -559,13 +559,7 @@ export const ConversationList = ({
             const lastMsg = lastMessages[c.id];
             const draftPreview = getDraftPreview(c.id);
             const isSelected = activeConversation?.id === c.id;
-            const unreadNotifs = notifications.filter(
-              (n) =>
-                n.referenceId === c.id &&
-                !n.read &&
-                (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
-            );
-            const unreadCount = unreadCounts[c.id] ?? unreadNotifs.length;
+            const unreadCount = unreadCounts[c.id] ?? 0;
             const hasUnread = unreadCount > 0;
 
             return (
@@ -769,24 +763,11 @@ export const ConversationList = ({
             (g.channels ?? []).map((channel: any) => channel.conversationId),
           );
           if (groupConversationId) groupConversationIds.add(groupConversationId);
-          const unreadNotifs = notifications.filter(
-            (n) =>
-              groupConversationIds.has(n.referenceId) &&
-              !n.read &&
-              (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
-          );
           const channelUnreadCount = Array.from(groupConversationIds).reduce(
             (total: number, conversationId: any) => total + (unreadCounts[conversationId] ?? 0),
             0,
           );
-          const lastMessageIsUnread = Boolean(
-            lastMsg
-              && lastMsg.senderId !== user?.id
-              && !lastMsg.statuses?.some(
-                (status: any) => status.userId === user?.id && status.status === 'SEEN',
-              ),
-          );
-          const unreadCount = channelUnreadCount || unreadNotifs.length || (lastMessageIsUnread ? 1 : 0);
+          const unreadCount = channelUnreadCount;
           const hasUnread = unreadCount > 0;
 
           return (
@@ -1029,23 +1010,8 @@ export const ConversationList = ({
                   {g.channels.map((ch) => {
                     const isChannelSelected =
                       activeConversation?.id === ch.conversationId;
-                    const channelNotifs = notifications.filter(
-                      (n) =>
-                        n.referenceId === ch.conversationId &&
-                        !n.read &&
-                        (n.type === "NEW_MESSAGE" || n.type === "MENTION"),
-                    );
                     const channelLastMessage = lastMessages[ch.conversationId];
-                    const channelLastMessageIsUnread = Boolean(
-                      channelLastMessage
-                        && channelLastMessage.senderId !== user?.id
-                        && !channelLastMessage.statuses?.some(
-                          (status: any) => status.userId === user?.id && status.status === 'SEEN',
-                        ),
-                    );
-                    const channelUnreadCount = (unreadCounts[ch.conversationId] ?? 0)
-                      || channelNotifs.length
-                      || (channelLastMessageIsUnread ? 1 : 0);
+                    const channelUnreadCount = unreadCounts[ch.conversationId] ?? 0;
                     const channelHasUnread = channelUnreadCount > 0;
                     const channelDraftPreview = getDraftPreview(ch.conversationId);
 
