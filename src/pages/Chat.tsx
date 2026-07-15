@@ -1496,11 +1496,21 @@ export const Chat = () => {
     : undefined;
   const taskMentionChannel = taskMentionGroup?.channels?.find((channel) => channel.conversationId === activeConversation?.id);
   const sharedTaskCards = useChannelTaskStore((state) => taskMentionChannel ? (state.tasksByChannel[taskMentionChannel.id] ?? EMPTY_CHANNEL_TASKS) : EMPTY_CHANNEL_TASKS);
+  const taskCacheForPreviews = useChannelTaskStore((state) => state.tasksByChannel);
   const fetchSharedTaskCards = useChannelTaskStore((state) => state.fetchTasks);
 
   useEffect(() => {
     sharedTaskCardsRef.current = sharedTaskCards;
   }, [sharedTaskCards]);
+
+  useEffect(() => {
+    Object.entries(lastMessages).forEach(([conversationId, message]) => {
+      if (!message?.content || !/(?:<#task:|&lt;#task:)/.test(message.content)) return;
+      const group = groups.find((item) => item.channels?.some((channel) => channel.conversationId === conversationId));
+      const channel = group?.channels?.find((item) => item.conversationId === conversationId);
+      if (group && channel?.isTaskEnabled) void fetchSharedTaskCards(group.id, channel.id);
+    });
+  }, [fetchSharedTaskCards, groups, lastMessages]);
 
   useEffect(() => {
     if (!taskMentionGroup || !taskMentionChannel?.isTaskEnabled || taskMentionChannel.type === 'VOICE') {
@@ -1885,7 +1895,7 @@ export const Chat = () => {
             className="my-1.5 flex w-full max-w-sm items-start gap-2 rounded-xl border border-indigo-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow dark:border-indigo-500/30 dark:bg-zinc-900"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-black text-gray-900 dark:text-white">{task?.title || `Task ${taskId}`}</span>
+              <span className="block truncate text-xs font-black text-gray-900 dark:text-white">{task?.title || 'Công việc không khả dụng'}</span>
               <span className="mt-1 block truncate text-[11px] text-gray-500 dark:text-zinc-400">
                 {task?.assignees?.length ? task.assignees.map((assignee) => assignee.username).join(', ') : 'Chưa giao'}
               </span>
@@ -2641,13 +2651,20 @@ export const Chat = () => {
   };
 
   const stripMessageMarkup = (value: string) => {
-    let result = value;
+    const taskNames: string[] = [];
+    const allCachedTasks = Object.values(taskCacheForPreviews).flat();
+    let result = value.replace(/(?:<#task:([^>]+)>|&lt;#task:([^&]+)&gt;)/g, (_match, rawId, encodedId) => {
+      const taskId = rawId || encodedId;
+      const task = allCachedTasks.find((item) => item.id === taskId);
+      taskNames.push(task?.title || 'Công việc');
+      return ' ';
+    });
     // Strip HTML tags if any (replace with space to preserve separation between tags like <p>a</p><p>b</p>)
     if (/<[a-z][\s\S]*>/i.test(result)) {
       result = result.replace(/<br\s*\/?>/gi, '\n');
       result = result.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
-    return result
+    const plainText = result
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/_(.*?)_/g, '$1')
       .replace(/~~(.*?)~~/g, '$1')
@@ -2655,7 +2672,9 @@ export const Chat = () => {
       .replace(/<u>(.*?)<\/u>/g, '$1')
       .replace(/<mark>(.*?)<\/mark>/g, '$1')
       .replace(/\[(left|center|right)]([\s\S]*?)\[\/\1]/g, '$2')
-      .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '$1');
+      .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '$1')
+      .trim();
+    return [...taskNames, plainText].filter(Boolean).join(' · ');
   };
 
   const messageHasSharedLink = (message: MessageResponse) => /https?:\/\/\S+/i.test(message.content);
@@ -3492,7 +3511,13 @@ export const Chat = () => {
                     setEditInputText={setEditInputText}
                     recallMessage={recallMessage}
                     deleteMessage={deleteMessage}
-                    setSharingMessage={setSharingMessage}
+                    setSharingMessage={(message) => {
+                      if (/(?:<#task:|&lt;#task:)/.test(message.content || '')) {
+                        showAlertDialog('Không thể chuyển tiếp Task Card', 'Task chỉ khả dụng trong channel nguồn. Hãy gửi nội dung mô tả hoặc ngữ cảnh thay thế.');
+                        return;
+                      }
+                      setSharingMessage(message);
+                    }}
                     setReminderTargetMessage={setReminderTargetMessage}
                     onDeleteMessageReminder={handleDeleteMessageReminder}
                     onRecreateMessageReminder={handleRecreateMessageReminder}

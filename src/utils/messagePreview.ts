@@ -1,4 +1,5 @@
 import type { MessageResponse, PollMetadata } from '../types/chat';
+import { useChannelTaskStore } from '../store/channelTaskStore';
 
 const urlPattern = /https?:\/\/[^\s<>"']+/gi;
 
@@ -16,7 +17,15 @@ export interface MessagePreviewData {
 
 export const stripMessageHtml = (content?: string | null) => {
   if (!content) return '';
-  return content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const taskNames: string[] = [];
+  const cachedTasks = Object.values(useChannelTaskStore.getState().tasksByChannel).flat();
+  const withoutTaskTags = content.replace(/(?:<#task:([^>]+)>|&lt;#task:([^&]+)&gt;)/g, (_match, rawId, encodedId) => {
+    const task = cachedTasks.find((item) => item.id === (rawId || encodedId));
+    taskNames.push(task?.title || 'Công việc không khả dụng');
+    return ' ';
+  });
+  const text = withoutTaskTags.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return [...taskNames, text].filter(Boolean).join(' · ');
 };
 
 const getFirstUrl = (content?: string | null) => stripMessageHtml(content).match(urlPattern)?.[0] ?? '';
