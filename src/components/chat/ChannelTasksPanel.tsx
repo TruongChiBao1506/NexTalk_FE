@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, LayoutList, CalendarRange } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, LayoutList, CalendarRange, Pin, AlertTriangle, KanbanSquare, Paperclip, ExternalLink } from 'lucide-react';
 import { groupService } from '../../services/groupService';
+import { fileService } from '../../services/fileService';
 import { ChannelTasksTimeline } from './ChannelTasksTimeline';
+import { ChannelTasksKanban } from './ChannelTasksKanban';
 import type {
   ChannelResponse,
   ChannelTaskPriority,
   ChannelTaskResponse,
   ChannelTaskStatus,
   GroupResponse,
+  TaskAttachmentRequest,
+  TaskAttachmentResponse,
 } from '../../types/group';
 
 type Props = {
@@ -59,7 +63,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
 
   const [tasks, setTasks] = useState<ChannelTaskResponse[]>([]);
   const [filter, setFilter] = useState<'all' | 'mine' | ChannelTaskStatus>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'timeline'>('list');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +77,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [newSubtasks, setNewSubtasks] = useState<{ title: string }[]>([]);
   const [subtaskInput, setSubtaskInput] = useState('');
+  const [newAttachments, setNewAttachments] = useState<TaskAttachmentRequest[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
+  const [attachmentFeedback, setAttachmentFeedback] = useState<string | null>(null);
+  const taskFileInputRef = useRef<HTMLInputElement>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
   const [inlineSubtaskInputs, setInlineSubtaskInputs] = useState<Record<string, string>>({});
 
@@ -113,6 +122,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
         dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
         assigneeIds,
         subtasks: newSubtasks.filter(s => s.title.trim()).map(s => ({ title: s.title.trim() })),
+        attachments: newAttachments,
       });
       if (response.data) setTasks((current) => [response.data!, ...current]);
       setTitle('');
@@ -122,6 +132,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
       setAssigneeIds([]);
       setNewSubtasks([]);
       setSubtaskInput('');
+      setNewAttachments([]);
       setIsCreateOpen(false);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Không thể tạo công việc');
@@ -229,6 +240,78 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
     }
   };
 
+  const togglePinTask = async (taskId: string) => {
+    // 1. Instant Optimistic UI Update
+    setTasks((current) => {
+      const updated = current.map((t) =>
+        t.id === taskId ? { ...t, isPinned: !t.isPinned, pinnedAt: !t.isPinned ? new Date().toISOString() : null } : t
+      );
+      return updated.sort((t1, t2) => {
+        if (Boolean(t1.isPinned) !== Boolean(t2.isPinned)) {
+          return t1.isPinned ? -1 : 1;
+        }
+        return new Date(t2.createdAt).getTime() - new Date(t1.createdAt).getTime();
+      });
+    });
+
+    try {
+      const response = await groupService.togglePinChannelTask(group.id, channel.id, taskId);
+      if (response.data) {
+        setTasks((current) => {
+          const updated = current.map((t) => (t.id === taskId ? response.data! : t));
+          return updated.sort((t1, t2) => {
+            if (Boolean(t1.isPinned) !== Boolean(t2.isPinned)) {
+              return t1.isPinned ? -1 : 1;
+            }
+            return new Date(t2.createdAt).getTime() - new Date(t1.createdAt).getTime();
+          });
+        });
+      }
+    } catch {
+      void loadTasks();
+    }
+  };
+
+  const uploadAttachmentToTask = async (task: ChannelTaskResponse, file: File) => {
+    if (uploadingTaskId) return;
+    setUploadingTaskId(task.id);
+    setAttachmentFeedback(null);
+    try {
+      const uploaded = await fileService.uploadFile(file);
+      const isImg = file.type.startsWith('image/');
+      const isVid = file.type.startsWith('video/');
+      const fileType = isImg ? 'IMAGE' : isVid ? 'VIDEO' : 'FILE';
+      const newAtt: TaskAttachmentResponse = {
+        id: crypto.randomUUID(),
+        url: uploaded.data.url,
+        name: file.name,
+        type: fileType,
+        size: file.size,
+      };
+      const updatedAttachments = [...(task.attachments ?? []), newAtt];
+
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? { ...item, attachments: updatedAttachments } : item))
+      );
+
+      const response = await groupService.updateChannelTask(group.id, channel.id, task.id, {
+        attachments: updatedAttachments,
+      });
+      if (response.data) {
+        setTasks((current) => current.map((item) => (item.id === task.id ? response.data! : item)));
+      }
+      setAttachmentFeedback(`Đã nộp “${file.name}” vào công việc.`);
+      window.dispatchEvent(new CustomEvent('nextalk:task-attachments-updated', {
+        detail: { groupId: group.id, channelId: channel.id },
+      }));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Không thể nộp tệp vào công việc');
+      void loadTasks();
+    } finally {
+      setUploadingTaskId(null);
+    }
+  };
+
   const toggleAssignee = (userId: string) => {
     setAssigneeIds((current) => current.includes(userId)
       ? current.filter((id) => id !== userId)
@@ -238,6 +321,10 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
   const currentUserRole = group.members.find((m) => m.userId === currentUserId)?.role;
   const canAssignToOthers = currentUserRole === 'OWNER' || currentUserRole === 'LEADER';
   const assignableMembers = canAssignToOthers ? group.members : group.members.filter((m) => m.userId === currentUserId);
+
+  const isTaskOverdue = (task: ChannelTaskResponse) => {
+    return Boolean(task.dueAt && task.status !== 'DONE' && new Date(task.dueAt).getTime() < Date.now());
+  };
 
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-gray-100 dark:bg-discord-dark">
@@ -264,6 +351,18 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
             </button>
             <button
               type="button"
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                viewMode === 'kanban'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              <KanbanSquare className="h-3.5 w-3.5" />
+              Bảng công việc
+            </button>
+            <button
+              type="button"
               onClick={() => setViewMode('timeline')}
               className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                 viewMode === 'timeline'
@@ -285,6 +384,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
             <option value="TODO">To Do</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="DONE">Completed</option>
+            <option value="CANCELLED">Đã hủy</option>
           </select>
           <button
             type="button"
@@ -302,12 +402,28 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
           {error}
         </div>
       )}
+      {attachmentFeedback && (
+        <div className="mx-4 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+          {attachmentFeedback}
+        </div>
+      )}
 
       {viewMode === 'timeline' ? (
         <ChannelTasksTimeline
           tasks={filteredTasks}
           onStatusChange={updateStatusValue}
           canModifyStatus={canModifyStatus}
+        />
+      ) : viewMode === 'kanban' ? (
+        <ChannelTasksKanban
+          tasks={filteredTasks}
+          onStatusChange={updateStatusValue}
+          canModifyStatus={canModifyStatus}
+          canDeleteTask={canDeleteTask}
+          onTogglePin={togglePinTask}
+          onDeleteTask={deleteTask}
+          onUploadAttachment={uploadAttachmentToTask}
+          uploadingTaskId={uploadingTaskId}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -325,10 +441,31 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
           </div>
         ) : (
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-discord-mid">
-            {filteredTasks.map((task) => (
-              <div key={task.id} className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl dark:border-zinc-800">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
+            {filteredTasks.map((task) => {
+              const overdue = isTaskOverdue(task);
+              return (
+                <div
+                  key={task.id}
+                  className={`grid grid-cols-[1fr_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl transition ${
+                    overdue
+                      ? 'border-rose-200 bg-rose-50/40 dark:border-rose-500/30 dark:bg-rose-500/5'
+                      : 'border-gray-100 dark:border-zinc-800'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {task.isPinned && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Pin className="h-3 w-3 fill-amber-600" />
+                          Đã ghim
+                        </span>
+                      )}
+                      {overdue && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 animate-pulse">
+                          <AlertTriangle className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+                          Quá hạn
+                        </span>
+                      )}
                     <h3 className={`m-0 truncate text-sm font-black ${task.status === 'DONE' ? 'text-gray-400 line-through' : 'text-gray-950 dark:text-white'}`}>
                       {task.title}
                     </h3>
@@ -507,17 +644,77 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                     </div>
                   )}
 
-                  <p className="m-0 mt-1 text-[11px] font-bold text-gray-400">
-                    {formatDueDate(task.dueAt)} · {task.assignees.length ? task.assignees.map((a) => a.username).join(', ') : 'Chưa giao'}
+                  {/* Attachments List */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {task.attachments && task.attachments.length > 0 && task.attachments.map((att, idx) => (
+                      <a
+                        key={idx}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-indigo-100 bg-indigo-50/50 px-2 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        <span className="truncate max-w-[140px]">{att.name}</span>
+                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                      </a>
+                    ))}
+                    {canModifyStatus(task) && (
+                      <label className={`inline-flex items-center gap-1 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/30 px-2 py-1 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/40 dark:bg-indigo-500/5 dark:text-indigo-300 ${uploadingTaskId ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-indigo-50'}`}>
+                        {uploadingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+                        {uploadingTaskId === task.id ? 'Đang tải...' : 'Nộp tệp'}
+                        <input
+                          type="file"
+                          className="hidden"
+                          disabled={Boolean(uploadingTaskId)}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.currentTarget.value = '';
+                            if (file) {
+                              void uploadAttachmentToTask(task, file);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <p className="m-0 mt-1 flex flex-wrap items-center gap-1 text-[11px] font-bold text-gray-400">
+                    {overdue ? (
+                      <span className="inline-flex items-center gap-1 font-black text-rose-600 dark:text-rose-400">
+                        <AlertTriangle className="h-3 w-3" />
+                        Hạn: {formatDueDate(task.dueAt)} (Đã quá hạn)
+                      </span>
+                    ) : (
+                      <span>{formatDueDate(task.dueAt)}</span>
+                    )}
+                    <span>· {task.assignees.length ? task.assignees.map((a) => a.username).join(', ') : 'Chưa giao'}</span>
                   </p>
                 </div>
-                {canDeleteTask(task) && (
-                  <button type="button" onClick={() => deleteTask(task.id)} className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {canModifyStatus(task) && (
+                    <button
+                      type="button"
+                      onClick={() => togglePinTask(task.id)}
+                      className={`rounded-xl p-2 transition ${
+                        task.isPinned
+                          ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10'
+                          : 'text-gray-400 hover:bg-gray-100 hover:text-amber-500 dark:hover:bg-zinc-800'
+                      }`}
+                      title={task.isPinned ? 'Bỏ ghim công việc' : 'Ghim công việc lên đầu'}
+                    >
+                      <Pin className={`h-4 w-4 ${task.isPinned ? 'fill-amber-500' : ''}`} />
+                    </button>
+                  )}
+                  {canDeleteTask(task) && (
+                    <button type="button" onClick={() => deleteTask(task.id)} className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
@@ -607,8 +804,68 @@ export function ChannelTasksPanel({ group, channel, currentUserId }: Props) {
                   </div>
                 )}
               </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-black text-gray-600 dark:text-zinc-300">Tệp & Hình ảnh đính kèm</p>
+                  <button
+                    type="button"
+                    disabled={isUploadingAttachment}
+                    onClick={() => taskFileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold text-indigo-600 hover:bg-gray-200 dark:bg-zinc-800 dark:text-indigo-400"
+                  >
+                    {isUploadingAttachment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+                    Đính kèm tệp
+                  </button>
+                  <input
+                    ref={taskFileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0) return;
+                      const selectedFiles = Array.from(files);
+                      e.currentTarget.value = '';
+                      setIsUploadingAttachment(true);
+                      try {
+                        for (const file of selectedFiles) {
+                          const uploaded = await fileService.uploadFile(file);
+                          const isImg = file.type.startsWith('image/');
+                          const isVid = file.type.startsWith('video/');
+                          const fileType = isImg ? 'IMAGE' : isVid ? 'VIDEO' : 'FILE';
+                          setNewAttachments((prev) => [
+                            ...prev,
+                            { url: uploaded.data.url, name: file.name, type: fileType, size: file.size },
+                          ]);
+                        }
+                      } catch {
+                        setError('Không thể tải tệp đính kèm');
+                      } finally {
+                        setIsUploadingAttachment(false);
+                      }
+                    }}
+                  />
+                </div>
+                {newAttachments.length > 0 && (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {newAttachments.map((att, index) => (
+                      <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium dark:bg-zinc-900">
+                        <span className="truncate text-gray-700 dark:text-zinc-200 max-w-[200px]">{att.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewAttachments((prev) => prev.filter((_, i) => i !== index))}
+                          className="text-gray-400 hover:text-rose-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <button disabled={!title.trim() || isSaving} type="button" onClick={createTask} className="mt-2 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+            <button disabled={!title.trim() || isSaving || isUploadingAttachment} type="button" onClick={createTask} className="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
               {isSaving ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : 'Tạo task'}
             </button>
           </div>

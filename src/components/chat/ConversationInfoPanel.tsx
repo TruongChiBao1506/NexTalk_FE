@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Search,
@@ -136,6 +136,52 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
   const [savingNicknameUserId, setSavingNicknameUserId] = useState<string | null>(null);
+  const [taskAttachments, setTaskAttachments] = useState<Array<{
+    id: string;
+    url: string;
+    name: string;
+    type: string;
+    taskId: string;
+    taskTitle: string;
+  }>>([]);
+
+  useEffect(() => {
+    if (!isConversationInfoOpen || !activeGroup?.id || !activeChannel?.id || !activeChannel.isTaskEnabled) {
+      setTaskAttachments([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadTaskAttachments = async () => {
+      try {
+        const response = await groupService.getChannelTasks(activeGroup.id, activeChannel.id);
+        if (cancelled) return;
+        setTaskAttachments((response.data ?? []).flatMap((task) =>
+          (task.attachments ?? []).map((attachment) => ({
+            ...attachment,
+            taskId: task.id,
+            taskTitle: task.title,
+          }))
+        ));
+      } catch {
+        if (!cancelled) setTaskAttachments([]);
+      }
+    };
+
+    const handleTaskAttachmentsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ groupId?: string; channelId?: string }>).detail;
+      if (detail?.groupId === activeGroup.id && detail?.channelId === activeChannel.id) {
+        void loadTaskAttachments();
+      }
+    };
+
+    void loadTaskAttachments();
+    window.addEventListener('nextalk:task-attachments-updated', handleTaskAttachmentsUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('nextalk:task-attachments-updated', handleTaskAttachmentsUpdated);
+    };
+  }, [activeChannel?.id, activeChannel?.isTaskEnabled, activeGroup?.id, isConversationInfoOpen]);
 
   const saveNickname = async (userId: string, nickname: string) => {
     setSavingNicknameUserId(userId);
@@ -462,6 +508,40 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   </button>
                 )}
               </div>
+
+              {activeChannel?.isTaskEnabled && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-white">
+                      <Pin className="h-4 w-4 text-indigo-600" />
+                      Tệp công việc
+                    </span>
+                    <span className="text-xs text-gray-400">{taskAttachments.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {taskAttachments.length > 0 ? taskAttachments.map((item) => (
+                      <div key={`${item.taskId}-${item.id}`} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5 dark:bg-zinc-900/50">
+                        {item.type === 'IMAGE' ? (
+                          <button type="button" onClick={() => onOpenMedia({ url: item.url, type: 'IMAGE', name: item.name })} className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-gray-200">
+                            <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
+                          </button>
+                        ) : (
+                          <FileText className="h-5 w-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                        )}
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 text-left">
+                          <span className="block truncate text-sm font-semibold text-gray-800 hover:text-indigo-600 dark:text-zinc-100">{item.name}</span>
+                          <span className="block truncate text-[11px] text-gray-400">Công việc: {item.taskTitle}</span>
+                        </a>
+                        <button type="button" onClick={() => void downloadFile(item.url, item.name)} className="rounded-md p-2 text-gray-400 transition hover:bg-white hover:text-indigo-600 dark:hover:bg-zinc-800" title="Tải tệp">
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )) : (
+                      <p className="m-0 rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-zinc-900/50 dark:text-zinc-400">Chưa có tệp công việc.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className="mb-2 flex items-center justify-between">

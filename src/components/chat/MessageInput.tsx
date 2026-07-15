@@ -1,4 +1,6 @@
 import React from 'react';
+import { EditorContent } from '@tiptap/react';
+import type { Editor } from '@tiptap/core';
 import {
   Plus,
   PlusCircle,
@@ -117,7 +119,7 @@ interface MessageInputProps {
   handleGroupAvatarSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleInputPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   handleSendBlockedChatRequest: () => void;
-  quillEditorRef: React.RefObject<HTMLDivElement | null>;
+  editor: Editor | null;
   handleSendThumbsUp: () => void;
   inputMessage: string;
   isSendingBlockedChatRequest: boolean;
@@ -170,7 +172,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   handleGroupAvatarSelected,
   handleInputPaste,
   handleSendBlockedChatRequest,
-  quillEditorRef,
+  editor,
   handleSendThumbsUp,
   inputMessage,
   isSendingBlockedChatRequest,
@@ -808,6 +810,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             className="min-w-0 flex-1"
             onPasteCapture={handleInputPaste}
             onKeyDownCapture={(e) => {
+              if (document.querySelector('.nextalk-mention-list') && ['Enter', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
+                return;
+              }
               if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
                 e.preventDefault();
                 setIsFormattingOpen((open) => !open);
@@ -841,7 +846,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 </div>
               </div>
             )}
-            <div ref={quillEditorRef} className="nextalk-quill-input" />
+            <EditorContent
+              editor={editor}
+              className="nextalk-tiptap-input rounded-xl border border-slate-300 bg-white transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:border-zinc-700 dark:bg-discord-mid dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30"
+            />
           </div>
 
           <div className="flex items-center gap-1 shrink-0 pb-1">

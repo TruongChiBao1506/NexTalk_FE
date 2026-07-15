@@ -102,6 +102,11 @@ export const groupService = {
     return response.data;
   },
 
+  async togglePinChannelTask(groupId: string, channelId: string, taskId: string): Promise<ApiResponse<ChannelTaskResponse>> {
+    const response = await apiClient.patch<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}/pin`);
+    return response.data;
+  },
+
   async deleteChannelTask(groupId: string, channelId: string, taskId: string): Promise<ApiResponse<void>> {
     const response = await apiClient.delete<ApiResponse<void>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}`);
     return response.data;

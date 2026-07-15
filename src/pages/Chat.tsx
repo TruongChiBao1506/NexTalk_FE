@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import Quill from 'quill';
-import 'quill/dist/quill.snow.css';
-import 'quill-mention/autoregister';
-import 'quill-mention/dist/quill.mention.css';
+import { useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Mention from '@tiptap/extension-mention';
+import Highlight from '@tiptap/extension-highlight';
+import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@tiptap/extension-placeholder';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
@@ -303,7 +305,6 @@ export const Chat = () => {
   const [channelView, setChannelView] = useState<'chat' | 'tasks' | 'notifications'>('chat');
   const [taskUnreadCount, setTaskUnreadCount] = useState(0);
 
-
   const [inputMessage, setInputMessage] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -332,8 +333,6 @@ export const Chat = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const groupAvatarInputRef = useRef<HTMLInputElement>(null);
-  const quillEditorRef = useRef<HTMLDivElement>(null);
-  const quillRef = useRef<Quill | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const voiceRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceRecorderStreamRef = useRef<MediaStream | null>(null);
@@ -1250,21 +1249,13 @@ export const Chat = () => {
 
 
   const getCurrentInputMessage = () => {
-    const quill = quillRef.current;
-    if (!quill) return inputMessage;
-    let html = quill.root.innerHTML;
-    if (html === '<p><br></p>') html = '';
-    return html;
+    if (!editor || editor.isEmpty) return editor ? '' : inputMessage;
+    return editor.getHTML();
   };
 
   const insertTextToInput = (value: string) => {
-    const quill = quillRef.current;
-    if (quill) {
-      quill.focus();
-      const range = quill.getSelection(true);
-      const insertAt = range?.index ?? Math.max(0, quill.getLength() - 1);
-      quill.insertText(insertAt, value, 'user');
-      quill.setSelection(insertAt + value.length, 0);
+    if (editor) {
+      editor.chain().focus().insertContent(value).run();
       return;
     }
     setInputMessage((current) => `${current}${value}`);
@@ -1311,7 +1302,7 @@ export const Chat = () => {
       setSpeechInputError(null);
       setIsSpeechListening(true);
       setIsEmojiStickerOpen(false);
-      quillRef.current?.focus();
+      editor?.commands.focus();
     };
 
     recognition.onresult = (event) => {
@@ -1374,12 +1365,9 @@ export const Chat = () => {
     setIsEmojiStickerOpen(false);
   };
 
-  const clearQuillInput = () => {
+  const clearEditorInput = () => {
     isRestoringDraftRef.current = true;
-    const quill = quillRef.current;
-    if (quill) {
-      quill.setText('');
-    }
+    editor?.commands.clearContent();
     setInputMessage('');
     if (activeConversation?.id) {
       clearMessageDraft(activeConversation.id);
@@ -1440,101 +1428,42 @@ export const Chat = () => {
     };
   }, [activeConversation?.id]);
 
-  const focusQuill = () => {
-    window.setTimeout(() => quillRef.current?.focus(), 0);
-  };
-
-  const applyQuillInlineFormat = (format: string, value: unknown = true) => {
-    const quill = quillRef.current;
-    if (!quill) return;
-
-    let range = quill.getSelection();
-    if (!range) {
-      quill.focus();
-      range = quill.getSelection(true);
-    }
-
-    const currentValue = range ? quill.getFormat(range)[format] : false;
-    quill.format(format, currentValue ? false : value);
-
-    const newRange = quill.getSelection();
-    if (newRange) setActiveFormats(quill.getFormat(newRange));
+  const focusEditor = () => {
+    window.setTimeout(() => editor?.commands.focus(), 0);
   };
 
   const applyInlineFormat = (prefix: string, _suffix = prefix, _placeholder?: string) => {
-    if (prefix === '**') applyQuillInlineFormat('bold');
-    else if (prefix === '_') applyQuillInlineFormat('italic');
-    else if (prefix === '<u>') applyQuillInlineFormat('underline');
-    else if (prefix === '~~') applyQuillInlineFormat('strike');
-    else if (prefix === '<mark>') applyQuillInlineFormat('background', '#fde68a');
-    else if (prefix === '`') applyQuillInlineFormat('code');
+    if (!editor) return;
+    const chain = editor.chain().focus();
+    if (prefix === '**') chain.toggleBold().run();
+    else if (prefix === '_') chain.toggleItalic().run();
+    else if (prefix === '<u>') chain.toggleUnderline().run();
+    else if (prefix === '~~') chain.toggleStrike().run();
+    else if (prefix === '<mark>') chain.toggleHighlight().run();
+    else if (prefix === '`') chain.toggleCode().run();
     else if (prefix === '[') {
       const url = window.prompt('Nhập liên kết', 'https://');
-      if (url) applyQuillInlineFormat('link', url);
-      else focusQuill();
+      if (url) chain.extendMarkRange('link').setLink({ href: url }).run();
+      else focusEditor();
     }
   };
 
   const applyLineFormat = (prefix: string) => {
-    const quill = quillRef.current;
-    if (!quill) return;
-
-    let range = quill.getSelection();
-    if (!range) {
-      quill.focus();
-      range = quill.getSelection(true);
-    }
-
-    const format = prefix.trim() === '>' ? 'blockquote' : 'list';
-    const value = prefix.trim() === '>' ? true : 'bullet';
-    const currentFormat = range ? quill.getFormat(range)[format] : false;
-    quill.format(format, currentFormat === value ? false : value);
-
-    const newRange = quill.getSelection();
-    if (newRange) setActiveFormats(quill.getFormat(newRange));
+    if (!editor) return;
+    if (prefix.trim() === '>') editor.chain().focus().toggleBlockquote().run();
+    else editor.chain().focus().toggleBulletList().run();
   };
 
   const applyNumberedList = () => {
-    const quill = quillRef.current;
-    if (!quill) return;
-
-    let range = quill.getSelection();
-    if (!range) {
-      quill.focus();
-      range = quill.getSelection(true);
-    }
-
-    const currentValue = range ? quill.getFormat(range).list : false;
-    quill.format('list', currentValue === 'ordered' ? false : 'ordered');
-
-    const newRange = quill.getSelection();
-    if (newRange) setActiveFormats(quill.getFormat(newRange));
+    editor?.chain().focus().toggleOrderedList().run();
   };
 
   const applyAlignment = (align: 'left' | 'center' | 'right') => {
-    const quill = quillRef.current;
-    if (!quill) return;
-
-    let range = quill.getSelection();
-    if (!range) {
-      quill.focus();
-      range = quill.getSelection(true);
-    }
-
-    quill.format('align', align === 'left' ? false : align);
-
-    const newRange = quill.getSelection();
-    if (newRange) setActiveFormats(quill.getFormat(newRange));
+    editor?.chain().focus().setTextAlign(align).run();
   };
 
   const clearFormatting = () => {
-    const quill = quillRef.current;
-    if (!quill) return;
-    quill.focus();
-    const range = quill.getSelection(true);
-    if (range) {
-      quill.removeFormat(range.index, range.length || quill.getLength());
-    }
+    editor?.chain().focus().unsetAllMarks().clearNodes().run();
   };
 
   const mentionSource = useCallback((searchTerm: string, renderList: (list: any[], term: string) => void) => {
@@ -1574,135 +1503,156 @@ export const Chat = () => {
     renderList(matches, searchTerm);
   }, []);
 
-  useEffect(() => {
-    if (!quillEditorRef.current) {
-      quillRef.current = null;
-      return;
-    }
-    if (quillRef.current) return;
 
-    const quill = new Quill(quillEditorRef.current, {
-      theme: 'snow',
-      placeholder: messagePlaceholder,
-      modules: {
-        toolbar: false,
-        mention: {
-          allowedChars: /^[\p{L}\p{M}0-9_\s]*$/u,
-          mentionDenotationChars: ['@'],
-          positioningStrategy: 'fixed',
-          source: function (searchTerm: string, renderList: (list: any[], term: string) => void) {
-            mentionSource(searchTerm, renderList);
-            return;
-            const currentConversation = useChatStore.getState().activeConversation!;
-            const currentUser = useAuthStore.getState().user;
-            const values: { id: string, value: string }[] = [];
+  const syncActiveFormats = (currentEditor: any) => {
+    setActiveFormats({
+      bold: currentEditor.isActive('bold'),
+      italic: currentEditor.isActive('italic'),
+      underline: currentEditor.isActive('underline'),
+      strike: currentEditor.isActive('strike'),
+      background: currentEditor.isActive('highlight'),
+      code: currentEditor.isActive('code'),
+      link: currentEditor.isActive('link'),
+      blockquote: currentEditor.isActive('blockquote'),
+      list: currentEditor.isActive('orderedList') ? 'ordered' : currentEditor.isActive('bulletList') ? 'bullet' : undefined,
+      align: currentEditor.isActive({ textAlign: 'center' })
+        ? 'center'
+        : currentEditor.isActive({ textAlign: 'right' })
+          ? 'right'
+          : 'left',
+    });
+  };
 
-            if (currentConversation) {
-              if (currentConversation.type === 'GROUP') {
-                values.push({ id: 'all', value: 'Mọi người' });
-              }
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        codeBlock: false,
+        horizontalRule: false,
+      }),
+      Highlight.configure({ multicolor: false }),
+      TextAlign.configure({ types: ['paragraph', 'blockquote'] }),
+      Placeholder.configure({ placeholder: messagePlaceholder }),
+      Mention.configure({
+        HTMLAttributes: { class: 'mention' },
+        renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
+        suggestion: {
+          char: '@',
+          allowSpaces: true,
+          items: ({ query }: { query: string }) => {
+            let results: any[] = [];
+            mentionSource(query, (list) => { results = list; });
+            return results.slice(0, 8).map((item) => ({
+              ...item,
+              label: item.value,
+            }));
+          },
+          render: () => {
+            let popup: HTMLDivElement | null = null;
+            let items: any[] = [];
+            let selectedIndex = 0;
+            let command: ((item: any) => void) | null = null;
 
-              if (currentConversation.type === 'GROUP') {
-                values.push({ id: 'bot', value: 'NexTalk AI' });
-              }
-
-              const allMention = values.find((item) => item.id === 'all')!;
-              if (allMention) {
-                allMention.value = 'all';
-              }
-
-              currentConversation.members.forEach((member) => {
-                if (member.id !== currentUser?.id) {
-                  values.push({ id: member.id, value: member.username });
-                }
+            const paint = () => {
+              if (!popup) return;
+              popup.replaceChildren();
+              items.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `nextalk-mention-item${index === selectedIndex ? ' is-selected' : ''}`;
+                button.textContent = `@${item.value}`;
+                button.addEventListener('mousedown', (event) => {
+                  event.preventDefault();
+                  command?.(item);
+                });
+                popup?.appendChild(button);
               });
-            }
+            };
 
-            if (searchTerm.length === 0) {
-              renderList(values, searchTerm);
-            } else {
-              const termLower = searchTerm.toLowerCase();
-              const matches = values.filter((item) => item.value.toLowerCase().includes(termLower));
-              renderList(matches, searchTerm);
-            }
+            const position = (clientRect?: (() => DOMRect | null) | null) => {
+              const rect = clientRect?.();
+              if (!popup || !rect) return;
+              const left = Math.min(Math.max(8, rect.left), window.innerWidth - popup.offsetWidth - 8);
+              const below = rect.bottom + 6;
+              const top = below + popup.offsetHeight > window.innerHeight
+                ? Math.max(8, rect.top - popup.offsetHeight - 6)
+                : below;
+              popup.style.left = `${left}px`;
+              popup.style.top = `${top}px`;
+            };
+
+            return {
+              onStart: (props: any) => {
+                items = props.items;
+                command = props.command;
+                selectedIndex = 0;
+                popup = document.createElement('div');
+                popup.className = 'nextalk-mention-list';
+                document.body.appendChild(popup);
+                paint();
+                position(props.clientRect);
+              },
+              onUpdate: (props: any) => {
+                items = props.items;
+                command = props.command;
+                selectedIndex = Math.min(selectedIndex, Math.max(0, items.length - 1));
+                paint();
+                position(props.clientRect);
+              },
+              onKeyDown: ({ event }: any) => {
+                if (event.key === 'Escape') {
+                  popup?.remove();
+                  popup = null;
+                  return true;
+                }
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                  if (!items.length) return true;
+                  selectedIndex = event.key === 'ArrowUp'
+                    ? (selectedIndex + items.length - 1) % items.length
+                    : (selectedIndex + 1) % items.length;
+                  paint();
+                  return true;
+                }
+                if (event.key === 'Enter' && items[selectedIndex]) {
+                  command?.(items[selectedIndex]);
+                  return true;
+                }
+                return false;
+              },
+              onExit: () => {
+                popup?.remove();
+                popup = null;
+              },
+            };
           },
         },
+      }),
+    ],
+    content: activeConversation?.id ? (messageDrafts[activeConversation.id] ?? '') : '',
+    editorProps: {
+      attributes: {
+        class: 'nextalk-tiptap-editor',
+        'aria-label': messagePlaceholder,
+        'data-placeholder': messagePlaceholder,
       },
-      formats: [
-        'mention',
-        'bold',
-        'italic',
-        'underline',
-        'strike',
-        'background',
-        'code',
-        'link',
-        'blockquote',
-        'list',
-        'align',
-      ],
-    });
-
-    quillRef.current = quill;
-    quill.on('text-change', () => {
-      let html = quill.root.innerHTML;
-      if (html === '<p><br></p>') html = '';
+    },
+    onCreate: ({ editor: currentEditor }) => {
+      const html = currentEditor.isEmpty ? '' : currentEditor.getHTML();
+      setInputMessage(html);
+      lastRestoredDraftConversationRef.current = activeConversation?.id ?? null;
+      syncActiveFormats(currentEditor);
+    },
+    onUpdate: ({ editor: currentEditor }) => {
+      const html = currentEditor.isEmpty ? '' : currentEditor.getHTML();
       setInputMessage(html);
       const conversationId = useChatStore.getState().activeConversation?.id;
       if (conversationId && !isRestoringDraftRef.current) {
         useChatStore.getState().setMessageDraft(conversationId, html);
       }
-    });
-    quill.on('editor-change', () => {
-      const range = quill.getSelection();
-      if (range) {
-        setActiveFormats(quill.getFormat(range));
-      } else {
-        setActiveFormats({});
-      }
-    });
-
-  }, [activeConversation?.id]);
-
-  useEffect(() => {
-    const mentionModule = quillRef.current?.getModule?.('mention') as any;
-    if (mentionModule?.options) {
-      mentionModule.options.source = mentionSource;
-    }
-  }, [mentionSource, activeConversation?.id, user?.id]);
-
-  useEffect(() => {
-    const editor = quillEditorRef.current?.querySelector<HTMLElement>('.ql-editor');
-    if (editor) {
-      editor.dataset.placeholder = messagePlaceholder;
-    }
-  }, [messagePlaceholder]);
-
-  useEffect(() => {
-    const quill = quillRef.current;
-    const conversationId = activeConversation?.id ?? null;
-    if (!quill || !conversationId) {
-      setInputMessage('');
-      lastRestoredDraftConversationRef.current = null;
-      return;
-    }
-
-    if (lastRestoredDraftConversationRef.current === conversationId) return;
-
-    const draft = messageDrafts[conversationId] ?? '';
-    isRestoringDraftRef.current = true;
-    quill.setContents([]);
-    if (draft) {
-      quill.clipboard.dangerouslyPasteHTML(draft);
-    }
-    quill.setSelection(Math.max(0, quill.getLength() - 1), 0);
-    setInputMessage(draft);
-    lastRestoredDraftConversationRef.current = conversationId;
-
-    window.setTimeout(() => {
-      isRestoringDraftRef.current = false;
-    }, 0);
-  }, [activeConversation?.id, messageDrafts]);
+    },
+    onTransaction: ({ editor: currentEditor }) => syncActiveFormats(currentEditor),
+    onSelectionUpdate: ({ editor: currentEditor }) => syncActiveFormats(currentEditor),
+  }, [activeConversation?.id, messagePlaceholder]);
 
   const renderInlineFormatting = (text: string) => {
     const nodes: ReactNode[] = [];
@@ -1747,7 +1697,7 @@ export const Chat = () => {
   };
 
   const renderFormattedMessage = (content: string) => {
-    // Quill wraps rich text in block elements, while mobile mention messages can start with an inline span.
+    // Rich-text messages use block elements, while mobile mention messages can start with an inline span.
     if (/^\s*<(p|div|ul|ol|h[1-6]|blockquote|span)\b/i.test(content) || /<span\b[^>]*\bclass=["'][^"']*\bmention\b/i.test(content)) {
       return (
         <div
@@ -1997,7 +1947,7 @@ export const Chat = () => {
       // 2. Clear input & attachments UI immediately (0ms delay)
       sendTypingStopped();
       resetUploadState();
-      clearQuillInput();
+      clearEditorInput();
       setMessagePriority(null);
       if (replyTo) setReplyTo(null);
       setIsEmojiStickerOpen(false);
@@ -2079,7 +2029,7 @@ export const Chat = () => {
           addPendingAiReply(activeConversation?.id);
         }
       }
-      clearQuillInput();
+      clearEditorInput();
       setMessagePriority(null);
     }
 
@@ -2503,6 +2453,10 @@ export const Chat = () => {
     ? groups.find(g => getGroupConversationId(g) === activeConversation.id || g.channels?.some(ch => ch.conversationId === activeConversation.id)) || null
     : null;
   const activeChannel = activeGroup?.channels?.find(ch => ch.conversationId === activeConversation?.id) || null;
+
+  useEffect(() => {
+    setChannelView('chat');
+  }, [activeConversation?.id, activeChannel?.id]);
   const canInviteToActiveGroup = Boolean(
     activeGroup?.members.some((member) => member.userId === user?.id)
   );
@@ -3544,7 +3498,7 @@ export const Chat = () => {
                   handleGroupAvatarSelected={handleGroupAvatarSelected}
                   handleInputPaste={handleInputPaste}
                   handleSendBlockedChatRequest={handleSendBlockedChatRequest}
-                  quillEditorRef={quillEditorRef}
+                  editor={editor}
                   handleSendThumbsUp={handleSendThumbsUp}
                   inputMessage={inputMessage}
                   isSendingBlockedChatRequest={isSendingBlockedChatRequest}
@@ -3573,6 +3527,7 @@ export const Chat = () => {
               activeGroup={activeGroup}
               activeFriend={activeFriend}
               activeConversation={activeConversation}
+              activeChannel={activeChannel}
               setIsProfileModalOpen={setIsProfileModalOpen}
               onOpenSearch={() => {
                 setIsConversationInfoOpen(false);

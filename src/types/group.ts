@@ -57,6 +57,22 @@ export interface ChannelTaskAssigneeResponse {
   avatarUrl: string | null;
 }
 
+export interface TaskAttachmentResponse {
+  id: string;
+  url: string;
+  name: string;
+  type: string;
+  size?: number | null;
+}
+
+export interface TaskAttachmentRequest {
+  id?: string;
+  url: string;
+  name: string;
+  type: string;
+  size?: number | null;
+}
+
 export interface ChannelTaskResponse {
   id: string;
   groupId: string;
@@ -71,6 +87,9 @@ export interface ChannelTaskResponse {
   dueAt: string | null;
   completedAt: string | null;
   subtasks?: SubtaskResponse[];
+  attachments?: TaskAttachmentResponse[];
+  isPinned?: boolean;
+  pinnedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +102,7 @@ export interface CreateChannelTaskRequest {
   dueAt?: string;
   assigneeIds?: string[];
   subtasks?: SubtaskRequest[];
+  attachments?: TaskAttachmentRequest[];
 }
 
 export interface UpdateChannelTaskRequest {
@@ -93,6 +113,7 @@ export interface UpdateChannelTaskRequest {
   dueAt?: string;
   assigneeIds?: string[];
   subtasks?: SubtaskRequest[];
+  attachments?: TaskAttachmentRequest[];
 }
 
 export interface GroupMemberResponse {
