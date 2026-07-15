@@ -34,6 +34,7 @@
 import React from "react";
 import { ChatListSkeleton } from "../common/Skeleton";
 import { GroupAvatar } from "./GroupAvatar";
+import { useCallStore } from "../../store/callStore";
 
 interface ConversationListProps {
   conversationTab: any;
@@ -146,6 +147,7 @@ export const ConversationList = ({
   messageDrafts = {},
   stripMessageMarkup,
 }: ConversationListProps) => {
+  const voiceChannelMembers = useCallStore((state) => state.voiceChannelMembers);
   const getDraftPreview = (conversationId?: string | null) => {
     if (!conversationId) return '';
     const draft = messageDrafts[conversationId];
@@ -1014,6 +1016,10 @@ export const ConversationList = ({
                     const channelUnreadCount = unreadCounts[ch.conversationId] ?? 0;
                     const channelHasUnread = channelUnreadCount > 0;
                     const channelDraftPreview = getDraftPreview(ch.conversationId);
+                    const voiceMemberIds = ch.type === "VOICE" ? (voiceChannelMembers[ch.id] ?? []) : [];
+                    const voiceMembers = voiceMemberIds
+                      .map((userId: string) => g.members?.find((member: any) => member.userId === userId))
+                      .filter(Boolean);
 
                     const isMemberOfChannel = conversations.some((c: any) => c.id === ch.conversationId);
                     const channelIsPrivate = Boolean(ch.isPrivate ?? (ch as any).private);
@@ -1070,6 +1076,35 @@ export const ConversationList = ({
                           <span className="shrink-0 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-500 dark:bg-rose-500/10 dark:text-rose-300">
                             Nháp
                           </span>
+                        )}
+                        {ch.type === "VOICE" && voiceMembers.length > 0 && (
+                          <div
+                            className="flex shrink-0 items-center pl-1"
+                            title={voiceMembers.map((member: any) => member.username).join(', ')}
+                          >
+                            {voiceMembers.slice(0, 3).map((member: any, index: number) => (
+                              member.avatarUrl ? (
+                                <img
+                                  key={member.userId}
+                                  src={member.avatarUrl}
+                                  alt={member.username}
+                                  className={`h-5 w-5 rounded-full border-2 border-white object-cover dark:border-zinc-900 ${index > 0 ? '-ml-1.5' : ''}`}
+                                />
+                              ) : (
+                                <span
+                                  key={member.userId}
+                                  className={`flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-100 text-[8px] font-black text-indigo-700 dark:border-zinc-900 dark:bg-indigo-500/20 dark:text-indigo-300 ${index > 0 ? '-ml-1.5' : ''}`}
+                                >
+                                  {member.username?.charAt(0).toUpperCase()}
+                                </span>
+                              )
+                            ))}
+                            {voiceMembers.length > 3 && (
+                              <span className="-ml-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-600 px-1 text-[8px] font-black text-white dark:border-zinc-900">
+                                +{voiceMembers.length - 3}
+                              </span>
+                            )}
+                          </div>
                         )}
                         {(g.ownerId === user?.id ||
                           ["ADMIN", "LEADER", "DEPUTY"].includes(
