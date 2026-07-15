@@ -20,6 +20,8 @@ interface ProfileModalProps {
   handleRenameGroup: () => void;
   isTogglingApproval: boolean;
   handleToggleRequiresApproval: () => void;
+  isTogglingTasks?: boolean;
+  handleToggleTaskEnabled?: () => void;
   handleLeaveActiveGroup: () => void;
   profileActionLoading: boolean;
   formatProfileDate: (date: any) => string;

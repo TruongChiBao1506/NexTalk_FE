@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, Clock, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle2 } from 'lucide-react';
 import type { ChannelTaskResponse, ChannelTaskStatus } from '../../types/group';
 
 type Props = {
@@ -156,9 +156,6 @@ export function ChannelTasksTimeline({ tasks, onStatusChange, canModifyStatus }:
               // Calculate start date (createdAt) and end date (dueAt or createdAt + 1 day)
               const createdDate = new Date(task.createdAt);
               const dueDate = task.dueAt ? new Date(task.dueAt) : new Date(createdDate.getTime() + 86400000 * 2);
-
-              const rangeStart = days[0].getTime();
-              const rangeEnd = days[days.length - 1].getTime() + 86400000;
 
               const isOverdue =
                 task.dueAt &&

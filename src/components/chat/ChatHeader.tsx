@@ -35,6 +35,8 @@ interface ChatHeaderProps {
   setIsInviteMembersOpen: (open: boolean) => void;
   activeChannel?: any;
   isGroupModerator?: boolean;
+  isTogglingTasks?: boolean;
+  handleToggleTaskEnabled?: () => void;
 }
 
 import { GroupAvatar } from './GroupAvatar';

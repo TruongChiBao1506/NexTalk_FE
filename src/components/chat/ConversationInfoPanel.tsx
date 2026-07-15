@@ -87,8 +87,6 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeConversation,
   activeChannel,
   isGroupModerator,
-  isTogglingTasks,
-  handleToggleTaskEnabled,
   setIsProfileModalOpen,
   onOpenSearch,
   onToggleMuted,

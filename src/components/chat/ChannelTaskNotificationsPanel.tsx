@@ -57,7 +57,7 @@ const ChannelNotificationsSkeleton = () => (
   </div>
 );
 
-export function ChannelTaskNotificationsPanel({ group, channel, currentUserId, onReadStateChanged }: Props) {
+export function ChannelTaskNotificationsPanel({ group, channel, onReadStateChanged }: Props) {
   const [activities, setActivities] = useState<TaskActivityResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'alerts' | 'activities'>('all');

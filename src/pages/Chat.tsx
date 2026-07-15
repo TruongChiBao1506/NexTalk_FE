@@ -3304,7 +3304,7 @@ export const Chat = () => {
                     editingMessageId={editingMessageId}
                     editInputText={editInputText}
                     handleSaveEdit={handleSaveEdit}
-                    canCreateTaskFromMessage={Boolean(activeChannel?.isTaskEnabled && activeChannel.type !== 'VOICE')}
+                    canCreateTaskFromMessage={Boolean(activeChannel?.isTaskEnabled)}
                     onCreateTaskFromMessage={(message) => {
                       setTaskDraftFromMessage(message);
                       setChannelView('tasks');
