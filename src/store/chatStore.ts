@@ -765,6 +765,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           console.error('[STOMP] Failed to process call signal:', e);
         }
       });
+
+      import('./groupStore').then(({ useGroupStore }) => {
+        useGroupStore.getState().groups.forEach((group) => get().subscribeToGroupVoice(group.id));
+      }).catch(() => undefined);
     };
 
     client.onDisconnect = () => {

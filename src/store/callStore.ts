@@ -274,6 +274,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { conversationId, caller, callType } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
+
     if (!conversationId || !caller || !currentUser || !stompClient || !stompClient.connected) return;
 
     audioSynth.stop();
@@ -435,7 +436,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
           userId: currentUser.id
         })
       });
-      set({ callState: 'idle', activeVoiceChannelId: null, isViewingVoiceGrid: false });
+      set((state) => ({
+        callState: 'idle',
+        activeVoiceChannelId: null,
+        isViewingVoiceGrid: false,
+        voiceChannelMembers: {
+          ...state.voiceChannelMembers,
+          [activeVoiceChannelId]: (state.voiceChannelMembers[activeVoiceChannelId] ?? []).filter((id) => id !== currentUser.id)
+        }
+      }));
       return;
     }
 
@@ -1045,6 +1054,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
       set({ remoteAudioPlaybackBlocked: true });
     };
 
+    if (currentUser) {
+      set((state) => ({
+        voiceChannelMembers: {
+          ...state.voiceChannelMembers,
+          [channelId]: Array.from(new Set([...(state.voiceChannelMembers[channelId] ?? []), currentUser.id]))
+        }
+      }));
+    }
+
     const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
     set({ agoraClient: client });
 
@@ -1133,7 +1151,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
         });
       }
     } catch (error) {
-      set({ agoraClient: null, callState: 'idle', activeVoiceChannelId: null });
+      set((state) => ({
+        agoraClient: null,
+        callState: 'idle',
+        activeVoiceChannelId: null,
+        voiceChannelMembers: currentUser ? {
+          ...state.voiceChannelMembers,
+          [channelId]: (state.voiceChannelMembers[channelId] ?? []).filter((id) => id !== currentUser.id)
+        } : state.voiceChannelMembers
+      }));
       await client.leave().catch(() => undefined);
       throw error;
     }
