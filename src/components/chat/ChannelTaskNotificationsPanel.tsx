@@ -3,6 +3,7 @@ import { BellRing, AlertTriangle, PlusCircle, RefreshCw, CheckCircle2, CheckChec
 import { groupService } from '../../services/groupService';
 import { useChatStore } from '../../store/chatStore';
 import { Skeleton } from '../common/Skeleton';
+import { useChannelTaskStore } from '../../store/channelTaskStore';
 import type { ChannelResponse, GroupResponse, TaskActivityResponse, TaskActivityType } from '../../types/group';
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
   currentUserId?: string;
   onReadStateChanged?: () => void;
 };
+
+const EMPTY_ACTIVITIES: TaskActivityResponse[] = [];
 
 const activityIcons: Record<TaskActivityType, any> = {
   TASK_CREATED: PlusCircle,
@@ -58,20 +61,21 @@ const ChannelNotificationsSkeleton = () => (
 );
 
 export function ChannelTaskNotificationsPanel({ group, channel, onReadStateChanged }: Props) {
-  const [activities, setActivities] = useState<TaskActivityResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const activities = useChannelTaskStore((state) => state.activitiesByChannel[channel.id] ?? EMPTY_ACTIVITIES);
+  const hasCache = useChannelTaskStore((state) => Object.prototype.hasOwnProperty.call(state.activitiesByChannel, channel.id));
+  const isLoading = useChannelTaskStore((state) => (state.loadingActivities[channel.id] ?? false) && !hasCache);
+  const fetchActivities = useChannelTaskStore((state) => state.fetchActivities);
+  const prependActivity = useChannelTaskStore((state) => state.prependActivity);
+  const markCachedRead = useChannelTaskStore((state) => state.markActivitiesRead);
+  const invalidateTasks = useChannelTaskStore((state) => state.invalidateTasks);
   const [filter, setFilter] = useState<'all' | 'alerts' | 'activities'>('all');
 
-  const loadActivities = async () => {
-    setIsLoading(true);
+  const loadActivities = async (force = false) => {
     try {
-      const res = await groupService.getTaskActivities(group.id, channel.id);
-      setActivities(res.data ?? []);
+      await fetchActivities(group.id, channel.id, force);
     } catch {
       // Ignore load errors
-    } finally {
-      setIsLoading(false);
-    }
+    } finally {}
   };
 
   useEffect(() => {
@@ -82,7 +86,8 @@ export function ChannelTaskNotificationsPanel({ group, channel, onReadStateChang
       const sub = stompClient.subscribe(`/topic/channel.${channel.id}.task-activities`, (frame: any) => {
         try {
           const newAct: TaskActivityResponse = JSON.parse(frame.body);
-          setActivities((prev) => [newAct, ...prev.filter((a) => a.id !== newAct.id)]);
+          prependActivity(channel.id, newAct);
+          invalidateTasks(channel.id);
         } catch {}
       });
       return () => {
@@ -100,12 +105,12 @@ export function ChannelTaskNotificationsPanel({ group, channel, onReadStateChang
   }, [activities, filter]);
 
   const markAllAsRead = async () => {
-    setActivities((prev) => prev.map((a) => ({ ...a, isRead: true })));
+    markCachedRead(channel.id);
     try {
       await groupService.markTaskActivitiesAsRead(group.id, channel.id);
       if (onReadStateChanged) onReadStateChanged();
     } catch {
-      void loadActivities();
+      void loadActivities(true);
     }
   };
 

@@ -11,6 +11,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
+import { useChannelTaskStore } from '../store/channelTaskStore';
 import { useGroupStore } from '../store/groupStore';
 import { useFriendStore } from '../store/friendStore';
 import { useChatRequestStore } from '../store/chatRequestStore';
@@ -38,6 +39,9 @@ import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, Mess
 import type { ChannelResponse, ChannelTaskResponse, GroupResponse, GroupRole } from '../types/group';
 import type { ChatRequestResponse } from '../types/chatRequest';
 import type { User as AuthUser } from '../types/auth';
+
+const EMPTY_CHANNEL_TASKS: ChannelTaskResponse[] = [];
+const EMPTY_TASK_ACTIVITIES: import('../types/group').TaskActivityResponse[] = [];
 
 // Phase 10 Components
 import { PinnedMessagesPanel } from '../components/chat/PinnedMessagesPanel';
@@ -306,7 +310,6 @@ export const Chat = () => {
   const [channelView, setChannelView] = useState<'chat' | 'tasks' | 'notifications'>('chat');
   const [taskDraftFromMessage, setTaskDraftFromMessage] = useState<MessageResponse | null>(null);
   const [taskUnreadCount, setTaskUnreadCount] = useState(0);
-  const [sharedTaskCards, setSharedTaskCards] = useState<ChannelTaskResponse[]>([]);
   const sharedTaskCardsRef = useRef<ChannelTaskResponse[]>([]);
   const [focusedSharedTaskId, setFocusedSharedTaskId] = useState<string | null>(null);
 
@@ -1221,6 +1224,7 @@ export const Chat = () => {
       console.error('Failed to log out from server:', err);
     } finally {
       disconnectWebSocket();
+      useChannelTaskStore.getState().clear();
       logout();
       setIsLoggingOut(false);
       navigate('/login');
@@ -1265,9 +1269,12 @@ export const Chat = () => {
       replacements.push({ placeholder, tag: `<#task:${taskId}>` });
       node.replaceWith(document.createTextNode(placeholder));
     });
+    const normalizedHtml = replacements.length > 0
+      ? container.innerHTML.replace(/<\/p>\s*<p>/gi, '\n').replace(/<\/?p>/gi, '')
+      : container.innerHTML;
     return replacements.reduce(
       (html, replacement) => html.replace(replacement.placeholder, replacement.tag),
-      container.innerHTML,
+      normalizedHtml,
     );
   };
 
@@ -1488,26 +1495,26 @@ export const Chat = () => {
     ? groups.find((group) => group.channels?.some((channel) => channel.conversationId === activeConversation.id))
     : undefined;
   const taskMentionChannel = taskMentionGroup?.channels?.find((channel) => channel.conversationId === activeConversation?.id);
+  const sharedTaskCards = useChannelTaskStore((state) => taskMentionChannel ? (state.tasksByChannel[taskMentionChannel.id] ?? EMPTY_CHANNEL_TASKS) : EMPTY_CHANNEL_TASKS);
+  const fetchSharedTaskCards = useChannelTaskStore((state) => state.fetchTasks);
+
+  useEffect(() => {
+    sharedTaskCardsRef.current = sharedTaskCards;
+  }, [sharedTaskCards]);
 
   useEffect(() => {
     if (!taskMentionGroup || !taskMentionChannel?.isTaskEnabled || taskMentionChannel.type === 'VOICE') {
       sharedTaskCardsRef.current = [];
-      setSharedTaskCards([]);
       return;
     }
 
     let active = true;
     const loadTasks = async () => {
       try {
-        const response = await groupService.getChannelTasks(taskMentionGroup.id, taskMentionChannel.id);
-        if (!active) return;
-        const tasks = response.data ?? [];
-        sharedTaskCardsRef.current = tasks;
-        setSharedTaskCards(tasks);
+        await fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, false);
       } catch {
         if (active) {
           sharedTaskCardsRef.current = [];
-          setSharedTaskCards([]);
         }
       }
     };
@@ -1516,7 +1523,7 @@ export const Chat = () => {
     const stompClient = (useChatStore.getState() as any).stompClient;
     let subscription: any;
     if (stompClient?.connected) {
-      subscription = stompClient.subscribe(`/topic/channel.${taskMentionChannel.id}.task-activities`, () => void loadTasks());
+      subscription = stompClient.subscribe(`/topic/channel.${taskMentionChannel.id}.task-activities`, () => void fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, true));
     }
     return () => {
       active = false;
@@ -1701,7 +1708,6 @@ export const Chat = () => {
             const term = query.trim().toLowerCase();
             return sharedTaskCardsRef.current
               .filter((task) => !term || task.title.toLowerCase().includes(term) || task.id.toLowerCase().includes(term))
-              .slice(0, 8)
               .map((task) => ({ id: task.id, label: task.title, task }));
           },
           render: () => {
@@ -1735,7 +1741,11 @@ export const Chat = () => {
               const rect = clientRect?.();
               if (!popup || !rect) return;
               popup.style.left = `${Math.min(Math.max(8, rect.left), window.innerWidth - popup.offsetWidth - 8)}px`;
-              popup.style.top = `${rect.bottom + 6}px`;
+              const below = rect.bottom + 6;
+              const top = below + popup.offsetHeight > window.innerHeight - 8
+                ? Math.max(8, rect.top - popup.offsetHeight - 6)
+                : below;
+              popup.style.top = `${top}px`;
             };
             return {
               onStart: (props: any) => {
@@ -1743,7 +1753,7 @@ export const Chat = () => {
                 command = props.command;
                 selectedIndex = 0;
                 popup = document.createElement('div');
-                popup.className = 'nextalk-mention-list';
+                popup.className = 'nextalk-mention-list nextalk-task-mention-list';
                 document.body.appendChild(popup);
                 paint();
                 position(props.clientRect);
@@ -1847,12 +1857,16 @@ export const Chat = () => {
     if (taskTagPattern.test(content)) {
       taskTagPattern.lastIndex = 0;
       const nodes: ReactNode[] = [];
+      const cleanAdjacentTaskHtml = (value: string) => value
+        .replace(/^\s*<\/?(?:p|div)>\s*/i, '')
+        .replace(/\s*<\/?(?:p|div)>\s*$/i, '')
+        .trim();
       let cursor = 0;
       let match: RegExpExecArray | null;
       while ((match = taskTagPattern.exec(content)) !== null) {
         if (match.index > cursor) {
-          const before = content.slice(cursor, match.index);
-          nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(before)}</div>);
+          const before = cleanAdjacentTaskHtml(content.slice(cursor, match.index));
+          if (before) nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(before)}</div>);
         }
         const taskId = match[1] || match[2];
         const task = sharedTaskCards.find((item) => item.id === taskId);
@@ -1868,9 +1882,8 @@ export const Chat = () => {
               setFocusedSharedTaskId(taskId);
               setChannelView('tasks');
             }}
-            className="my-1.5 flex w-full max-w-sm items-start gap-3 rounded-xl border border-indigo-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow dark:border-indigo-500/30 dark:bg-zinc-900"
+            className="my-1.5 flex w-full max-w-sm items-start gap-2 rounded-xl border border-indigo-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow dark:border-indigo-500/30 dark:bg-zinc-900"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-sm font-black text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">#</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-black text-gray-900 dark:text-white">{task?.title || `Task ${taskId}`}</span>
               <span className="mt-1 block truncate text-[11px] text-gray-500 dark:text-zinc-400">
@@ -1883,7 +1896,8 @@ export const Chat = () => {
         cursor = taskTagPattern.lastIndex;
       }
       if (cursor < content.length) {
-        nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(content.slice(cursor))}</div>);
+        const after = cleanAdjacentTaskHtml(content.slice(cursor));
+        if (after) nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(after)}</div>);
       }
       return <div className="space-y-1">{nodes}</div>;
     }
@@ -2670,6 +2684,8 @@ export const Chat = () => {
     ? groups.find(g => getGroupConversationId(g) === activeConversation.id || g.channels?.some(ch => ch.conversationId === activeConversation.id)) || null
     : null;
   const activeChannel = activeGroup?.channels?.find(ch => ch.conversationId === activeConversation?.id) || null;
+  const cachedTaskActivities = useChannelTaskStore((state) => activeChannel ? (state.activitiesByChannel[activeChannel.id] ?? EMPTY_TASK_ACTIVITIES) : EMPTY_TASK_ACTIVITIES);
+  const fetchCachedTaskActivities = useChannelTaskStore((state) => state.fetchActivities);
 
   useEffect(() => {
     setChannelView('chat');
@@ -3194,16 +3210,9 @@ export const Chat = () => {
       setTaskUnreadCount(0);
       return;
     }
-    let isSubscribed = true;
-    groupService.getTaskActivities(activeGroup.id, activeChannel.id)
-      .then((res) => {
-        if (isSubscribed && res.data) {
-          setTaskUnreadCount(res.data.filter((a) => !a.isRead).length);
-        }
-      })
-      .catch(() => {});
-    return () => { isSubscribed = false; };
-  }, [activeGroup?.id, activeChannel?.id, activeChannel?.isTaskEnabled]);
+    void fetchCachedTaskActivities(activeGroup.id, activeChannel.id);
+    setTaskUnreadCount(cachedTaskActivities.filter((activity) => !activity.isRead).length);
+  }, [activeGroup?.id, activeChannel?.id, activeChannel?.isTaskEnabled, cachedTaskActivities, fetchCachedTaskActivities]);
 
   return (
     <div 

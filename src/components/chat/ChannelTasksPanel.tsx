@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, Chec
 import { groupService } from '../../services/groupService';
 import { fileService } from '../../services/fileService';
 import { Skeleton } from '../common/Skeleton';
+import { useChannelTaskStore } from '../../store/channelTaskStore';
 import { stripHtml } from '../../utils/text';
 import type { MessageResponse } from '../../types/chat';
 import { ChannelTasksTimeline } from './ChannelTasksTimeline';
@@ -27,6 +28,8 @@ type Props = {
   focusedTaskId?: string | null;
   onFocusedTaskHandled?: () => void;
 };
+
+const EMPTY_TASKS: ChannelTaskResponse[] = [];
 
 const statusLabels: Record<ChannelTaskStatus, string> = {
   TODO: 'To Do',
@@ -90,10 +93,15 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
   const canModifyStatus = (task: ChannelTaskResponse) => task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader;
   const canDeleteTask = (task: ChannelTaskResponse) => task.createdById === currentUserId || isLeader;
 
-  const [tasks, setTasks] = useState<ChannelTaskResponse[]>([]);
+  const tasks = useChannelTaskStore((state) => state.tasksByChannel[channel.id] ?? EMPTY_TASKS);
+  const hasCachedTasks = useChannelTaskStore((state) => Object.prototype.hasOwnProperty.call(state.tasksByChannel, channel.id));
+  const storeLoading = useChannelTaskStore((state) => state.loadingTasks[channel.id] ?? false);
+  const fetchCachedTasks = useChannelTaskStore((state) => state.fetchTasks);
+  const setCachedTasks = useChannelTaskStore((state) => state.setTasks);
+  const setTasks = (updater: ChannelTaskResponse[] | ((current: ChannelTaskResponse[]) => ChannelTaskResponse[])) => setCachedTasks(channel.id, updater);
   const [filter, setFilter] = useState<'all' | 'mine' | ChannelTaskStatus>('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'timeline'>('list');
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = storeLoading && !hasCachedTasks;
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -115,17 +123,13 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
   const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
   const [inlineSubtaskInputs, setInlineSubtaskInputs] = useState<Record<string, string>>({});
 
-  const loadTasks = async () => {
-    setIsLoading(true);
+  const loadTasks = async (force = false) => {
     setError(null);
     try {
-      const response = await groupService.getChannelTasks(group.id, channel.id);
-      setTasks(response.data ?? []);
+      await fetchCachedTasks(group.id, channel.id, force);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Không thể tải công việc');
-    } finally {
-      setIsLoading(false);
-    }
+    } finally {}
   };
 
   useEffect(() => {
