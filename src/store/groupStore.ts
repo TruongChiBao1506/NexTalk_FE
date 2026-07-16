@@ -50,6 +50,12 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         import('./chatStore').then(({ useChatStore }) => {
           fetchedGroups.forEach(g => useChatStore.getState().subscribeToGroupVoice(g.id));
         });
+        import('./callStore').then(({ useCallStore }) => {
+          const voiceChannelIds = fetchedGroups.flatMap((group) =>
+            group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
+          );
+          void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
+        });
       }
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch groups', isLoading: false });

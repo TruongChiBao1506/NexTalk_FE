@@ -93,6 +93,7 @@ interface CallStore {
   
   joinVoiceChannel: (channelId: string, channelName: string, groupId: string) => Promise<void>;
   updateVoiceChannelMembers: (channelId: string, members: string[]) => void;
+  syncVoiceChannelMembers: (channelIds: string[]) => Promise<void>;
   handleVoiceChannelEvent: (event: any) => void;
   setIsViewingVoiceGrid: (isViewing: boolean) => void;
 }
@@ -1170,6 +1171,23 @@ export const useCallStore = create<CallStore>((set, get) => ({
       voiceChannelMembers: {
         ...state.voiceChannelMembers,
         [channelId]: members
+      }
+    }));
+  },
+
+  syncVoiceChannelMembers: async (channelIds: string[]) => {
+    const uniqueChannelIds = Array.from(new Set(channelIds));
+    await Promise.all(uniqueChannelIds.map(async (channelId) => {
+      try {
+        const response = await apiClient.get('/calls/channel-members', {
+          params: { channelId }
+        });
+        const members = response.data?.data;
+        if (Array.isArray(members)) {
+          get().updateVoiceChannelMembers(channelId, members);
+        }
+      } catch (error) {
+        console.warn(`Failed to sync voice members for channel ${channelId}:`, error);
       }
     }));
   },

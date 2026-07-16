@@ -767,7 +767,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       import('./groupStore').then(({ useGroupStore }) => {
-        useGroupStore.getState().groups.forEach((group) => get().subscribeToGroupVoice(group.id));
+        const groups = useGroupStore.getState().groups;
+        groups.forEach((group) => get().subscribeToGroupVoice(group.id));
+        const voiceChannelIds = groups.flatMap((group) =>
+          group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
+        );
+        void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
       }).catch(() => undefined);
     };
 
