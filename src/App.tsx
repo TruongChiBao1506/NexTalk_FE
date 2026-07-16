@@ -18,6 +18,7 @@ import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
 import { ensureFreshAccessToken, apiClient } from './api/apiClient';
 import { requestFirebaseToken, onMessageListener } from './firebase';
+import { VoiceChannelMiniPlayer } from './components/chat/VoiceChannelMiniPlayer';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,6 +141,7 @@ function App() {
             }
           />
         </Routes>
+        {isAuthenticated && <VoiceChannelMiniPlayer />}
       </BrowserRouter>
     </QueryClientProvider>
   );
