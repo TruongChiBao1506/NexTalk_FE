@@ -2785,15 +2785,15 @@ export const Chat = () => {
 
 
   const formatDividerDate = (dateString: string) => {
-    if (!dateString) return 'Today';
+    if (!dateString) return 'Hôm nay';
     const date = new Date(dateString);
-    if (isNaN(date.getTime()) || date.getTime() === 0) return 'Today';
+    if (isNaN(date.getTime()) || date.getTime() === 0) return 'Hôm nay';
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (date.toDateString() === today.toDateString()) return 'Hôm nay';
+    if (date.toDateString() === yesterday.toDateString()) return 'Hôm qua';
+    return date.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const formatMessageTime = (dateString: string) => {
@@ -3272,7 +3272,7 @@ export const Chat = () => {
       />
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
-      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col border-r shrink-0 pb-16 md:pb-0`}>
+      <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-[360px] flex-col border-r shrink-0 pb-16 md:pb-0`}>
 
         {/* Header */}
         <SidebarHeader

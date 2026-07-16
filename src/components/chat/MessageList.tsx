@@ -203,6 +203,28 @@ export const MessageList: React.FC<MessageListProps> = ({
   canCreateTaskFromMessage,
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
+  const [stickyDate, setStickyDate] = useState<string | null>(null);
+
+  const updateStickyDate = React.useCallback((container: HTMLDivElement | null) => {
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const visibleItems = Array.from(container.querySelectorAll<HTMLElement>('[data-message-date]'))
+      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.bottom > containerRect.top && rect.top < containerRect.bottom)
+      .sort((left, right) => left.rect.top - right.rect.top);
+    const topMessageDate = visibleItems[0]?.element.dataset.messageDate ?? null;
+    setStickyDate((current) => current === topMessageDate ? current : topMessageDate);
+  }, []);
+
+  const handleScrollWithStickyDate = (event: React.UIEvent<HTMLDivElement>) => {
+    handleMessagesScroll(event);
+    updateStickyDate(event.currentTarget);
+  };
+
+  React.useEffect(() => {
+    const frame = window.requestAnimationFrame(() => updateStickyDate(messagesContainerRef.current));
+    return () => window.cancelAnimationFrame(frame);
+  }, [messagesContainerRef, updateStickyDate, visibleMessages]);
   const getMessageStatusLabel = (msg: any) => {
     if (msg.metadata?.deliveryState === 'failed') return 'Gửi thất bại';
     if (msg.metadata?.optimistic) return 'Đang gửi';
@@ -595,10 +617,18 @@ export const MessageList: React.FC<MessageListProps> = ({
       )}
 
       {/* Messages */}
+      <div className={`relative flex min-h-0 flex-1 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+        {stickyDate && (
+          <div className="pointer-events-none absolute left-1/2 top-2 z-30 -translate-x-1/2 select-none">
+            <span className="inline-flex rounded-full border border-slate-200/80 bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 shadow-sm backdrop-blur dark:border-zinc-700/80 dark:bg-zinc-900/95 dark:text-zinc-300">
+              {formatDividerDate(stickyDate)}
+            </span>
+          </div>
+        )}
       <div
         ref={messagesContainerRef}
-        onScroll={handleMessagesScroll}
-        className={`flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse transition-[margin] duration-300 ${conversationInfoOffsetClass}`}
+        onScroll={handleScrollWithStickyDate}
+        className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse"
       >
         <div ref={messagesEndRef} />
 
@@ -662,6 +692,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             <React.Fragment key={msg.id}>
               <div
                 id={`message-${msg.id}`}
+                data-message-date={msg.createdAt}
                 onMouseEnter={() => setHoveredMessageId(msg.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
                 className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${isMentionedCurrentUser
@@ -1586,6 +1617,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {showScrollToLatest && (
