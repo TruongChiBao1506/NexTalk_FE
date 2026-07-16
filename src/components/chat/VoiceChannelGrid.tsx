@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { useCallStore } from '../../store/callStore';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
+import { useGroupStore } from '../../store/groupStore';
 import type { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 import { MicOff, Monitor } from 'lucide-react';
 
@@ -97,11 +98,17 @@ export const VoiceChannelGrid = () => {
       ? state.activeConversation 
       : state.conversations.find((conversation) => conversation.id === conversationId) ?? null
   );
+  const callGroup = useGroupStore((state) =>
+    state.groups.find((group) => group.id === conversationId) ?? null
+  );
 
   const memberByAgoraUid = useMemo(() => {
-    const members = callConversation?.members ?? [];
-    return new Map(members.map((member: any) => [javaStringHashUid(member.id), member]));
-  }, [callConversation]);
+    const members = callGroup?.members ?? callConversation?.members ?? [];
+    return new Map(members.map((member: any) => [
+      javaStringHashUid(member.userId ?? member.id),
+      member
+    ]));
+  }, [callConversation, callGroup]);
 
   const localTile: Tile = {
     id: 'local',

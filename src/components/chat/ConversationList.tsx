@@ -36,6 +36,15 @@ import { ChatListSkeleton } from "../common/Skeleton";
 import { GroupAvatar } from "./GroupAvatar";
 import { useCallStore } from "../../store/callStore";
 
+const javaStringHashUid = (value: string) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = Math.imul(31, hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return String(hash & 0x7fffffff);
+};
+
 interface ConversationListProps {
   conversationTab: any;
   isLoadingChatRequests: any;
@@ -148,6 +157,8 @@ export const ConversationList = ({
   stripMessageMarkup,
 }: ConversationListProps) => {
   const voiceChannelMembers = useCallStore((state) => state.voiceChannelMembers);
+  const activeVoiceChannelId = useCallStore((state) => state.activeVoiceChannelId);
+  const remoteVoiceUsers = useCallStore((state) => state.remoteUsers);
   const getDraftPreview = (conversationId?: string | null) => {
     if (!conversationId) return '';
     const draft = messageDrafts[conversationId];
@@ -1016,7 +1027,19 @@ export const ConversationList = ({
                     const channelUnreadCount = unreadCounts[ch.conversationId] ?? 0;
                     const channelHasUnread = channelUnreadCount > 0;
                     const channelDraftPreview = getDraftPreview(ch.conversationId);
-                    const voiceMemberIds = ch.type === "VOICE" ? (voiceChannelMembers[ch.id] ?? []) : [];
+                    const voiceMemberIds = ch.type === "VOICE"
+                      ? Array.from(new Set([
+                          ...(voiceChannelMembers[ch.id] ?? []),
+                          ...(activeVoiceChannelId === ch.id && user?.id ? [user.id] : []),
+                          ...(activeVoiceChannelId === ch.id
+                            ? remoteVoiceUsers
+                                .map((remoteUser) => g.members?.find(
+                                  (member: any) => javaStringHashUid(member.userId) === String(remoteUser.uid)
+                                )?.userId)
+                                .filter(Boolean)
+                            : [])
+                        ]))
+                      : [];
                     const voiceMembers = voiceMemberIds
                       .map((userId: string) => g.members?.find((member: any) => member.userId === userId))
                       .filter(Boolean);

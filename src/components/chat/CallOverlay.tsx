@@ -24,6 +24,7 @@ import {
 import { useCallStore } from '../../store/callStore';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
+import { useGroupStore } from '../../store/groupStore';
 import type { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 
 interface VideoPlayerProps {
@@ -172,6 +173,9 @@ export const CallOverlay = () => {
       ? state.activeConversation
       : state.conversations.find((conversation) => conversation.id === conversationId) ?? null
   );
+  const callGroup = useGroupStore((state) =>
+    state.groups.find((group) => group.id === conversationId) ?? null
+  );
 
   const [callDuration, setCallDuration] = useState(0);
   const [pinnedTileId, setPinnedTileId] = useState<string | null>(null);
@@ -218,9 +222,12 @@ export const CallOverlay = () => {
   }, [activeSpeakerUids, callState, callType, isGroupCall, localAgoraUid]);
 
   const memberByAgoraUid = useMemo(() => {
-    const members = callConversation?.members ?? [];
-    return new Map(members.map((member) => [javaStringHashUid(member.id), member]));
-  }, [callConversation]);
+    const members = callGroup?.members ?? callConversation?.members ?? [];
+    return new Map(members.map((member: any) => [
+      javaStringHashUid(member.userId ?? member.id),
+      member
+    ]));
+  }, [callConversation, callGroup]);
 
   const remoteTiles: Tile[] = useMemo(() => remoteUsers.map((user) => {
     const uid = String(user.uid);
