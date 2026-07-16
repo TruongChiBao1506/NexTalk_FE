@@ -1,7 +1,14 @@
+import { useState } from 'react';
 import { useCallStore } from '../../store/callStore';
-import { Mic, MicOff, Headphones, PhoneOff, SignalHigh, Monitor, Camera, VideoOff, Bell, BellOff } from 'lucide-react';
+import { useChatStore } from '../../store/chatStore';
+import { useGroupStore } from '../../store/groupStore';
+import { Mic, MicOff, Headphones, PhoneOff, SignalHigh, Monitor, Camera, VideoOff, Bell, BellOff, UserPlus, X } from 'lucide-react';
 
 export const VoiceConnectedPanel = () => {
+  const [showInvitePicker, setShowInvitePicker] = useState(false);
+  const conversations = useChatStore((state) => state.conversations);
+  const stompClient = useChatStore((state) => state.stompClient);
+  const groups = useGroupStore((state) => state.groups);
   const {
     callState,
     isGroupCall,
@@ -20,8 +27,24 @@ export const VoiceConnectedPanel = () => {
     setIsViewingVoiceGrid,
     isScreenSharing,
     toggleScreenShare,
-    remoteUsers
+    remoteUsers,
+    activeVoiceChannelId
   } = useCallStore();
+
+  const sendInvite = (conversationId: string) => {
+    if (!stompClient?.connected || !activeVoiceChannelId) return;
+    const group = groups.find((item) => item.channels.some((channel) => channel.id === activeVoiceChannelId));
+    const link = `nextalk://voice/${activeVoiceChannelId}?groupId=${encodeURIComponent(group?.id || '')}&channelName=${encodeURIComponent(callTitle || 'Kênh thoại')}`;
+    stompClient.publish({
+      destination: '/app/chat.send',
+      body: JSON.stringify({
+        conversationId,
+        messageType: 'TEXT',
+        content: `🔊 Mời bạn tham gia kênh thoại “${callTitle || 'Kênh thoại'}”\n${link}`
+      })
+    });
+    setShowInvitePicker(false);
+  };
 
   const isSomeoneElseSharing = remoteUsers.some((user) => user.hasVideo);
 
@@ -57,6 +80,15 @@ export const VoiceConnectedPanel = () => {
       
       <div className="flex items-center justify-between mt-2 px-1">
         <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setShowInvitePicker(true)}
+            className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-800/40 transition"
+            title="Mời vào kênh thoại"
+          >
+            <UserPlus className="w-4 h-4" />
+          </button>
+
           <button
             type="button"
             onClick={toggleMic}
@@ -141,6 +173,23 @@ export const VoiceConnectedPanel = () => {
           <PhoneOff className="w-4 h-4" />
         </button>
       </div>
+      {showInvitePicker && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInvitePicker(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl dark:bg-zinc-900" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <div><h3 className="font-bold text-gray-900 dark:text-white">Mời vào {callTitle}</h3><p className="text-xs text-gray-500">Chọn cuộc trò chuyện hoặc channel để gửi link.</p></div>
+              <button onClick={() => setShowInvitePicker(false)} className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {conversations.filter((item) => item.canSendMessages !== false).map((conversation) => (
+                <button key={conversation.id} onClick={() => sendInvite(conversation.id)} className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-indigo-50 dark:text-zinc-100 dark:hover:bg-indigo-500/10">
+                  {conversation.name || conversation.members?.map((member) => member.username).join(', ') || 'Cuộc trò chuyện'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

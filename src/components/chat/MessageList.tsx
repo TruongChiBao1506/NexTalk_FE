@@ -41,6 +41,7 @@ import {
   Sticker,
   MessageSquare,
   ExternalLink,
+  SignalHigh,
   X
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
@@ -52,6 +53,13 @@ import { getMessagePreviewData } from '../../utils/messagePreview';
 import { Skeleton } from '../common/Skeleton';
 import { messageService } from '../../services/messageService';
 import { useChatStore } from '../../store/chatStore';
+import { useCallStore } from '../../store/callStore';
+import { useGroupStore } from '../../store/groupStore';
+
+const parseVoiceInvite = (content?: string) => {
+  const match = content?.match(/nextalk:\/\/voice\/([^?\s]+)\?groupId=([^&\s]*)&channelName=([^\s]+)/);
+  return match ? { channelId: decodeURIComponent(match[1]), groupId: decodeURIComponent(match[2]), channelName: decodeURIComponent(match[3]) } : null;
+};
 
 interface MessageListProps {
   pinnedMessages: any[];
@@ -204,6 +212,8 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
+  const joinVoiceChannel = useCallStore((state) => state.joinVoiceChannel);
+  const groups = useGroupStore((state) => state.groups);
 
   const updateStickyDate = React.useCallback((container: HTMLDivElement | null) => {
     if (!container) return;
@@ -685,6 +695,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
+          const voiceInvite = !msg.isRecalled ? parseVoiceInvite(msg.content) : null;
 
           const isUnreadMarkerTarget = unreadMarker?.messageId === msg.id;
 
@@ -710,7 +721,20 @@ export const MessageList: React.FC<MessageListProps> = ({
                   </div>
                 )}
 
-                {msg.messageType === 'SYSTEM' ? (
+                {voiceInvite ? (
+                  <div className="flex justify-center py-1.5">
+                    <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30">
+                      <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-200"><SignalHigh className="h-5 w-5" /> Lời mời kênh thoại</div>
+                      <div className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">{msg.senderUsername} mời bạn tham gia “{voiceInvite.channelName}”.</div>
+                      <button type="button" onClick={() => {
+                        const group = groups.find((item) => item.id === voiceInvite.groupId);
+                        const channel = group?.channels.find((item) => item.id === voiceInvite.channelId);
+                        if (!group || !channel) return alert('Bạn không có quyền truy cập kênh thoại này.');
+                        void joinVoiceChannel(channel.id, channel.name, group.id);
+                      }} className="mt-3 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">Tham gia kênh thoại</button>
+                    </div>
+                  </div>
+                ) : msg.messageType === 'SYSTEM' ? (
                   <div className="flex justify-center py-1.5 select-none">
                     {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
                       <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
