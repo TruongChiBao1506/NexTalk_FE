@@ -25,13 +25,13 @@ const VideoTrackPlayer = ({ track, className }: VideoPlayerProps) => {
 
   useEffect(() => {
     if (!containerRef.current || !track) return;
-    track.play(containerRef.current);
+    track.play(containerRef.current, { fit: 'contain', mirror: false });
     return () => {
       track.stop();
     };
   }, [track]);
 
-  return <div ref={containerRef} className={`${className} overflow-hidden bg-slate-950`} />;
+  return <div ref={containerRef} className={`nextalk-agora-contain ${className ?? ''} overflow-hidden bg-slate-950`} />;
 };
 
 const VideoTile = ({ tile, className, onClick }: { tile: Tile; className?: string; onClick?: () => void }) => {

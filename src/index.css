@@ -452,3 +452,23 @@
   background-color: rgba(88, 101, 242, 0.3);
   color: #c9cdde;
 }
+
+/* Agora injects its own wrapper and video styles. Keep portrait mobile screen
+   shares fully visible inside wide web stages instead of cropping them. */
+.nextalk-agora-contain,
+.nextalk-agora-contain > div,
+.nextalk-agora-contain .agora_video_player {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.nextalk-agora-contain video {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+}

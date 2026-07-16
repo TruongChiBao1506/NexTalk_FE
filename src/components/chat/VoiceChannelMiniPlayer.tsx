@@ -16,7 +16,7 @@ function VideoTrackPlayer({ track }: { track: ILocalVideoTrack | IRemoteVideoTra
     return () => track.stop();
   }, [track]);
 
-  return <div ref={containerRef} className="h-full w-full overflow-hidden bg-slate-950" />;
+  return <div ref={containerRef} className="nextalk-agora-contain h-full w-full overflow-hidden bg-slate-950" />;
 }
 
 export function VoiceChannelMiniPlayer() {
