@@ -3,12 +3,15 @@ import { useCallStore } from '../../store/callStore';
 import { useChatStore } from '../../store/chatStore';
 import { useGroupStore } from '../../store/groupStore';
 import { useAuthStore } from '../../store/authStore';
-import { Mic, MicOff, Headphones, PhoneOff, SignalHigh, Monitor, Camera, VideoOff, Bell, BellOff, UserPlus, X } from 'lucide-react';
+import { messageService } from '../../services/messageService';
+import { Mic, MicOff, Headphones, PhoneOff, SignalHigh, Monitor, Camera, VideoOff, Bell, BellOff, UserPlus, X, CheckCircle2, XCircle } from 'lucide-react';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 export const VoiceConnectedPanel = () => {
   const [showInvitePicker, setShowInvitePicker] = useState(false);
+  const [sendingInviteTo, setSendingInviteTo] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
   const conversations = useChatStore((state) => state.conversations);
-  const stompClient = useChatStore((state) => state.stompClient);
   const groups = useGroupStore((state) => state.groups);
   const currentUser = useAuthStore((state) => state.user);
   const {
@@ -33,19 +36,26 @@ export const VoiceConnectedPanel = () => {
     activeVoiceChannelId
   } = useCallStore();
 
-  const sendInvite = (conversationId: string) => {
-    if (!stompClient?.connected || !activeVoiceChannelId) return;
+  const sendInvite = async (conversationId: string) => {
+    if (!activeVoiceChannelId || sendingInviteTo) return;
     const group = groups.find((item) => item.channels.some((channel) => channel.id === activeVoiceChannelId));
     const link = `nextalk://voice/${activeVoiceChannelId}?groupId=${encodeURIComponent(group?.id || '')}&channelName=${encodeURIComponent(callTitle || 'Kênh thoại')}`;
-    stompClient.publish({
-      destination: '/app/chat.send',
-      body: JSON.stringify({
+    setSendingInviteTo(conversationId);
+    try {
+      const response = await messageService.sendMessage({
         conversationId,
         messageType: 'TEXT',
         content: `🔊 Mời bạn tham gia kênh thoại “${callTitle || 'Kênh thoại'}”\n${link}`
-      })
-    });
-    setShowInvitePicker(false);
+      });
+      if (!response.success) throw new Error(response.message || 'Không thể gửi lời mời');
+      setShowInvitePicker(false);
+      setInviteNotice({ type: 'success', title: 'Đã gửi lời mời', message: 'Lời mời tham gia kênh thoại đã được gửi thành công.' });
+    } catch (error: any) {
+      setShowInvitePicker(false);
+      setInviteNotice({ type: 'error', title: 'Không thể gửi lời mời', message: error?.response?.data?.message || error?.message || 'Vui lòng thử lại.' });
+    } finally {
+      setSendingInviteTo(null);
+    }
   };
 
   const getTargetLabel = (conversation: (typeof conversations)[number]) => {
@@ -212,19 +222,30 @@ export const VoiceConnectedPanel = () => {
               {channelTargets.length > 0 && <div className="px-3 pb-1 pt-2 text-[11px] font-black uppercase tracking-wider text-gray-400">Channel trong {sourceGroup?.name}</div>}
               <div className="space-y-1">
                 {channelTargets.map((conversation) => (
-                  <button key={conversation.id} onClick={() => sendInvite(conversation.id)} className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-indigo-50 dark:text-zinc-100 dark:hover:bg-indigo-500/10">{getTargetLabel(conversation)}</button>
+                  <button key={conversation.id} disabled={Boolean(sendingInviteTo)} onClick={() => void sendInvite(conversation.id)} className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-indigo-50 disabled:opacity-50 dark:text-zinc-100 dark:hover:bg-indigo-500/10">{sendingInviteTo === conversation.id ? 'Đang gửi...' : getTargetLabel(conversation)}</button>
                 ))}
               </div>
               {directTargets.length > 0 && <div className="mt-3 border-t border-gray-100 px-3 pb-1 pt-3 text-[11px] font-black uppercase tracking-wider text-gray-400 dark:border-zinc-800">Tin nhắn riêng</div>}
               <div className="space-y-1">
                 {directTargets.map((conversation) => (
-                  <button key={conversation.id} onClick={() => sendInvite(conversation.id)} className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-indigo-50 dark:text-zinc-100 dark:hover:bg-indigo-500/10">{getTargetLabel(conversation)}</button>
+                  <button key={conversation.id} disabled={Boolean(sendingInviteTo)} onClick={() => void sendInvite(conversation.id)} className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-indigo-50 disabled:opacity-50 dark:text-zinc-100 dark:hover:bg-indigo-500/10">{sendingInviteTo === conversation.id ? 'Đang gửi...' : getTargetLabel(conversation)}</button>
                 ))}
               </div>
             </div>
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={Boolean(inviteNotice)}
+        title={inviteNotice?.title || ''}
+        description={inviteNotice?.message || ''}
+        confirmLabel="Đóng"
+        showCancel={false}
+        variant={inviteNotice?.type === 'error' ? 'danger' : 'primary'}
+        icon={inviteNotice?.type === 'error' ? <XCircle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+        onConfirm={() => setInviteNotice(null)}
+        onCancel={() => setInviteNotice(null)}
+      />
     </div>
   );
 };
