@@ -1218,8 +1218,7 @@ export const Chat = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const refreshToken = localStorage.getItem('nextalk_refreshToken');
-      if (refreshToken) await authService.logout(refreshToken);
+      await authService.logout();
     } catch (err: any) {
       console.error('Failed to log out from server:', err);
     } finally {
@@ -3349,7 +3348,7 @@ export const Chat = () => {
         <VoiceConnectedPanel />
 
         {/* User Card */}
-        <SidebarFooter user={user} onOpenQrScanner={() => setIsQrScannerOpen(true)} onOpenMyQr={() => setIsMyQrOpen(true)} />
+        <SidebarFooter user={user} onOpenProfile={() => navigate('/profile')} onOpenQrScanner={() => setIsQrScannerOpen(true)} onOpenMyQr={() => setIsMyQrOpen(true)} />
       </section>
 
       {/* Column 3: Chat Window */}

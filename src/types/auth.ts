@@ -25,7 +25,7 @@ export interface ApiResponse<T> {
 
 export interface LoginResponseData {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string | null;
   user: User;
 }
 
@@ -38,7 +38,7 @@ export interface RegisterResponseData {
 
 export interface TokenRefreshResponseData {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string | null;
 }
 
 export type QrLoginStatus = 'PENDING' | 'CONFIRMED' | 'EXPIRED' | 'CONSUMED';

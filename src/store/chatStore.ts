@@ -647,7 +647,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isConnecting: true, error: null });
 
-    let accessToken = localStorage.getItem('nextalk_accessToken');
+    let accessToken = useAuthStore.getState().accessToken;
     if (!accessToken) {
       set({ isConnecting: false, error: 'No access token available' });
       return;
@@ -678,7 +678,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     client.beforeConnect = () => {
       // Always refresh token header before each connect/reconnect attempt
-      const currentToken = localStorage.getItem('nextalk_accessToken');
+      const currentToken = useAuthStore.getState().accessToken;
       if (currentToken) {
         client.connectHeaders = {
           Authorization: `Bearer ${currentToken}`,
@@ -702,7 +702,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             get().disconnectWebSocket();
             useAuthStore.getState().logout();
           } else if (body.type === 'SESSION_REVOKED') {
-            const accessToken = localStorage.getItem('nextalk_accessToken');
+            const accessToken = useAuthStore.getState().accessToken;
             if (getTokenSessionId(accessToken) === body.sessionId) {
               get().disconnectWebSocket();
               useAuthStore.getState().logout();
@@ -788,7 +788,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ error: frame.headers['message'] || 'STOMP Protocol Error', isConnecting: false });
 
       // If connection fails due to invalid/expired token, refresh and reconnect
-      const currentToken = localStorage.getItem('nextalk_accessToken');
+      const currentToken = useAuthStore.getState().accessToken;
       if (currentToken && isTokenExpired(currentToken, 30)) {
         console.log('[STOMP] STOMP error due to expired token. Refreshing token...');
         const refreshed = await refreshAccessToken();
@@ -807,7 +807,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ error: 'WebSocket connection failed', isConnecting: false });
 
       // If connection fails due to invalid/expired token, refresh and reconnect
-      const currentToken = localStorage.getItem('nextalk_accessToken');
+      const currentToken = useAuthStore.getState().accessToken;
       if (currentToken && isTokenExpired(currentToken, 30)) {
         console.log('[STOMP] Connection failed due to expired token. Refreshing token...');
         const refreshed = await refreshAccessToken();

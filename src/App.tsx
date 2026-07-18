@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Login from './pages/Login';
@@ -31,7 +31,21 @@ const queryClient = new QueryClient({
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const persistedUser = useAuthStore((state) => state.user);
   const notifications = useNotificationStore((state) => state.notifications);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const restoreSession = async () => {
+      if (persistedUser && !useAuthStore.getState().accessToken) {
+        await ensureFreshAccessToken(0);
+      }
+      if (active) setSessionReady(true);
+    };
+    void restoreSession();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const baseTitle = 'NexTalk';
@@ -104,6 +118,8 @@ function App() {
       onMessageListener().catch(err => console.log('failed to receive foreground message: ', err));
     }
   }, [isAuthenticated]);
+
+  if (!sessionReady) return null;
 
   return (
     <QueryClientProvider client={queryClient}>

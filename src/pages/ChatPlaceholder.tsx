@@ -13,11 +13,7 @@ export const ChatPlaceholder = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const refreshToken = localStorage.getItem('nextalk_refreshToken');
-      if (refreshToken) {
-        // Call backend logout API to invalidate the refresh token
-        await authService.logout(refreshToken);
-      }
+      await authService.logout();
     } catch (err: any) {
       console.error('Failed to log out from server:', err);
     } finally {

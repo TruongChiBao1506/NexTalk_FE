@@ -8,8 +8,10 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 // Create custom axios instance
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api`,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    'X-Client-Platform': 'web',
   },
 });
 
@@ -29,7 +31,7 @@ export function isAccessTokenExpired(token: string, offsetSeconds = 60): boolean
 }
 
 export async function ensureFreshAccessToken(offsetSeconds = 60): Promise<string | null> {
-  const currentToken = localStorage.getItem('nextalk_accessToken');
+  const currentToken = useAuthStore.getState().accessToken;
   if (!currentToken) {
     return refreshAccessToken();
   }
@@ -46,28 +48,19 @@ export async function refreshAccessToken(): Promise<string | null> {
     return refreshPromise;
   }
 
-  const refreshToken = localStorage.getItem('nextalk_refreshToken');
-  if (!refreshToken) {
-    useAuthStore.getState().logout();
-    return null;
-  }
-
   refreshPromise = (async () => {
     try {
       const response = await axios.post<ApiResponse<TokenRefreshResponseData>>(
         `${BASE_URL}/api/auth/refresh`,
-        { refreshToken },
-        { headers: { 'Content-Type': 'application/json' } }
+        {},
+        { withCredentials: true, headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'web' } }
       );
 
       if (response.data.success && response.data.data) {
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        const { accessToken } = response.data.data;
         
         // Save new tokens
         useAuthStore.getState().setAccessToken(accessToken);
-        if (newRefreshToken) {
-          localStorage.setItem('nextalk_refreshToken', newRefreshToken);
-        }
         return accessToken;
       } else {
         throw new Error('Refresh response was unsuccessful');
@@ -86,7 +79,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 // Request interceptor to attach access token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('nextalk_accessToken');
+    const token = useAuthStore.getState().accessToken;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

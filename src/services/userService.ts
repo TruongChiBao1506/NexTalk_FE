@@ -11,6 +11,11 @@ export interface UpdateProfilePayload {
   blockStrangerMessages?: boolean;
 }
 
+export interface ProfileQrConfig {
+  token: string;
+  enabled: boolean;
+}
+
 export const userService = {
   async getMyProfile(): Promise<ApiResponse<User>> {
     const response = await apiClient.get<ApiResponse<User>>('/users/me');
@@ -24,6 +29,26 @@ export const userService = {
 
   async getUserProfileById(id: string): Promise<ApiResponse<User>> {
     const response = await apiClient.get<ApiResponse<User>>(`/users/${id}`);
+    return response.data;
+  },
+
+  async resolveProfileQr(token: string): Promise<ApiResponse<User>> {
+    const response = await apiClient.get<ApiResponse<User>>(`/users/qr/${encodeURIComponent(token)}`);
+    return response.data;
+  },
+
+  async getProfileQr(): Promise<ApiResponse<ProfileQrConfig>> {
+    const response = await apiClient.get<ApiResponse<ProfileQrConfig>>('/users/qr');
+    return response.data;
+  },
+
+  async rotateProfileQr(): Promise<ApiResponse<ProfileQrConfig>> {
+    const response = await apiClient.post<ApiResponse<ProfileQrConfig>>('/users/qr/rotate');
+    return response.data;
+  },
+
+  async setProfileQrEnabled(enabled: boolean): Promise<ApiResponse<ProfileQrConfig>> {
+    const response = await apiClient.put<ApiResponse<ProfileQrConfig>>('/users/qr/enabled', null, { params: { enabled } });
     return response.data;
   },
 

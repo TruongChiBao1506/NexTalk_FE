@@ -37,9 +37,8 @@ export const authService = {
     return response.data;
   },
 
-  async logout(refreshToken: string): Promise<ApiResponse<void>> {
-    // According to postman collection: POST /api/auth/logout with body { refreshToken }
-    const response = await apiClient.post<ApiResponse<void>>('/auth/logout', { refreshToken });
+  async logout(): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>('/auth/logout', {});
     return response.data;
   },
 

@@ -45,10 +45,7 @@ export const Profile = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const refreshToken = localStorage.getItem('nextalk_refreshToken');
-      if (refreshToken) {
-        await authService.logout(refreshToken);
-      }
+      await authService.logout();
     } catch (err: any) {
       console.error('Failed to log out from server:', err);
     } finally {
@@ -96,8 +93,7 @@ export const Profile = () => {
       const response = await authService.revokeSession(sessionId);
       if (response.success) {
         setSessions((current) => current.filter((session) => session.id !== sessionId));
-        const currentRefreshToken = localStorage.getItem('nextalk_refreshToken');
-        if (sessions.length === 1 && currentRefreshToken) {
+        if (sessions.length === 1) {
           logout();
           navigate('/login');
         }

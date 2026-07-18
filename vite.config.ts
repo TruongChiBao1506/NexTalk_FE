@@ -8,6 +8,16 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    define: {
+      global: 'globalThis',
+    },
+    optimizeDeps: {
+      esbuildOptions: {
+        define: {
+          global: 'globalThis',
+        },
+      },
+    },
     server: {
       port: 3000,
       proxy: {
@@ -24,5 +34,4 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
-
 

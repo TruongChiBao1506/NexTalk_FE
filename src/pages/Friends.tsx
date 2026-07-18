@@ -253,10 +253,7 @@ export const Friends = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const refreshToken = localStorage.getItem('nextalk_refreshToken');
-      if (refreshToken) {
-        await authService.logout(refreshToken);
-      }
+      await authService.logout();
     } catch (err) {
       console.error('Failed to log out from server:', err);
     } finally {

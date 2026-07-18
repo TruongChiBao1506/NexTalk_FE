@@ -5,7 +5,7 @@ interface AuthState {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  login: (user: User, accessToken: string, refreshToken: string) => void;
+  login: (user: User, accessToken: string, refreshToken?: string | null) => void;
   logout: () => void;
   updateUser: (user: User) => void;
   setAccessToken: (token: string) => void;
@@ -23,17 +23,15 @@ export const useAuthStore = create<AuthState>((set) => {
     console.error('Failed to parse initial user from localStorage', e);
   }
 
-  const initialToken = localStorage.getItem('nextalk_accessToken');
-
   return {
     user: initialUser,
-    accessToken: initialToken,
-    isAuthenticated: !!initialToken,
+    accessToken: null,
+    isAuthenticated: false,
 
-    login: (user, accessToken, refreshToken) => {
+    login: (user, accessToken) => {
       localStorage.setItem('nextalk_user', JSON.stringify(user));
-      localStorage.setItem('nextalk_accessToken', accessToken);
-      localStorage.setItem('nextalk_refreshToken', refreshToken);
+      localStorage.removeItem('nextalk_accessToken');
+      localStorage.removeItem('nextalk_refreshToken');
       set({ user, accessToken, isAuthenticated: true });
     },
 
@@ -50,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     setAccessToken: (accessToken) => {
-      localStorage.setItem('nextalk_accessToken', accessToken);
+      localStorage.removeItem('nextalk_accessToken');
       set({ accessToken });
     }
   };
