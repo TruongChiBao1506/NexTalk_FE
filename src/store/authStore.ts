@@ -26,7 +26,10 @@ export const useAuthStore = create<AuthState>((set) => {
   return {
     user: initialUser,
     accessToken: null,
-    isAuthenticated: false,
+    // App.tsx validates the HttpOnly refresh cookie before rendering routes.
+    // Keeping this optimistic state prevents a temporary backend/network error
+    // from discarding an otherwise valid persisted browser session.
+    isAuthenticated: Boolean(initialUser),
 
     login: (user, accessToken) => {
       localStorage.setItem('nextalk_user', JSON.stringify(user));

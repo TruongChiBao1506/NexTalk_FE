@@ -66,7 +66,12 @@ export async function refreshAccessToken(): Promise<string | null> {
         throw new Error('Refresh response was unsuccessful');
       }
     } catch (refreshError) {
-      useAuthStore.getState().logout();
+      const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+      // Keep the persisted browser session during transient network, rate-limit
+      // or server failures. Only an invalid/revoked refresh cookie is terminal.
+      if (status === 400 || status === 401) {
+        useAuthStore.getState().logout();
+      }
       return null;
     } finally {
       refreshPromise = null;
@@ -98,12 +103,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // If request failed with 401 (Unauthorized) or 403 (Forbidden) and has not been retried yet
-    if ((error.response?.status === 401 || error.response?.status === 403) && originalRequest && !originalRequest._retry) {
+    // A 403 is an authorization decision, not evidence that the token expired.
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       
       // Prevent infinite loops if the refresh request itself fails with 401
       if (originalRequest.url === '/auth/refresh' || originalRequest.url === '/auth/login') {
-        useAuthStore.getState().logout();
         return Promise.reject(error);
       }
 
