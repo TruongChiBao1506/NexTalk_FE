@@ -1059,7 +1059,7 @@ export const ConversationList = ({
                           if (channelIsPrivate && !isMemberOfChannel) return;
                           selectConversation(ch.conversationId);
                         }}
-                        className={`group flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors ${
+                        className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-xl transition-colors ${
                           channelIsPrivate && !isMemberOfChannel 
                             ? "cursor-not-allowed opacity-60" 
                             : "cursor-pointer"
@@ -1069,7 +1069,7 @@ export const ConversationList = ({
                             : "hover:bg-white/75 dark:hover:bg-zinc-800/60"
                         }`}
                       >
-                        <div className="relative">
+                        <div className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800">
                           <Icon
                             className={`w-4 h-4 shrink-0 ${channelHasUnread ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-zinc-500"}`}
                           />
@@ -1077,58 +1077,78 @@ export const ConversationList = ({
                             <Lock className="w-2 h-2 absolute -bottom-0.5 -right-0.5 text-indigo-500 dark:text-indigo-400" />
                           )}
                         </div>
-                        <span
-                          className={`text-[13px] truncate flex-1 ${
-                            channelHasUnread
-                              ? "font-bold text-gray-900 dark:text-white"
-                              : isChannelSelected
-                                ? "font-bold text-indigo-700 dark:text-indigo-300"
-                                : "font-medium text-gray-600 dark:text-zinc-400"
-                          }`}
-                        >
-                          {ch.name}
-                        </span>
-                        {channelHasUnread && (
-                          <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
-                            {channelUnreadCount > 99
-                              ? "99+"
-                              : channelUnreadCount}
-                          </span>
-                        )}
-                        {!channelHasUnread && channelDraftPreview && (
-                          <span className="shrink-0 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-500 dark:bg-rose-500/10 dark:text-rose-300">
-                            Nháp
-                          </span>
-                        )}
-                        {ch.type === "VOICE" && voiceMembers.length > 0 && (
-                          <div
-                            className="flex shrink-0 items-center pl-1"
-                            title={voiceMembers.map((member: any) => member.username).join(', ')}
-                          >
-                            {voiceMembers.slice(0, 3).map((member: any, index: number) => (
-                              member.avatarUrl ? (
-                                <img
-                                  key={member.userId}
-                                  src={member.avatarUrl}
-                                  alt={member.username}
-                                  className={`h-5 w-5 rounded-full border-2 border-white object-cover dark:border-zinc-900 ${index > 0 ? '-ml-1.5' : ''}`}
-                                />
-                              ) : (
-                                <span
-                                  key={member.userId}
-                                  className={`flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-100 text-[8px] font-black text-indigo-700 dark:border-zinc-900 dark:bg-indigo-500/20 dark:text-indigo-300 ${index > 0 ? '-ml-1.5' : ''}`}
-                                >
-                                  {member.username?.charAt(0).toUpperCase()}
-                                </span>
-                              )
-                            ))}
-                            {voiceMembers.length > 3 && (
-                              <span className="-ml-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-600 px-1 text-[8px] font-black text-white dark:border-zinc-900">
-                                +{voiceMembers.length - 3}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`min-w-0 flex-1 truncate text-[13px] ${
+                                channelHasUnread
+                                  ? "font-bold text-gray-900 dark:text-white"
+                                  : isChannelSelected
+                                    ? "font-bold text-indigo-700 dark:text-indigo-300"
+                                    : "font-semibold text-gray-700 dark:text-zinc-300"
+                              }`}
+                            >
+                              {ch.name}
+                            </span>
+                            {channelLastMessage && (
+                              <span className={`shrink-0 text-[10px] font-medium ${channelHasUnread ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-zinc-500'}`}>
+                                {formatConversationTime(channelLastMessage.createdAt)}
                               </span>
                             )}
                           </div>
-                        )}
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                            <p className={`m-0 min-w-0 flex-1 truncate text-[11px] ${channelHasUnread ? 'font-semibold text-gray-700 dark:text-zinc-200' : 'text-gray-400 dark:text-zinc-500'}`}>
+                              {channelDraftPreview ? (
+                                <>
+                                  <span className="font-bold text-rose-500 dark:text-rose-400">Bản nháp: </span>
+                                  <span>{channelDraftPreview}</span>
+                                </>
+                              ) : channelLastMessage ? (
+                                formatLastMessage(channelLastMessage, true)
+                              ) : ch.type === "VOICE" ? (
+                                voiceMembers.length > 0
+                                  ? `${voiceMembers.length} người đang tham gia`
+                                  : 'Chưa có ai trong kênh thoại'
+                              ) : (
+                                'Chưa có tin nhắn mới'
+                              )}
+                            </p>
+                            {channelHasUnread && (
+                              <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-sm">
+                                {channelUnreadCount > 99 ? "99+" : channelUnreadCount}
+                              </span>
+                            )}
+                            {ch.type === "VOICE" && voiceMembers.length > 0 && (
+                              <div
+                                className="flex shrink-0 items-center pl-1"
+                                title={voiceMembers.map((member: any) => member.username).join(', ')}
+                              >
+                                {voiceMembers.slice(0, 3).map((member: any, index: number) => (
+                                  member.avatarUrl ? (
+                                    <img
+                                      key={member.userId}
+                                      src={member.avatarUrl}
+                                      alt={member.username}
+                                      className={`h-5 w-5 rounded-full border-2 border-white object-cover dark:border-zinc-900 ${index > 0 ? '-ml-1.5' : ''}`}
+                                    />
+                                  ) : (
+                                    <span
+                                      key={member.userId}
+                                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-100 text-[8px] font-black text-indigo-700 dark:border-zinc-900 dark:bg-indigo-500/20 dark:text-indigo-300 ${index > 0 ? '-ml-1.5' : ''}`}
+                                    >
+                                      {member.username?.charAt(0).toUpperCase()}
+                                    </span>
+                                  )
+                                ))}
+                                {voiceMembers.length > 3 && (
+                                  <span className="-ml-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-600 px-1 text-[8px] font-black text-white dark:border-zinc-900">
+                                    +{voiceMembers.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         {(g.ownerId === user?.id ||
                           ["ADMIN", "LEADER", "DEPUTY"].includes(
                             g.members?.find((m) => m.userId === user?.id)
