@@ -266,6 +266,8 @@ export const CallOverlay = () => {
     ? 'Đã kết nối'
     : isGroupCall && callMemberCount
     ? `${callMemberCount} thành viên`
+    : callState === 'connecting'
+      ? 'Đang kết nối...'
     : callState === 'connected'
       ? 'Đã kết nối'
       : callType === 'video'
@@ -377,7 +379,7 @@ export const CallOverlay = () => {
             </p>
           ) : (
             <p className="mb-8 text-sm font-semibold text-blue-500">
-              Đang gọi...
+              {callState === 'connecting' ? 'Đang kết nối...' : 'Đang gọi...'}
             </p>
           )}
 
@@ -444,8 +446,8 @@ export const CallOverlay = () => {
                 </div>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <EndCallButton onClick={() => callState === 'connected' ? hangupCall() : cancelCall('canceled')} />
-                {callState !== 'connected' && <span className="text-xs font-bold text-red-500 mt-1">Hủy bỏ</span>}
+                <EndCallButton onClick={() => callState === 'connected' || callState === 'connecting' ? hangupCall() : cancelCall('canceled')} />
+                {callState !== 'connected' && callState !== 'connecting' && <span className="text-xs font-bold text-red-500 mt-1">Hủy bỏ</span>}
               </div>
             </div>
           )}

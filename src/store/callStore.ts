@@ -12,7 +12,7 @@ import { useAuthStore } from './authStore';
 import { apiClient } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
 
-type CallState = 'idle' | 'ringing_incoming' | 'ringing_outgoing' | 'connected';
+type CallState = 'idle' | 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected';
 type CallType = 'voice' | 'video';
 
 type CallNotice = {
@@ -68,7 +68,7 @@ interface CallStore {
   initiateCall: (conversationId: string, callType: CallType, partner: any) => void;
   receiveCall: (signal: any) => void;
   acceptCall: () => Promise<void>;
-  rejectCall: () => void;
+  rejectCall: (reason?: 'rejected' | 'missed') => void;
   cancelCall: (reason?: 'timeout' | 'canceled') => void;
   hangupCall: () => void;
 
@@ -265,7 +265,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const ringTimeoutId = window.setTimeout(() => {
       const state = get();
       if (state.callState === 'ringing_incoming' && state.callId === signal.callId) {
-        state.rejectCall();
+        state.rejectCall('missed');
       }
     }, 60000);
     set({ incomingRingTimeoutId: ringTimeoutId });
@@ -284,7 +284,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     // Set callState immediately to connected to prevent receiving other calls
     set({
-      callState: 'connected',
+      callState: 'connecting',
       receiver: {
         id: currentUser.id,
         username: currentUser.username,
@@ -317,7 +317,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
   },
 
-  rejectCall: () => {
+  rejectCall: (reason = 'rejected') => {
     const { conversationId, caller } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
@@ -337,7 +337,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
           type: get().callType.toUpperCase(),
           signalType: 'ANSWER',
           accept: false,
-          reason: 'rejected'
+          reason
         };
 
         stompClient.publish({
@@ -709,13 +709,13 @@ export const useCallStore = create<CallStore>((set, get) => ({
         if (signal.accept) {
           audioSynth.stop();
           get().clearOutgoingRingTimeout();
-          set({ callState: 'connected' });
+          set({ callState: 'connecting' });
           get().joinAgoraChannel().catch((err: any) => {
             console.error('Failed to join Agora channel after accepted answer:', err);
             get().hangupCall();
           });
         } else {
-          if (isGroupCall || signal.reason !== 'rejected') {
+          if (isGroupCall) {
             console.info('[STOMP Call Signal]: ignored negative ANSWER while outgoing call is ringing', signal);
             return;
           }
@@ -743,7 +743,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       case 'LEAVE':
         if (
           !currentUser ||
-          callState !== 'connected' ||
+          (callState !== 'connected' && callState !== 'connecting') ||
           !isGroupCall ||
           !isSameConversation ||
           !isSameCall ||
@@ -757,7 +757,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       case 'HANGUP':
         if (
           !currentUser ||
-          callState !== 'connected' ||
+          (callState !== 'connected' && callState !== 'connecting') ||
           !isSameConversation ||
           !isSameCall ||
           (signal.receiverId && signal.receiverId !== currentUser.id)
@@ -925,7 +925,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       set({ remoteUsers: [...client.remoteUsers] });
 
       const { callState, conversationId, isGroupCall } = get();
-      if (callState !== 'connected') return;
+      if (callState !== 'connected' && callState !== 'connecting') return;
 
       if (isGroupCall) {
         const conversation = useChatStore.getState().activeConversation?.id === conversationId
@@ -969,7 +969,10 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
       await client.join(import.meta.env.VITE_AGORA_APP_ID, channelName, token, uid);
       client.enableAudioVolumeIndicator();
-      set({ localAgoraUid: uid });
+      set((state) => ({
+        localAgoraUid: uid,
+        callState: state.callState === 'connecting' ? 'connected' : state.callState,
+      }));
     } catch (error) {
       set({ agoraClient: null });
       await client.leave().catch(() => undefined);
