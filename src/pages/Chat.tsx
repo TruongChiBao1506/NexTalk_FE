@@ -3474,7 +3474,13 @@ export const Chat = () => {
                         Kết nối âm thanh để trò chuyện với mọi người trong kênh này.
                       </p>
                       <button
-                        onClick={() => joinVoiceChannel(activeChannel.id, activeChannel.name, activeConversation.id)}
+                        onClick={() => {
+                          if (!activeGroup) return;
+                          void joinVoiceChannel(activeChannel.id, activeChannel.name, activeGroup.id)
+                            .catch((error) => {
+                              console.error('Failed to join voice channel:', error);
+                            });
+                        }}
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow transition"
                       >
                         <Headphones className="w-4 h-4" />
