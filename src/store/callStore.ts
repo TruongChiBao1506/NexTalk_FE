@@ -959,15 +959,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
     let token: string;
     let uid: number;
     let channelName: string;
+    let agoraAppId: string;
 
     try {
       // apiClient already prefixes requests with /api.
       const response = await apiClient.get('/calls/token', {
         params: { conversationId }
       });
-      ({ token, uid, channelName } = response.data.data);
+      ({ token, uid, channelName, appId: agoraAppId } = response.data.data);
 
-      await client.join(import.meta.env.VITE_AGORA_APP_ID, channelName, token, uid);
+      await client.join(agoraAppId || import.meta.env.VITE_AGORA_APP_ID, channelName, token, uid);
       client.enableAudioVolumeIndicator();
       set((state) => ({
         localAgoraUid: uid,
@@ -1118,14 +1119,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     let token: string;
     let uid: number;
+    let agoraAppId: string;
 
     try {
       const response = await apiClient.get('/calls/channel-token', {
         params: { channelId, groupId }
       });
-      ({ token, uid } = response.data.data);
+      ({ token, uid, appId: agoraAppId } = response.data.data);
 
-      await client.join(import.meta.env.VITE_AGORA_APP_ID, channelId, token, uid);
+      await client.join(agoraAppId || import.meta.env.VITE_AGORA_APP_ID, channelId, token, uid);
       client.enableAudioVolumeIndicator();
       set({ localAgoraUid: uid });
       

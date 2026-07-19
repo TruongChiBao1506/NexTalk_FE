@@ -3479,6 +3479,13 @@ export const Chat = () => {
                           void joinVoiceChannel(activeChannel.id, activeChannel.name, activeGroup.id)
                             .catch((error) => {
                               console.error('Failed to join voice channel:', error);
+                              showAlertDialog(
+                                error?.response?.data?.message
+                                  || error?.message
+                                  || 'Không thể tham gia kênh thoại.',
+                                'Không thể tham gia kênh thoại',
+                                'danger',
+                              );
                             });
                         }}
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow transition"
