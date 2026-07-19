@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, User as UserIcon, CircleUserRound, LogOut, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Sparkles, Search, UserCheck, Clock3, Network } from 'lucide-react';
+import { MessageSquare, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Search, UserCheck, Clock3, Send, type LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
 import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
-import ThemeToggle from '../components/common/ThemeToggle';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useChatStore } from '../store/chatStore';
 import { formatRelativeTime } from '../utils/time';
 import MobileBottomNav from '../components/common/MobileBottomNav';
+import DesktopSidebar from '../components/common/DesktopSidebar';
 
 import { CardListSkeleton } from '../components/common/Skeleton';
 import type { ChatRequestResponse } from '../types/chatRequest';
 
-type ActiveTab = 'friends' | 'groups' | 'pending' | 'group_invitations';
+type ActiveTab = 'friends' | 'groups' | 'requests' | 'sent' | 'suggestions';
 
 export const Friends = () => {
   const navigate = useNavigate();
@@ -265,129 +265,78 @@ export const Friends = () => {
   const totalChatRequests = incomingChatRequests.length + outgoingChatRequests.length;
   const isChatRequestLoading = isLoadingIncomingChatRequests || isLoadingOutgoingChatRequests;
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('vi');
-  const visibleFriends = friends.filter((friend) =>
-    !normalizedSearch || [friend.username, friend.bio].some((value) => value?.toLocaleLowerCase('vi').includes(normalizedSearch))
-  );
-  const onlineFriends = friends.filter((friend) => friend.status === 'ONLINE').length;
+  const matchesSearch = (...values: Array<string | null | undefined>) =>
+    !normalizedSearch || values.some((value) => value?.toLocaleLowerCase('vi').includes(normalizedSearch));
+  const visibleFriends = friends.filter((friend) => matchesSearch(friend.username, friend.bio));
+  const visibleGroups = groups.filter((group) => matchesSearch(group.name, group.ownerUsername));
+  const visiblePending = pending.filter((request) => matchesSearch(request.username, request.email));
+  const sentSuggestions = suggestions.filter((suggestion) => suggestion.isRequestSent);
+  const discoverSuggestions = suggestions.filter((suggestion) => !suggestion.isRequestSent);
+  const visibleSentSuggestions = sentSuggestions.filter((suggestion) => matchesSearch(suggestion.username, suggestion.email));
+  const visibleDiscoverSuggestions = discoverSuggestions.filter((suggestion) => matchesSearch(suggestion.username, suggestion.email));
+  const visibleActiveSuggestions = activeTab === 'sent' ? visibleSentSuggestions : visibleDiscoverSuggestions;
+  const visibleGroupInvitations = pendingInvitations.filter((invitation) => matchesSearch(invitation.groupName, invitation.inviterUsername));
+  const friendTabs: Array<{ key: ActiveTab; label: string; description: string; count: number; icon: LucideIcon }> = [
+    { key: 'friends', label: 'Bạn bè', description: 'Danh sách kết nối', count: friends.length, icon: UserCheck },
+    { key: 'groups', label: 'Nhóm', description: 'Những nhóm đang tham gia', count: groups.length, icon: Users },
+    { key: 'requests', label: 'Lời mời', description: 'Đang chờ bạn xử lý', count: pending.length + pendingInvitations.length, icon: Clock3 },
+    { key: 'sent', label: 'Đã gửi', description: 'Đang chờ phản hồi', count: sentSuggestions.length, icon: Send },
+    { key: 'suggestions', label: 'Khám phá', description: 'Tìm thêm bạn mới', count: discoverSuggestions.length, icon: Search },
+  ];
 
   return (
     <div className="nextalk-friends-shell h-dvh w-screen overflow-hidden flex bg-[#f6f7fc] text-slate-900 dark:bg-discord-dark dark:text-discord-text transition-colors duration-300">
-      <aside className="hidden md:flex w-16 md:w-20 flex-col items-center py-4 border-r shrink-0">
-        <div
-          onClick={() => navigate('/chat')}
-          className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-6 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white transition-all duration-300 shadow-sm"
-          title="Chat Home"
-        >
-          <MessageSquare className="w-6 h-6" />
-        </div>
-        <div
-          onClick={() => setActiveTab('friends')}
-          className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 cursor-pointer transition-all duration-300 ${
-            activeTab !== 'pending'
-              ? 'bg-indigo-600 dark:bg-discord-blurple text-white shadow-sm'
-              : 'bg-white/55 dark:bg-zinc-900/60 text-slate-600 dark:text-zinc-300 hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white'
-          }`}
-          title="Friends List"
-        >
-          <UserIcon className="w-5 h-5" />
-        </div>
-        <div
-          onClick={() => navigate('/profile')}
-          className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-slate-600 dark:text-zinc-300 mb-4 cursor-pointer hover:bg-indigo-600 dark:hover:bg-discord-blurple hover:text-white transition-all duration-300"
-          title="Hồ sơ"
-        >
-          <CircleUserRound className="w-5 h-5" />
-        </div>
+      <DesktopSidebar activePage="friends" onLogout={handleLogout} isLoggingOut={isLoggingOut} />
 
-        <div className="mt-auto flex flex-col gap-4">
-          <ThemeToggle />
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="w-12 h-12 rounded-2xl bg-white/55 dark:bg-zinc-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 hover:bg-rose-600 dark:hover:bg-rose-600 hover:text-white transition-all duration-300 disabled:opacity-50"
-            title="Log Out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 overflow-y-auto mx-auto w-full max-w-[1440px] p-4 pb-24 md:p-8 md:pb-10 space-y-6">
-        <header className="overflow-hidden rounded-[28px] border border-indigo-100 bg-white shadow-[0_18px_55px_rgba(79,70,229,0.08)] dark:border-zinc-800 dark:bg-discord-mid">
-          <div className="relative flex flex-col gap-7 p-6 md:p-8 xl:flex-row xl:items-end xl:justify-between">
-            <div className="relative z-10 max-w-2xl text-left">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"><Network className="h-3.5 w-3.5" /> Không gian kết nối</div>
-              <h1 className="m-0 text-3xl font-black tracking-tight text-slate-950 md:text-4xl dark:text-white">Bạn bè & cộng đồng</h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-discord-muted">Quản lý các mối quan hệ, lời mời và nhóm của bạn trong một không gian rõ ràng, dễ theo dõi.</p>
+      <section className="hidden h-dvh w-[360px] shrink-0 flex-col border-r border-[#dbe4ff] bg-[#eef4ff]/95 md:flex dark:border-[#2a3348] dark:bg-[#121827]">
+        <div className="border-b border-[#dbe4ff] px-5 pb-5 pt-6 dark:border-[#2a3348]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 text-left">
+              <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">Danh bạ NexTalk</p>
+              <h1 className="mb-0 mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">Kết nối</h1>
             </div>
-            <div className="relative z-10 grid w-full grid-cols-3 gap-2 xl:w-auto xl:min-w-[390px]">
-              <div className="rounded-2xl bg-slate-50 p-3 text-left dark:bg-zinc-900/60"><UserCheck className="mb-2 h-4 w-4 text-indigo-600"/><strong className="block text-xl text-slate-950 dark:text-white">{friends.length}</strong><span className="text-[11px] text-slate-500">Bạn bè</span></div>
-              <div className="rounded-2xl bg-emerald-50 p-3 text-left dark:bg-emerald-500/10"><span className="mb-2 block h-2.5 w-2.5 rounded-full bg-emerald-500"/><strong className="block text-xl text-slate-950 dark:text-white">{onlineFriends}</strong><span className="text-[11px] text-slate-500">Trực tuyến</span></div>
-              <div className="rounded-2xl bg-amber-50 p-3 text-left dark:bg-amber-500/10"><Clock3 className="mb-2 h-4 w-4 text-amber-600"/><strong className="block text-xl text-slate-950 dark:text-white">{pending.length + pendingInvitations.length}</strong><span className="text-[11px] text-slate-500">Đang chờ</span></div>
-            </div>
-            <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-indigo-100/60 blur-3xl dark:bg-indigo-500/10" />
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 md:px-8 xl:flex-row xl:items-center xl:justify-between dark:border-zinc-800">
-            <div className="relative w-full xl:max-w-xs">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm theo tên hoặc giới thiệu..." className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-indigo-500/10" />
-            </div>
-
-          <div className="flex w-full max-w-full flex-nowrap overflow-x-auto rounded-xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:w-auto xl:overflow-visible dark:bg-discord-dark/50 self-start xl:self-auto">
-            <button
-              onClick={() => setActiveTab('friends')}
-              className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'friends'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Tất cả bạn bè ({friends.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('groups')}
-              className={`shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'groups'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Nhóm ({groups.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`relative shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'pending'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Lời mời kết bạn
-              {pending.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
-                  {pending.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('group_invitations')}
-              className={`relative shrink-0 whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                activeTab === 'group_invitations'
-                  ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-discord-muted hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              Lời mời vào nhóm
-              {pendingInvitations.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center animate-pulse">
-                  {pendingInvitations.length}
-                </span>
-              )}
+            <button type="button" onClick={() => setActiveTab('suggestions')} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700" aria-label="Tìm bạn mới" title="Tìm bạn mới">
+              <UserPlus className="h-5 w-5" />
             </button>
           </div>
+          <p className="mb-0 mt-2 text-xs text-slate-500 dark:text-discord-muted">Bạn bè, nhóm và lời mời của bạn.</p>
+        </div>
+
+        <div className="border-b border-[#dbe4ff] p-4 dark:border-[#2a3348]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm tên, email hoặc nhóm..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-indigo-500/10" />
+            {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700 dark:hover:text-white" aria-label="Xóa tìm kiếm"><X className="h-4 w-4" /></button>}
           </div>
-        </header>
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Danh mục bạn bè">
+          {friendTabs.map((tab) => {
+            const TabIcon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${isActive ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100 dark:bg-zinc-800 dark:text-indigo-200 dark:ring-zinc-700' : 'text-slate-600 hover:bg-white/65 hover:text-slate-950 dark:text-zinc-300 dark:hover:bg-zinc-800/70 dark:hover:text-white'}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300' : 'bg-white/65 text-slate-500 dark:bg-zinc-900/60 dark:text-zinc-400'}`}><TabIcon className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-bold">{tab.label}</strong><span className="mt-0.5 block truncate text-[11px] font-medium text-slate-400 dark:text-zinc-500">{tab.description}</span></span>
+                {tab.count > 0 && <span className={`flex min-w-6 items-center justify-center rounded-full px-1.5 py-1 text-[10px] font-black ${tab.key === 'requests' ? 'bg-rose-500 text-white' : isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200' : 'bg-white text-slate-500 dark:bg-zinc-900 dark:text-zinc-400'}`}>{tab.count > 99 ? '99+' : tab.count}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      </section>
+
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-24 md:p-7 md:pb-10">
+        <div className="mx-auto w-full max-w-[1100px] space-y-5">
+          <header className="space-y-4 md:hidden">
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-left"><p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Danh bạ NexTalk</p><h1 className="mb-0 mt-1 text-2xl font-black text-slate-950 dark:text-white">Kết nối</h1></div>
+              <button type="button" onClick={() => setActiveTab('suggestions')} className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white"><UserPlus className="h-5 w-5" /></button>
+            </div>
+            <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tìm tên, email hoặc nhóm..." className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900" />{searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X className="h-4 w-4" /></button>}</div>
+            <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {friendTabs.map((tab) => { const TabIcon = tab.icon; return <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold ${activeTab === tab.key ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200' : 'text-slate-500 dark:text-zinc-400'}`}><TabIcon className="h-4 w-4" />{tab.label}{tab.count > 0 && <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] dark:bg-zinc-800">{tab.count}</span>}</button>; })}
+            </div>
+          </header>
 
         {(storeError || groupError || chatRequestError) && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm text-left flex items-center gap-2">
@@ -402,11 +351,10 @@ export const Friends = () => {
           ) : activeTab === 'friends' ? (
             <div className="space-y-4">
               <div className="flex items-end justify-between text-left">
-                <div><h2 className="m-0 text-2xl font-black text-slate-950 dark:text-white">Tất cả bạn bè</h2><p className="mt-1 text-sm text-slate-500">{visibleFriends.length} kết nối {searchQuery ? 'phù hợp tìm kiếm' : 'trong danh sách của bạn'}.</p></div>
-                <button onClick={() => navigate('/chat')} className="hidden items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex"><UserPlus className="h-4 w-4"/> Thêm bạn mới</button>
+                <div><h2 className="m-0 text-lg font-black text-slate-950 dark:text-white">Tất cả bạn bè</h2><p className="mt-1 text-xs text-slate-500">{visibleFriends.length} kết nối {searchQuery ? 'phù hợp tìm kiếm' : 'trong danh sách của bạn'}.</p></div>
               </div>
               {visibleFriends.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
+                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-zinc-800 dark:bg-discord-mid">
                   <p className="text-gray-500 dark:text-discord-muted m-0">{searchQuery ? 'Không tìm thấy bạn bè phù hợp.' : 'Chưa có bạn bè.'}</p>
                   <button
                     onClick={() => navigate('/chat')}
@@ -417,11 +365,11 @@ export const Friends = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {visibleFriends.map((friend) => (
                     <div
                       key={friend.id}
-                      className="nextalk-soft-card group relative overflow-hidden rounded-2xl border border-white/70 p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_16px_35px_rgba(79,70,229,0.12)] dark:border-zinc-800 dark:hover:border-indigo-500/30"
+                      className="group flex min-h-[78px] items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-200 hover:bg-indigo-50/30 dark:border-zinc-800 dark:bg-discord-mid dark:hover:border-indigo-500/30 dark:hover:bg-indigo-500/5"
                     >
                       <div className="relative shrink-0">
                         {friend.avatarUrl ? (
@@ -448,10 +396,10 @@ export const Friends = () => {
                         <p className="text-xs text-gray-550 dark:text-discord-muted truncate mt-0.5">
                           {friend.status === 'OFFLINE' && friend.lastSeen ? (
                             <span className="text-gray-400 dark:text-discord-muted text-[11px]">
-                              Offline - Last seen {formatRelativeTime(friend.lastSeen)}
+                              Ngoại tuyến · {formatRelativeTime(friend.lastSeen)}
                             </span>
                           ) : (
-                            friend.bio || 'No status written.'
+                            friend.bio || 'Chưa có trạng thái'
                           )}
                         </p>
                       </div>
@@ -478,17 +426,17 @@ export const Friends = () => {
                           )}
                         </button>
                       </div>
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-transform group-hover:scale-x-100" />
                     </div>
                   ))}
                 </div>
               )}
             </div>
           ) : activeTab === 'groups' ? (
-            <div className="space-y-3">
-              {groups.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-                  <p className="text-gray-500 dark:text-discord-muted m-0">Bạn chưa tham gia nhóm nào.</p>
+            <div className="space-y-4">
+              <div className="text-left"><h2 className="m-0 text-lg font-black text-slate-950 dark:text-white">Nhóm của bạn</h2><p className="mt-1 text-xs text-slate-500">{visibleGroups.length} nhóm {searchQuery ? 'phù hợp tìm kiếm' : 'đang tham gia'}.</p></div>
+              {visibleGroups.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-zinc-800 dark:bg-discord-mid">
+                  <p className="text-gray-500 dark:text-discord-muted m-0">{searchQuery ? 'Không tìm thấy nhóm phù hợp.' : 'Bạn chưa tham gia nhóm nào.'}</p>
                   <button
                     onClick={() => navigate('/chat')}
                     className="mt-3 inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold text-white bg-indigo-600 dark:bg-discord-blurple hover:opacity-90 transition-all duration-250"
@@ -498,11 +446,11 @@ export const Friends = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {groups.map((group) => (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {visibleGroups.map((group) => (
                     <div
                       key={group.id}
-                      className="nextalk-soft-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                      className="flex min-h-[78px] items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-200 hover:bg-indigo-50/30 dark:border-zinc-800 dark:bg-discord-mid dark:hover:border-indigo-500/30 dark:hover:bg-indigo-500/5"
                     >
                       <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
                         {group.name?.charAt(0)?.toUpperCase() ?? '#'}
@@ -511,7 +459,7 @@ export const Friends = () => {
                       <div className="flex-1 min-w-0 text-left">
                         <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{group.name}</h4>
                         <p className="text-xs text-gray-550 dark:text-discord-muted truncate mt-0.5">
-                          {group.memberCount} thành viên - Chủ nhóm: {group.ownerUsername || 'Không rõ'}
+                          {group.memberCount} thành viên · Chủ nhóm: {group.ownerUsername || 'Không rõ'}
                         </p>
                       </div>
 
@@ -532,137 +480,41 @@ export const Friends = () => {
                 </div>
               )}
             </div>
-          ) : activeTab === 'pending' ? (
-            <div className="space-y-3">
-              {pending.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-                  <p className="text-gray-500 dark:text-discord-muted m-0">Không có yêu cầu kết bạn nào đang chờ xử lý.</p>
+          ) : activeTab === 'requests' ? (
+            <div className="space-y-4">
+              <div className="text-left"><h2 className="m-0 text-lg font-black text-slate-950 dark:text-white">Lời mời</h2><p className="mt-1 text-xs text-slate-500">Xử lý lời mời kết bạn và lời mời tham gia nhóm.</p></div>
+
+              <div className="flex items-center gap-3"><h3 className="m-0 text-sm font-bold text-slate-700 dark:text-zinc-200">Kết bạn</h3><div className="h-px flex-1 bg-slate-200 dark:bg-zinc-800" /></div>
+              {visiblePending.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-7 text-center dark:border-zinc-800 dark:bg-discord-mid">
+                  <p className="m-0 text-sm text-gray-500 dark:text-discord-muted">{searchQuery ? 'Không tìm thấy lời mời kết bạn phù hợp.' : 'Không có lời mời kết bạn nào.'}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pending.map((req) => (
-                    <div
-                      key={req.id}
-                      className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4"
-                    >
-                      {req.avatarUrl ? (
-                        <img
-                          src={req.avatarUrl}
-                          alt={req.username}
-                          className="w-11 h-11 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-11 h-11 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-md shrink-0">
-                          {req.username?.charAt(0)?.toUpperCase() ?? '?'}
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0 text-left">
-                        <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{req.username}</h4>
-                        <p className="text-xs text-gray-500 dark:text-discord-muted truncate mt-0.5">Đã gửi lời mời kết bạn</p>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => handleAccept(req.id)}
-                          disabled={actionLoadingId === req.id}
-                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50"
-                          title="Chấp nhận"
-                        >
-                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đồng ý'}
-                        </button>
-                        <button
-                          onClick={() => handleReject(req.id)}
-                          disabled={actionLoadingId === req.id}
-                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:scale-[0.98] disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                          title="Từ chối"
-                        >
-                          {actionLoadingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Từ chối'}
-                        </button>
+                  {visiblePending.map((req) => (
+                    <div key={req.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-discord-mid">
+                      {req.avatarUrl ? <img src={req.avatarUrl} alt={req.username} className="h-11 w-11 shrink-0 rounded-full border border-gray-200 object-cover dark:border-zinc-800" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-650 text-md font-bold text-white dark:bg-discord-blurple">{req.username?.charAt(0)?.toUpperCase() ?? '?'}</div>}
+                      <div className="min-w-0 flex-1 text-left"><h4 className="m-0 truncate font-bold text-gray-950 dark:text-white">{req.username}</h4><p className="mt-0.5 truncate text-xs text-gray-500 dark:text-discord-muted">Muốn kết nối với bạn</p></div>
+                      <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
+                        <button onClick={() => handleAccept(req.id)} disabled={actionLoadingId === req.id} className="inline-flex min-w-[86px] flex-1 items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50 sm:flex-none">{actionLoadingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Đồng ý'}</button>
+                        <button onClick={() => handleReject(req.id)} disabled={actionLoadingId === req.id} className="inline-flex min-w-[86px] flex-1 items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700">Từ chối</button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-              {suggestions && suggestions.length > 0 && (
-                <div className="mt-8">
-                  <div className="flex items-center gap-3 mb-4">
-                    <h3 className="font-bold text-gray-950 dark:text-white text-lg m-0">Những người bạn có thể biết</h3>
-                    <div className="h-px flex-1 bg-gray-200 dark:bg-zinc-800"></div>
-                  </div>
-                  <div className="space-y-3">
-                    {suggestions.map((suggestion) => (
-                      <div
-                        key={suggestion.id}
-                        className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4 hover:shadow-md transition"
-                      >
-                        {suggestion.avatarUrl ? (
-                          <img
-                            src={suggestion.avatarUrl}
-                            alt={suggestion.username}
-                            className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-indigo-650 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
-                            {suggestion.username?.charAt(0)?.toUpperCase() ?? '?'}
-                          </div>
-                        )}
 
-                        <div className="flex-1 min-w-0 text-left">
-                          <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{suggestion.username}</h4>
-                          <p className="text-sm text-gray-550 dark:text-discord-muted truncate mt-0.5 flex items-center gap-1.5">
-                            <Users className="w-4 h-4" />
-                            Có {suggestion.mutualFriendsCount} bạn chung
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {suggestion.isRequestSent ? (
-                            <button
-                              onClick={() => handleCancelSuggestionRequest(suggestion.id)}
-                              disabled={actionLoadingId === suggestion.id}
-                              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-red-50 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-red-500/10 dark:hover:text-red-400 active:scale-[0.98] disabled:opacity-50 border border-transparent hover:border-red-200 dark:hover:border-red-500/20"
-                            >
-                              {actionLoadingId === suggestion.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                                <>
-                                  <X className="w-4 h-4" />
-                                  Hủy yêu cầu
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleSendSuggestionRequest(suggestion.id)}
-                              disabled={actionLoadingId === suggestion.id}
-                              className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-lg bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 active:scale-[0.98] disabled:opacity-50 border border-indigo-200 dark:border-indigo-500/20"
-                            >
-                              {actionLoadingId === suggestion.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                                <>
-                                  <UserPlus className="w-4 h-4" />
-                                  Thêm bạn bè
-                                </>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : activeTab === 'group_invitations' ? (
-            <div className="space-y-3">
-              {pendingInvitations.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-discord-mid border border-gray-150 dark:border-zinc-850 rounded-3xl p-6">
-                  <p className="text-gray-500 dark:text-discord-muted m-0">Không có lời mời vào nhóm nào.</p>
+              <div className="flex items-center gap-3 pt-3"><h3 className="m-0 text-sm font-bold text-slate-700 dark:text-zinc-200">Mời vào nhóm</h3><div className="h-px flex-1 bg-slate-200 dark:bg-zinc-800" /></div>
+              {visibleGroupInvitations.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-7 text-center dark:border-zinc-800 dark:bg-discord-mid">
+                  <p className="m-0 text-sm text-gray-500 dark:text-discord-muted">{searchQuery ? 'Không tìm thấy lời mời nhóm phù hợp.' : 'Không có lời mời vào nhóm nào.'}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pendingInvitations.map((invite) => (
+                  {visibleGroupInvitations.map((invite) => (
                     <div
                       key={invite.id}
-                      className="bg-white dark:bg-discord-mid rounded-2xl p-4 border border-gray-150 dark:border-zinc-850 shadow-sm flex items-center gap-4"
+                      className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-discord-mid"
                     >
                       {invite.groupAvatarUrl ? (
                         <img
@@ -683,11 +535,11 @@ export const Friends = () => {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
                         <button
                           onClick={() => handleAcceptGroupInvite(invite.id)}
                           disabled={actionLoadingId === invite.id}
-                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50"
+                          className="inline-flex min-w-[86px] flex-1 items-center justify-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 sm:flex-none"
                           title="Chấp nhận"
                         >
                           {actionLoadingId === invite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đồng ý'}
@@ -695,7 +547,7 @@ export const Friends = () => {
                         <button
                           onClick={() => handleRejectGroupInvite(invite.id)}
                           disabled={actionLoadingId === invite.id}
-                          className="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:scale-[0.98] disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                          className="inline-flex min-w-[86px] flex-1 items-center justify-center rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 active:scale-[0.98] disabled:opacity-50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                           title="Từ chối"
                         >
                           {actionLoadingId === invite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Từ chối'}
@@ -706,39 +558,37 @@ export const Friends = () => {
                 </div>
               )}
             </div>
+          ) : activeTab === 'sent' || activeTab === 'suggestions' ? (
+            <div className="space-y-4">
+              <div className="text-left">
+                <h2 className="m-0 text-lg font-black text-slate-950 dark:text-white">{activeTab === 'sent' ? 'Lời mời đã gửi' : 'Khám phá'}</h2>
+                <p className="mt-1 text-xs text-slate-500">{activeTab === 'sent' ? 'Những lời mời đang chờ người khác phản hồi.' : 'Những người bạn có thể biết trên NexTalk.'}</p>
+              </div>
+              {visibleActiveSuggestions.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-zinc-800 dark:bg-discord-mid">
+                  <p className="m-0 text-sm text-gray-500 dark:text-discord-muted">{searchQuery ? 'Không tìm thấy kết quả phù hợp.' : activeTab === 'sent' ? 'Bạn chưa gửi lời mời nào.' : 'Chưa có gợi ý kết bạn.'}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {visibleActiveSuggestions.map((suggestion) => (
+                    <div key={suggestion.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-200 sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-discord-mid dark:hover:border-indigo-500/30">
+                      {suggestion.avatarUrl ? <img src={suggestion.avatarUrl} alt={suggestion.username} className="h-12 w-12 shrink-0 rounded-full border border-gray-200 object-cover dark:border-zinc-800" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-650 text-lg font-bold text-white dark:bg-discord-blurple">{suggestion.username?.charAt(0)?.toUpperCase() ?? '?'}</div>}
+                      <div className="min-w-0 flex-1 text-left"><h4 className="m-0 truncate font-bold text-gray-950 dark:text-white">{suggestion.username}</h4><p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-gray-550 dark:text-discord-muted"><Users className="h-4 w-4" />Có {suggestion.mutualFriendsCount} bạn chung</p></div>
+                      <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
+                        {suggestion.isRequestSent ? (
+                          <button onClick={() => handleCancelSuggestionRequest(suggestion.id)} disabled={actionLoadingId === suggestion.id} className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-red-500/10 dark:hover:text-red-400">{actionLoadingId === suggestion.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4" />Hủy lời mời</>}</button>
+                        ) : (
+                          <button onClick={() => handleSendSuggestionRequest(suggestion.id)} disabled={actionLoadingId === suggestion.id} className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 disabled:opacity-50 sm:flex-none dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20">{actionLoadingId === suggestion.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4" />Kết bạn</>}</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : null}
         </div>
-
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-          <div className="relative overflow-hidden rounded-3xl bg-indigo-600 p-6 text-left text-white shadow-[0_22px_50px_rgba(79,70,229,0.22)]">
-            <div className="relative z-10 max-w-sm">
-              <h3 className="m-0 text-xl font-black">Sẵn sàng kết nối?</h3>
-              <p className="mt-2 text-sm font-medium text-indigo-50">
-                Bắt đầu cuộc trò chuyện mới với bạn bè của bạn ngay hôm nay.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate('/chat')}
-                className="mt-5 rounded-xl bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50"
-              >
-                Nhắn tin ngay
-              </button>
-            </div>
-            <MessageSquare className="absolute -bottom-7 right-8 h-28 w-28 rotate-12 text-white/12" />
-          </div>
-
-          <div className="nextalk-soft-card flex items-center gap-4 rounded-3xl bg-[#dfeaff] p-6 text-left dark:bg-indigo-500/10">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200">
-              <Sparkles className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="m-0 text-xl font-black text-slate-950 dark:text-white">NexTalk AI</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
-                Gợi ý người bạn có cùng sở thích và giúp bạn bắt đầu cuộc trò chuyện tự nhiên hơn.
-              </p>
-            </div>
-          </div>
-        </section>
+        </div>
       </main>
       <ConfirmDialog
         isOpen={Boolean(removeFriendConfirm)}

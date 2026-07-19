@@ -73,7 +73,8 @@
 }
 
 .nextalk-chat-shell > aside,
-.nextalk-friends-shell > aside {
+.nextalk-friends-shell > aside,
+.nextalk-profile-shell > aside {
   background: linear-gradient(180deg, #dce9ff 0%, #eef4ff 100%) !important;
   border-color: #cbdcff !important;
 }
@@ -135,7 +136,8 @@
 }
 
 .dark .nextalk-chat-shell > aside,
-.dark .nextalk-friends-shell > aside {
+.dark .nextalk-friends-shell > aside,
+.dark .nextalk-profile-shell > aside {
   background: linear-gradient(180deg, #101827 0%, #121a2b 100%) !important;
   border-color: #24304a !important;
 }

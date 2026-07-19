@@ -52,7 +52,7 @@ import InviteGroupMembersModal from '../components/chat/InviteGroupMembersModal'
 import GroupApprovalsModal from '../components/chat/GroupApprovalsModal';
 import { ChannelTaskNotificationsPanel } from '../components/chat/ChannelTaskNotificationsPanel';
 import { ConversationList } from '../components/chat/ConversationList';
-import { SidebarNavigation } from '../components/chat/SidebarNavigation';
+import DesktopSidebar from '../components/common/DesktopSidebar';
 import { SidebarHeader } from '../components/chat/SidebarHeader';
 import { SidebarSearch } from '../components/chat/SidebarSearch';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
@@ -217,9 +217,9 @@ export const Chat = () => {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
 
-  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, pendingInvitations, fetchPendingInvitations } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, fetchPendingInvitations } = useGroupStore();
   const { fetchPacks: fetchStickers } = useStickerStore();
-  const { friends, pending, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
+  const { friends, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const { initiateCall, joinVoiceChannel, activeVoiceChannelId } = useCallStore();
 
   const {
@@ -3264,9 +3264,9 @@ export const Chat = () => {
       )}
 
       {/* Column 1: Sidebar Navigation */}
-      <SidebarNavigation
-        pendingCount={pending.length + pendingInvitations.length}
-        handleLogout={handleLogout}
+      <DesktopSidebar
+        activePage="chat"
+        onLogout={handleLogout}
         isLoggingOut={isLoggingOut}
       />
 

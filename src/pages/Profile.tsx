@@ -9,6 +9,7 @@ import EditProfileModal from '../components/profile/EditProfileModal';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import ThemeToggle from '../components/common/ThemeToggle';
 import MobileBottomNav from '../components/common/MobileBottomNav';
+import DesktopSidebar from '../components/common/DesktopSidebar';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { userService } from '../services/userService';
 import { useChatStore } from '../store/chatStore';
@@ -119,14 +120,16 @@ export const Profile = () => {
   };
 
   return (
-    <div className="relative h-dvh w-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-gradient-animate-light px-4 pb-24 pt-20 text-gray-900 transition-colors duration-300 dark:bg-gradient-animate dark:text-discord-text md:px-8 md:pb-16 md:pt-20">
+    <div className="nextalk-profile-shell flex h-dvh w-screen overflow-hidden text-gray-900 transition-colors duration-300 dark:text-discord-text">
+      <DesktopSidebar activePage="profile" onLogout={() => void handleLogout()} isLoggingOut={isLoggingOut} />
+      <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-gradient-animate-light px-4 pb-24 pt-20 dark:bg-gradient-animate md:px-8 md:pb-16 md:pt-20">
 
       {/* Background glow ornaments */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-indigo-500/20 dark:bg-indigo-500/10 blur-[80px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-80 h-80 rounded-full bg-purple-500/20 dark:bg-purple-500/10 blur-[100px] pointer-events-none" />
 
       {/* Floating Header controls */}
-      <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
+      <div className="absolute top-6 left-6 right-6 z-10 flex items-center justify-between md:hidden">
         <button
           onClick={() => navigate('/chat')}
           className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300 transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
@@ -738,6 +741,7 @@ export const Profile = () => {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+      </main>
     </div>
   );
 };
