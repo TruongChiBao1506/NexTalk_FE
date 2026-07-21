@@ -1,5 +1,6 @@
 import { Loader2, Plus, Cloud } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
+import { useState } from 'react';
 
 interface SidebarHeaderProps {
   isConnecting: boolean;
@@ -15,6 +16,15 @@ export const SidebarHeader = ({
   setShowCreateGroupModal,
 }: SidebarHeaderProps) => {
   const getOrCreateCloudConversation = useChatStore(state => state.getOrCreateCloudConversation);
+  const [isCloudLoading, setIsCloudLoading] = useState(false);
+  const handleCloudClick = async () => {
+    try {
+      setIsCloudLoading(true);
+      await getOrCreateCloudConversation();
+    } finally {
+      setIsCloudLoading(false);
+    }
+  };
 
   return (
     <div className="h-[60px] flex items-center justify-between px-4 shrink-0 border-b border-indigo-100/70 dark:border-zinc-800/60">
@@ -35,11 +45,12 @@ export const SidebarHeader = ({
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => void getOrCreateCloudConversation()}
-          className="w-8 h-8 rounded-xl bg-indigo-100/80 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 transition-all duration-200"
+          onClick={handleCloudClick}
+          disabled={isCloudLoading}
+          className="w-8 h-8 rounded-xl bg-indigo-100/80 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-wait"
           title="Cloud của tôi"
         >
-          <Cloud className="w-4 h-4" />
+          {isCloudLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
         </button>
         <button
           type="button"

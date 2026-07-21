@@ -78,7 +78,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   const lastSeenText = useRelativeTime(activeFriend?.lastSeen);
   const isChungChannel = !activeChannel || activeChannel.name?.toLowerCase() === 'chung' || activeChannel.name?.toLowerCase() === 'general';
-  const shouldShowCallButtons = activeConversation && activeCallTarget && activeFriend?.email !== 'moderator@nextalk.local' && (
+  const shouldShowCallButtons = activeConversation && activeConversation.type !== 'CLOUD' && activeCallTarget && activeFriend?.email !== 'moderator@nextalk.local' && (
     !isGroupConversation || (isGroupModerator && isChungChannel)
   );
 

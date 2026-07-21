@@ -3394,7 +3394,7 @@ export const Chat = () => {
             
 
 
-            {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
+            {!isGroupConversation && activeConversation.type !== 'CLOUD' && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
               <StrangerWarningBanner
                 messagingRestricted={activePrivateChatRequiresFriendship}
                 onAddFriend={() => handleSendFriendRequestFromSearch(activeFriend.id)}
