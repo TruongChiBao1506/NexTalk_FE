@@ -395,9 +395,9 @@ export const Friends = () => {
                       <div className="flex-1 min-w-0 text-left">
                         <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{friend.username}</h4>
                         <p className="text-xs text-gray-550 dark:text-discord-muted truncate mt-0.5">
-                          {friend.status === 'OFFLINE' && friend.lastSeen ? (
+                          {friend.status === 'OFFLINE' ? (
                             <span className="text-gray-400 dark:text-discord-muted text-[11px]">
-                              Ngoại tuyến · {formatRelativeTime(friend.lastSeen)}
+                              {friend.lastSeen ? `Offline · ${formatRelativeTime(friend.lastSeen)}` : 'Offline'}
                             </span>
                           ) : (
                             friend.bio || 'Chưa có trạng thái'
