@@ -4,6 +4,7 @@ import { MessageSquare, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Sea
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
+import { GroupAvatar } from '../components/chat/GroupAvatar';
 import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -452,9 +453,11 @@ export const Friends = () => {
                       key={group.id}
                       className="flex min-h-[78px] items-center gap-3.5 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-200 hover:bg-indigo-50/30 dark:border-zinc-800 dark:bg-discord-mid dark:hover:border-indigo-500/30 dark:hover:bg-indigo-500/5"
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-discord-blurple text-white font-bold flex items-center justify-center text-lg shrink-0">
-                        {group.name?.charAt(0)?.toUpperCase() ?? '#'}
-                      </div>
+                      <GroupAvatar
+                        conversation={group}
+                        size={48}
+                        className="!rounded-2xl border-2 border-indigo-50 dark:border-zinc-800"
+                      />
 
                       <div className="flex-1 min-w-0 text-left">
                         <h4 className="font-bold text-gray-950 dark:text-white truncate m-0">{group.name}</h4>
