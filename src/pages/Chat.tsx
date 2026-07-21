@@ -25,7 +25,7 @@ import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
-  Shield, Lock, Headphones, Mic, BellRing, Bell, CheckCircle2, Copy, Trash2, Undo2, UploadCloud
+  Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2, UploadCloud
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CallOverlay from '../components/chat/CallOverlay';
