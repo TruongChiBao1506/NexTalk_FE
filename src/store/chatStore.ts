@@ -159,6 +159,7 @@ interface ChatState {
   reloadMessageDrafts: () => void;
   clearUnreadMarker: (conversationId: string) => void;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
+  getOrCreateCloudConversation: () => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   subscribeToGroupVoice: (groupId: string) => void;
@@ -636,6 +637,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to get or create private conversation:', err);
+    }
+    return null;
+  },
+
+  getOrCreateCloudConversation: async () => {
+    try {
+      const existing = get().conversations.find((conversation) =>
+        conversation.type === 'CLOUD'
+      );
+
+      if (existing) {
+        await get().selectConversation(existing.id);
+        return existing;
+      }
+
+      const response = await conversationService.getOrCreateCloudConversation();
+      if (response.success && response.data) {
+        const conversation = response.data;
+
+        set((state) => {
+          const exists = state.conversations.some((c) => c.id === conversation.id);
+          const updatedList = exists
+            ? state.conversations
+            : sortConversations([conversation, ...state.conversations]);
+          return {
+            conversations: updatedList,
+          };
+        });
+
+        await get().selectConversation(conversation.id);
+        return conversation;
+      }
+    } catch (err) {
+      console.error('Failed to get or create cloud conversation:', err);
     }
     return null;
   },

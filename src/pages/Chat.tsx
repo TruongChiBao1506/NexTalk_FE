@@ -2654,6 +2654,9 @@ export const Chat = () => {
     if (conversation.type === 'GROUP') {
       return groups.find((group) => getGroupConversationId(group) === conversation.id)?.name || conversation.name || 'Nhóm chat';
     }
+    if (conversation.type === 'CLOUD') {
+      return conversation.name || 'Cloud của tôi';
+    }
     const friend = getFriendInfo(conversation);
     return conversation.nicknames?.[friend.id] || friend.username;
   };
@@ -2853,6 +2856,7 @@ export const Chat = () => {
 
   const getConversationInfoSubtitle = () => {
     if (!activeConversation) return '';
+    if (activeConversation.type === 'CLOUD') return 'Không gian lưu trữ cá nhân';
     if (isGroupConversation) {
       const memberCount = activeGroup?.memberCount ?? activeConversation.members.length;
       return `${memberCount} thành viên`;

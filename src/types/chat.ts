@@ -2,7 +2,7 @@ import type { User } from './auth';
 
 export interface ConversationResponse {
   id: string;
-  type: 'PRIVATE' | 'GROUP';
+  type: 'PRIVATE' | 'GROUP' | 'CLOUD';
   name: string | null;
   canSendMessages?: boolean;
   blockedByMe?: boolean;

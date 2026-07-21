@@ -8,6 +8,11 @@ export const conversationService = {
     return response.data;
   },
 
+  async getOrCreateCloudConversation(): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.post<ApiResponse<ConversationResponse>>('/conversations/cloud');
+    return response.data;
+  },
+
   async getUserConversations(): Promise<ApiResponse<ConversationResponse[]>> {
     const response = await apiClient.get<ApiResponse<ConversationResponse[]>>('/conversations');
     return response.data;

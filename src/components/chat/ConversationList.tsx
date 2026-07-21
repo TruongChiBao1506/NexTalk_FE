@@ -30,6 +30,7 @@
   PinOff,
   Link,
   BellRing,
+  Cloud,
 } from "lucide-react";
 import React from "react";
 import { ChatListSkeleton } from "../common/Skeleton";
@@ -590,7 +591,11 @@ export const ConversationList = ({
               >
                 {/* Avatar with status dot */}
                 <div className="relative shrink-0">
-                  {friend.avatarUrl ? (
+                  {c.type === 'CLOUD' ? (
+                    <div className="w-12 h-12 rounded-full bg-indigo-500 text-white font-bold flex items-center justify-center">
+                      <Cloud className="w-6 h-6" />
+                    </div>
+                  ) : friend.avatarUrl ? (
                     <img
                       src={friend.avatarUrl}
                       alt={friendDisplayName}
@@ -601,7 +606,7 @@ export const ConversationList = ({
                       {friendDisplayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  {friend.status !== 'HIDDEN' && <span
+                  {friend.status !== 'HIDDEN' && c.type !== 'CLOUD' && <span
                     className={`absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-discord-mid ${
                       friend.status === "ONLINE"
                         ? "bg-emerald-500"
