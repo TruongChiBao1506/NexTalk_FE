@@ -112,11 +112,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               ) : activeFriend && activeFriend.status !== 'HIDDEN' ? (
                 <>
                   <span className={`w-1.5 h-1.5 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-550'}`} />
-                  <span className="capitalize truncate">
-                    {activeFriend.status.toLowerCase()}
-                    {activeFriend.status === 'OFFLINE' && activeFriend.lastSeen && (
+                  <span className="truncate">
+                    {activeFriend.status === 'ONLINE' ? 'Online' : activeFriend.status === 'AWAY' ? 'Away' : 'Offline'}
+                    {activeFriend.status === 'OFFLINE' && (
                       <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1 normal-case font-normal">
-                        — Last seen {formatRelativeTime(activeFriend.lastSeen)}
+                        {activeFriend.lastSeen ? `· ${formatRelativeTime(activeFriend.lastSeen)}` : ''}
                       </span>
                     )}
                   </span>
