@@ -221,34 +221,54 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [dismissedUrls, setDismissedUrls] = React.useState<Set<string>>(new Set());
 
   const currentEditorText = editor ? editor.getText() : inputMessage;
+  const activeUrlRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const url = extractFirstUrl(currentEditorText);
     if (!url || dismissedUrls.has(url)) {
+      activeUrlRef.current = null;
       setLiveLinkPreview(null);
       setIsLoadingLinkPreview(false);
       return;
     }
-    if (liveLinkPreview?.url === url) return;
+    if (activeUrlRef.current === url && (liveLinkPreview || isLoadingLinkPreview)) {
+      return;
+    }
+
+    activeUrlRef.current = url;
+    setIsLoadingLinkPreview(true);
 
     const timer = setTimeout(async () => {
-      setIsLoadingLinkPreview(true);
       try {
         const res = await messageService.fetchLinkPreview(url);
-        if (res.success && res.data && (res.data.title || res.data.description || res.data.image)) {
-          setLiveLinkPreview(res.data);
-        } else {
-          setLiveLinkPreview(null);
+        if (activeUrlRef.current === url) {
+          if (res.success && res.data && (res.data.title || res.data.description || res.data.image || res.data.siteName)) {
+            setLiveLinkPreview(res.data);
+          } else {
+            setLiveLinkPreview({
+              url,
+              title: url.replace(/^https?:\/\//i, ''),
+              siteName: url.replace(/^https?:\/\//i, '').split('/')[0]
+            });
+          }
         }
       } catch {
-        setLiveLinkPreview(null);
+        if (activeUrlRef.current === url) {
+          setLiveLinkPreview({
+            url,
+            title: url.replace(/^https?:\/\//i, ''),
+            siteName: url.replace(/^https?:\/\//i, '').split('/')[0]
+          });
+        }
       } finally {
-        setIsLoadingLinkPreview(false);
+        if (activeUrlRef.current === url) {
+          setIsLoadingLinkPreview(false);
+        }
       }
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [currentEditorText, dismissedUrls, liveLinkPreview?.url]);
+  }, [currentEditorText, dismissedUrls]);
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -916,13 +936,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           />
 
           <div className="flex items-center shrink-0 pb-1 pl-1">
+            {/* Emoji smile face */}
             <button
               type="button"
-              onClick={() => setShowToolbar(!showToolbar)}
-              className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-discord-blurple transition"
-              title="Mở thanh công cụ"
+              disabled={!canSendInActiveConversation}
+              onClick={() => {
+                setEmojiStickerTab('emoji');
+                setIsEmojiStickerOpen((open) => !open);
+              }}
+              className={`p-1.5 rounded-lg transition disabled:opacity-45 disabled:hover:bg-transparent ${
+                isEmojiStickerOpen && emojiStickerTab === 'emoji'
+                  ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+              }`}
+              title="Emoji & Sticker"
             >
-              {showToolbar ? <MinusCircle className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+              <Smile className="w-5 h-5" />
             </button>
           </div>
 
@@ -966,40 +995,54 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 </div>
               </div>
             )}
-            <EditorContent
-              editor={editor}
-              className="nextalk-tiptap-input rounded-xl border border-slate-300 bg-white transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:border-zinc-700 dark:bg-discord-mid dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30"
-            />
+            <div className="relative min-w-0 flex-1">
+              <EditorContent
+                editor={editor}
+                className="nextalk-tiptap-input rounded-xl border border-slate-300 bg-white transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:border-zinc-700 dark:bg-discord-mid dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30 pr-8"
+              />
+              {Boolean(editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editor) {
+                      editor.commands.clearContent();
+                    }
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                  title="Xóa nội dung tin nhắn"
+                  aria-label="Xóa nội dung tin nhắn"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0 pb-1">
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
-              onClick={startVoiceRecording}
-              className="p-1.5 rounded-lg text-gray-500 transition hover:bg-gray-200/60 hover:text-rose-600 disabled:opacity-45 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-rose-300"
-              title="Ghi tin nhắn thoại"
-            >
-              {isUploadingVoice ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
-            </button>
+            <div className={`flex items-center gap-1 transition-all duration-300 ease-in-out overflow-hidden ${
+              Boolean((editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) || pendingAttachments.length > 0)
+                ? 'max-w-0 opacity-0 scale-90 pointer-events-none'
+                : 'max-w-[80px] opacity-100 scale-100'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setShowToolbar(!showToolbar)}
+                className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-discord-blurple transition"
+                title="Mở thanh công cụ"
+              >
+                {showToolbar ? <MinusCircle className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+              </button>
 
-            {/* Emoji smile face */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation}
-              onClick={() => {
-                setEmojiStickerTab('emoji');
-                setIsEmojiStickerOpen((open) => !open);
-              }}
-              className={`p-1.5 rounded-lg transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                isEmojiStickerOpen && emojiStickerTab === 'emoji'
-                  ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-              }`}
-              title="Emoji"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
+                onClick={startVoiceRecording}
+                className="p-1.5 rounded-lg text-gray-500 transition hover:bg-gray-200/60 hover:text-rose-600 disabled:opacity-45 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-rose-300"
+                title="Ghi tin nhắn thoại"
+              >
+                {isUploadingVoice ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
+              </button>
+            </div>
 
             {/* Unified composer action: like when empty, send when content exists. */}
             {(!inputMessage.trim() && pendingAttachments.length === 0) ? (

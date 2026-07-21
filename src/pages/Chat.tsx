@@ -1832,6 +1832,92 @@ export const Chat = () => {
     onSelectionUpdate: ({ editor: currentEditor }) => syncActiveFormats(currentEditor),
   }, [activeConversation?.id, messagePlaceholder]);
 
+  const RAW_URL_REGEX = /((?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?)/gi;
+
+  const linkifyRawText = (str: string): ReactNode[] => {
+    if (!str) return [];
+    const parts = str.split(RAW_URL_REGEX);
+    if (parts.length === 1) return [str];
+
+    return parts.map((part, index) => {
+      if (!part) return null;
+      const isUrl = /^((?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?)$/i.test(part);
+      if (isUrl) {
+        let href = part.trim().replace(/[.,;)]+$/, '');
+        if (!href.startsWith('http://') && !href.startsWith('https://')) {
+          href = 'https://' + href;
+        }
+        return (
+          <a
+            key={`raw-url-${index}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-bold underline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 break-all cursor-pointer transition-colors"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    }).filter(Boolean);
+  };
+
+  const linkifyHtmlTextNodes = (html: string): string => {
+    if (!html || typeof window === 'undefined') return html;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      const walkNode = (node: Node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const elem = node as Element;
+          if (elem.tagName.toLowerCase() === 'a') return;
+          for (let i = 0; i < elem.childNodes.length; i++) {
+            walkNode(elem.childNodes[i]);
+          }
+        } else if (node.nodeType === Node.TEXT_NODE && node.nodeValue) {
+          const text = node.nodeValue;
+          const URL_REGEX = /((?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?)/gi;
+          if (URL_REGEX.test(text)) {
+            URL_REGEX.lastIndex = 0;
+            const container = doc.createElement('span');
+            const parts = text.split(URL_REGEX);
+            parts.forEach((part) => {
+              if (!part) return;
+              if (/^((?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?)$/i.test(part)) {
+                let href = part.trim().replace(/[.,;)]+$/, '');
+                if (!href.startsWith('http://') && !href.startsWith('https://')) {
+                  href = 'https://' + href;
+                }
+                const a = doc.createElement('a');
+                a.setAttribute('href', href);
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+                a.setAttribute('class', 'font-bold underline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 break-all cursor-pointer');
+                a.textContent = part;
+                container.appendChild(a);
+              } else {
+                container.appendChild(doc.createTextNode(part));
+              }
+            });
+            if (node.parentNode) {
+              node.parentNode.replaceChild(container, node);
+            }
+          }
+        }
+      };
+
+      for (let i = 0; i < doc.body.childNodes.length; i++) {
+        walkNode(doc.body.childNodes[i]);
+      }
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  };
+
   const renderInlineFormatting = (text: string) => {
     const nodes: ReactNode[] = [];
     const pattern = /(\[([^\]]+)]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|_([^_]+)_|~~([^~]+)~~|`([^`]+)`|<u>(.*?)<\/u>|<mark>(.*?)<\/mark>)/g;
@@ -1840,13 +1926,13 @@ export const Chat = () => {
 
     while ((match = pattern.exec(text)) !== null) {
       if (match.index > lastIndex) {
-        nodes.push(text.slice(lastIndex, match.index));
+        nodes.push(...linkifyRawText(text.slice(lastIndex, match.index)));
       }
 
       const key = `${match.index}-${match[0]}`;
       if (match[2] && match[3]) {
         nodes.push(
-          <a key={key} href={match[3]} target="_blank" rel="noopener noreferrer" className="underline font-semibold break-all">
+          <a key={key} href={match[3]} target="_blank" rel="noopener noreferrer" className="underline font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 break-all">
             {renderInlineFormatting(match[2])}
           </a>
         );
@@ -1868,10 +1954,10 @@ export const Chat = () => {
     }
 
     if (lastIndex < text.length) {
-      nodes.push(text.slice(lastIndex));
+      nodes.push(...linkifyRawText(text.slice(lastIndex)));
     }
 
-    return nodes.length > 0 ? nodes : text;
+    return nodes.length > 0 ? nodes : linkifyRawText(text);
   };
 
   const renderFormattedMessage = (content: string) => {
@@ -1930,8 +2016,8 @@ export const Chat = () => {
         <div
           className="m-0 whitespace-pre-wrap break-words ql-editor !p-0 !min-h-0"
           dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(content, {
-              ADD_ATTR: ['target', 'data-id', 'data-value']
+            __html: DOMPurify.sanitize(linkifyHtmlTextNodes(content), {
+              ADD_ATTR: ['target', 'data-id', 'data-value', 'rel', 'class', 'onclick']
             })
           }}
         />

@@ -474,3 +474,19 @@
   object-fit: contain !important;
   object-position: center center !important;
 }
+
+.ql-editor a,
+.nextalk-themed-bubble a {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.dark .ql-editor a,
+.dark .nextalk-themed-bubble a {
+  color: #60a5fa;
+  text-decoration: underline;
+  font-weight: 700;
+  word-break: break-all;
+}
