@@ -3382,43 +3382,13 @@ export const Chat = () => {
               isGroupModerator={canModerateActiveGroup}
               isTogglingTasks={isTogglingTasks}
               handleToggleTaskEnabled={handleToggleTaskEnabled}
+              channelView={channelView}
+              setChannelView={setChannelView}
+              taskUnreadCount={taskUnreadCount}
+              setTaskUnreadCount={setTaskUnreadCount}
             />
             
-            {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' && (
-              <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-discord-mid">
-                {(['chat', 'tasks', 'notifications'] as const).map((view) => (
-                  <button
-                    key={view}
-                    type="button"
-                    onClick={() => {
-                      setChannelView(view as 'chat' | 'tasks' | 'notifications');
-                      if (view === 'notifications') setTaskUnreadCount(0);
-                    }}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
-                      channelView === view
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
-                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {view === 'chat' ? (
-                        <MessageSquare className="h-4 w-4 shrink-0" />
-                      ) : view === 'tasks' ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      ) : (
-                        <Bell className="h-4 w-4 shrink-0" />
-                      )}
-                      {view === 'chat' ? 'Chat' : view === 'tasks' ? 'Tasks' : 'Thông báo'}
-                      {view === 'notifications' && taskUnreadCount > 0 && (
-                        <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-black text-white leading-none">
-                          {taskUnreadCount > 99 ? '99+' : taskUnreadCount}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+
 
             {!isGroupConversation && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
               <StrangerWarningBanner

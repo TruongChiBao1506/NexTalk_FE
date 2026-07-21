@@ -9,7 +9,9 @@ import {
   UserPlus,
   Pin,
   Info,
-  Users
+  Users,
+  CheckCircle2,
+  Bell
 } from 'lucide-react';
 import { useRelativeTime } from '../../hooks/useRelativeTime';
 
@@ -37,6 +39,10 @@ interface ChatHeaderProps {
   isGroupModerator?: boolean;
   isTogglingTasks?: boolean;
   handleToggleTaskEnabled?: () => void;
+  channelView?: 'chat' | 'tasks' | 'notifications';
+  setChannelView?: (view: 'chat' | 'tasks' | 'notifications') => void;
+  taskUnreadCount?: number;
+  setTaskUnreadCount?: (count: number) => void;
 }
 
 import { GroupAvatar } from './GroupAvatar';
@@ -58,6 +64,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   setIsPinnedPanelOpen,
   isConversationInfoOpen,
   setIsConversationInfoOpen,
+  channelView,
+  setChannelView,
+  taskUnreadCount,
+  setTaskUnreadCount,
   fetchPinnedMessages,
   canInviteToActiveGroup,
   setIsInviteMembersOpen,
@@ -193,6 +203,45 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           >
             <UserPlus className="w-4 h-4" />
           </button>
+        )}
+
+        {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' && setChannelView && (
+          <>
+            <button
+              onClick={() => {
+                setChannelView(channelView === 'tasks' ? 'chat' : 'tasks');
+                setIsSearchPanelOpen(false);
+                setIsPinnedPanelOpen(false);
+                setIsConversationInfoOpen(false);
+              }}
+              title="Tasks"
+              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
+                channelView === 'tasks' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
+              }`}
+            >
+              <CheckCircle2 className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => {
+                setChannelView(channelView === 'notifications' ? 'chat' : 'notifications');
+                if (setTaskUnreadCount) setTaskUnreadCount(0);
+                setIsSearchPanelOpen(false);
+                setIsPinnedPanelOpen(false);
+                setIsConversationInfoOpen(false);
+              }}
+              title="Thông báo"
+              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
+                channelView === 'notifications' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
+              }`}
+            >
+              <Bell className="h-5 w-5" />
+              {taskUnreadCount !== undefined && taskUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
+                  {taskUnreadCount > 99 ? '99+' : taskUnreadCount}
+                </span>
+              )}
+            </button>
+          </>
         )}
 
         {/* Pinned Messages Button */}
