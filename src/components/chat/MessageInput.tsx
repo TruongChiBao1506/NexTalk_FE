@@ -140,6 +140,22 @@ interface MessageInputProps {
   cancelVoiceRecording: () => void;
 }
 
+import { messageService } from '../../services/messageService';
+import type { LinkPreviewMetadata } from '../../types/chat';
+
+const URL_REGEX = /((?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?)/i;
+const extractFirstUrl = (text: string): string | null => {
+  if (!text) return null;
+  const cleanText = text.replace(/<[^>]*>/g, ' ');
+  const match = cleanText.match(URL_REGEX);
+  if (!match) return null;
+  let url = match[1].trim().replace(/[.,;)]+$/, '');
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  return url;
+};
+
 export const MessageInput: React.FC<MessageInputProps> = ({
   handleSendMessage,
   conversationInfoOffsetClass,
@@ -200,6 +216,40 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [previewModalUrl, setPreviewModalUrl] = React.useState<string | null>(null);
   const moreMenuRef = React.useRef<HTMLDivElement>(null);
 
+  const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
+  const [isLoadingLinkPreview, setIsLoadingLinkPreview] = React.useState(false);
+  const [dismissedUrls, setDismissedUrls] = React.useState<Set<string>>(new Set());
+
+  const currentEditorText = editor ? editor.getText() : inputMessage;
+
+  React.useEffect(() => {
+    const url = extractFirstUrl(currentEditorText);
+    if (!url || dismissedUrls.has(url)) {
+      setLiveLinkPreview(null);
+      setIsLoadingLinkPreview(false);
+      return;
+    }
+    if (liveLinkPreview?.url === url) return;
+
+    const timer = setTimeout(async () => {
+      setIsLoadingLinkPreview(true);
+      try {
+        const res = await messageService.fetchLinkPreview(url);
+        if (res.success && res.data && (res.data.title || res.data.description || res.data.image)) {
+          setLiveLinkPreview(res.data);
+        } else {
+          setLiveLinkPreview(null);
+        }
+      } catch {
+        setLiveLinkPreview(null);
+      } finally {
+        setIsLoadingLinkPreview(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [currentEditorText, dismissedUrls, liveLinkPreview?.url]);
+
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
@@ -257,6 +307,61 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       {/* Reply Preview */}
       {replyTo && (
         <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
+      )}
+
+      {/* Live Link Preview Bar (Zalo Style) */}
+      {(liveLinkPreview || isLoadingLinkPreview) && (
+        <div className="mb-2 overflow-hidden rounded-xl border border-gray-200 bg-gray-50/90 p-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/90 shadow-sm animate-fadeIn">
+          {isLoadingLinkPreview && !liveLinkPreview ? (
+            <div className="flex items-center gap-2.5 text-xs text-gray-500 dark:text-zinc-400 py-1">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+              <span>Đang tải xem trước liên kết...</span>
+            </div>
+          ) : liveLinkPreview ? (
+            <div className="relative flex items-start gap-3">
+              {liveLinkPreview.image ? (
+                <img
+                  src={liveLinkPreview.image}
+                  alt={liveLinkPreview.title || 'Link preview'}
+                  className="h-14 w-14 rounded-lg object-cover shrink-0 border border-gray-200 dark:border-zinc-700 bg-gray-200 dark:bg-zinc-800"
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                />
+              ) : (
+                <div className="h-12 w-12 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Link className="h-6 w-6" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1 pr-6">
+                {liveLinkPreview.title && (
+                  <div className="font-semibold text-gray-900 dark:text-white truncate text-xs sm:text-sm">
+                    {liveLinkPreview.title}
+                  </div>
+                )}
+                {liveLinkPreview.description && (
+                  <div className="text-xs text-gray-600 dark:text-zinc-300 line-clamp-2 mt-0.5">
+                    {liveLinkPreview.description}
+                  </div>
+                )}
+                <div className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mt-1 truncate">
+                  {liveLinkPreview.siteName || liveLinkPreview.url}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (liveLinkPreview.url) {
+                    setDismissedUrls((prev) => new Set(prev).add(liveLinkPreview.url!));
+                  }
+                  setLiveLinkPreview(null);
+                }}
+                className="absolute top-0 right-0 p-1 text-gray-400 hover:text-rose-500 rounded-full hover:bg-gray-200/50 dark:hover:bg-zinc-800 transition"
+                title="Bỏ qua xem trước"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
 
       {!canSendInActiveConversation && !activePrivateChatBlocked && (

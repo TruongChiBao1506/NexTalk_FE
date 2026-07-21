@@ -155,5 +155,12 @@ export const messageService = {
   async deletePoll(id: string): Promise<ApiResponse<MessageResponse>> {
     const response = await apiClient.delete<ApiResponse<MessageResponse>>(`/messages/${id}/poll`);
     return response.data;
+  },
+
+  async fetchLinkPreview(url: string): Promise<ApiResponse<import('../types/chat').LinkPreviewMetadata | null>> {
+    const response = await apiClient.get<ApiResponse<import('../types/chat').LinkPreviewMetadata | null>>('/messages/link-preview', {
+      params: { url }
+    });
+    return response.data;
   }
 };
