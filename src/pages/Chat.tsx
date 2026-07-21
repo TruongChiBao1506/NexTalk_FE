@@ -72,6 +72,7 @@ import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
+import { MessageFilterBar } from '../components/chat/MessageFilterBar';
 import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
 import { MyQrModal } from '../components/chat/MyQrModal';
 import { QrScannerModal } from '../components/chat/QrScannerModal';
@@ -209,6 +210,7 @@ export const Chat = () => {
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [messageFilter, setMessageFilter] = useState<'ALL' | 'MEDIA' | 'FILE' | 'LINK'>('ALL');
 
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
   const [conversationArchiveMessages, setConversationArchiveMessages] = useState<MessageResponse[]>([]);
@@ -1259,9 +1261,11 @@ export const Chat = () => {
         ? 'Cần kết bạn để tiếp tục nhắn tin.'
       : !canSendInActiveConversation
         ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
-        : activeConversation?.type === 'GROUP'
-          ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
-          : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
+        : activeConversation?.type === 'CLOUD'
+          ? 'Lưu trữ tin nhắn, ảnh, tài liệu...'
+          : activeConversation?.type === 'GROUP'
+            ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
+            : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
 
 
 
@@ -3050,7 +3054,7 @@ export const Chat = () => {
   );
 
   const privateConversations = conversations.filter(c =>
-    c.type === 'PRIVATE' && !groupConversationIds.has(c.id)
+    (c.type === 'PRIVATE' || c.type === 'CLOUD') && !groupConversationIds.has(c.id)
   );
 
   // Deduplicate private conversations by the other member's ID
@@ -3105,6 +3109,7 @@ export const Chat = () => {
     .filter(item => {
       const query = normalizeSearchTerm(searchQuery);
       if (item.kind === 'dm') {
+        if (item.conv.type === 'CLOUD') return 'cloud của tôi'.includes(query);
         const friend = getFriendInfo(item.conv);
         return friend.username.toLowerCase().includes(query) || friend.email?.toLowerCase().includes(query);
       }
@@ -3204,11 +3209,27 @@ export const Chat = () => {
       }))
     : [];
 
-  const visibleMessages = [
+  let visibleMessages = [
     ...messages.filter((message) => !isMessageExpired(message)),
     ...activeReminderSystemMessages,
     ...activeAiPendingSystemMessages,
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  if (messageFilter !== 'ALL') {
+    visibleMessages = visibleMessages.filter((msg) => {
+      if (msg.messageType === 'SYSTEM') return false;
+      if (messageFilter === 'MEDIA') {
+        return ['IMAGE', 'VIDEO', 'ALBUM'].includes(msg.messageType as string) || (msg.attachments && msg.attachments.some(a => ['IMAGE', 'VIDEO'].includes(a.type)));
+      }
+      if (messageFilter === 'FILE') {
+        return msg.messageType === 'FILE' || (msg.attachments && msg.attachments.some(a => a.type === 'FILE'));
+      }
+      if (messageFilter === 'LINK') {
+        return msg.messageType === 'TEXT' && /(https?:\/\/[^\s]+)/.test(msg.content);
+      }
+      return true;
+    });
+  }
 
   const getSenderAvatar = (msg: MessageResponse): string | null => {
     if (!activeConversation) return null;
@@ -3392,6 +3413,7 @@ export const Chat = () => {
               setTaskUnreadCount={setTaskUnreadCount}
             />
             
+            <MessageFilterBar filter={messageFilter} setFilter={setMessageFilter} />
 
 
             {!isGroupConversation && activeConversation.type !== 'CLOUD' && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (

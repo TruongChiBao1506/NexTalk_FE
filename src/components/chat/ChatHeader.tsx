@@ -114,14 +114,18 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           )}
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-gray-950 dark:text-white m-0 leading-tight truncate">
-              {isGroupConversation
-                ? activeChannel
-                  ? `${activeGroup?.name ?? 'Nhóm'} › #${activeChannel.name}`
-                  : (activeGroup?.name || activeFriend?.username || activeConversation?.name || 'Nhóm')
-                : (activeFriend?.username ?? '')}
+              {activeConversation?.type === 'CLOUD'
+                ? 'Cloud của tôi'
+                : isGroupConversation
+                  ? activeChannel
+                    ? `${activeGroup?.name ?? 'Nhóm'} › #${activeChannel.name}`
+                    : (activeGroup?.name || activeFriend?.username || activeConversation?.name || 'Nhóm')
+                  : (activeFriend?.username ?? '')}
             </h3>
             <p className="text-[10px] text-gray-500 dark:text-discord-muted mt-0.5 flex items-center gap-1">
-              {isGroupConversation ? (
+              {activeConversation?.type === 'CLOUD' ? (
+                <span>Không gian lưu trữ cá nhân</span>
+              ) : isGroupConversation ? (
                 <>
                   <Users className="w-3 h-3" />
                   <span>{activeGroup?.memberCount ?? '?'} thành viên</span>

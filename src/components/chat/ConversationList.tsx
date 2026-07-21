@@ -569,7 +569,7 @@ export const ConversationList = ({
           if (item.kind === "dm") {
             const c = item.conv;
             const friend = getFriendInfo(c);
-            const friendDisplayName = c.nicknames?.[friend.id] || friend.username;
+            const friendDisplayName = c.type === 'CLOUD' ? 'Cloud của tôi' : (c.nicknames?.[friend.id] || friend.username);
             const lastMsg = lastMessages[c.id];
             const draftPreview = getDraftPreview(c.id);
             const isSelected = activeConversation?.id === c.id;
