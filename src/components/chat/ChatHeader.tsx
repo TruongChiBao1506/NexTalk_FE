@@ -11,7 +11,7 @@ import {
   Info,
   Users
 } from 'lucide-react';
-import { formatRelativeTime } from '../../utils/time';
+import { useRelativeTime } from '../../hooks/useRelativeTime';
 
 interface ChatHeaderProps {
   selectConversation: (conversation: any) => void;
@@ -64,6 +64,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   activeChannel,
   isGroupModerator,
 }) => {
+  const lastSeenText = useRelativeTime(activeFriend?.lastSeen);
   const isChungChannel = !activeChannel || activeChannel.name?.toLowerCase() === 'chung' || activeChannel.name?.toLowerCase() === 'general';
   const shouldShowCallButtons = activeConversation && activeCallTarget && activeFriend?.email !== 'moderator@nextalk.local' && (
     !isGroupConversation || (isGroupModerator && isChungChannel)
@@ -114,9 +115,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <span className={`w-1.5 h-1.5 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-550'}`} />
                   <span className="truncate">
                     {activeFriend.status === 'ONLINE' ? 'Online' : activeFriend.status === 'AWAY' ? 'Away' : 'Offline'}
-                    {activeFriend.status === 'OFFLINE' && (
+                    {activeFriend.status === 'OFFLINE' && lastSeenText && (
                       <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1 normal-case font-normal">
-                        {activeFriend.lastSeen ? `· ${formatRelativeTime(activeFriend.lastSeen)}` : ''}
+                        · {lastSeenText}
                       </span>
                     )}
                   </span>

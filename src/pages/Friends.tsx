@@ -68,6 +68,12 @@ export const Friends = () => {
   const [removeFriendConfirm, setRemoveFriendConfirm] = useState<{ id: string; username: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; description: string; variant?: 'primary' | 'danger' } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // Tick mỗi 60s để cập nhật chuỗi thời gian tương đối ("5 phút trước", ...)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     fetchConversations();
