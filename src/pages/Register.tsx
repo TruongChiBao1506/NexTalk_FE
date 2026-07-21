@@ -11,6 +11,20 @@ import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
 import logo from '../assets/logo_notext.png';
 
+const translateAuthError = (msg: string | undefined | null): string => {
+  if (!msg) return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+  const lowerMsg = msg.toLowerCase();
+  
+  if (lowerMsg.includes('bad credentials')) return 'Email hoặc mật khẩu không chính xác.';
+  if (lowerMsg.includes('user not found')) return 'Tài khoản không tồn tại.';
+  if (lowerMsg.includes('account is locked') || lowerMsg.includes('user account is locked')) return 'Tài khoản của bạn đã bị khóa.';
+  if (lowerMsg.includes('email already exists') || lowerMsg.includes('email is already in use')) return 'Email này đã được sử dụng.';
+  if (lowerMsg.includes('username already exists') || lowerMsg.includes('username is already taken')) return 'Tên người dùng đã tồn tại.';
+  if (lowerMsg.includes('network error') || lowerMsg.includes('fetch failed')) return 'Lỗi mạng. Vui lòng kiểm tra kết nối.';
+  
+  return msg;
+};
+
 export const Register = () => {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
@@ -71,12 +85,12 @@ export const Register = () => {
         setRegisteredEmail(data.email);
         setIsSuccess(true);
       } else {
-        setApiError(response.message || 'Registration failed');
+        setApiError(translateAuthError(response.message || 'Registration failed'));
       }
     } catch (err: any) {
       console.error(err);
       const msg = err.response?.data?.message || err.response?.data?.errors?.[0] || 'An error occurred during registration. Please try again.';
-      setApiError(msg);
+      setApiError(translateAuthError(msg));
     } finally {
       setIsLoading(false);
     }
