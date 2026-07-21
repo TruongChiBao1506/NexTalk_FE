@@ -592,8 +592,8 @@ export const ConversationList = ({
                 {/* Avatar with status dot */}
                 <div className="relative shrink-0">
                   {c.type === 'CLOUD' ? (
-                    <div className="w-12 h-12 rounded-full bg-indigo-500 text-white font-bold flex items-center justify-center">
-                      <Cloud className="w-6 h-6" />
+                    <div className="w-12 h-12 rounded-full bg-discord-blurple text-white font-bold flex items-center justify-center">
+                      <Cloud className="w-6 h-6" fill="currentColor" />
                     </div>
                   ) : friend.avatarUrl ? (
                     <img

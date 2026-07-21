@@ -102,8 +102,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           {isGroupConversation ? (
             <GroupAvatar conversation={activeGroup} size={36} className="!rounded-xl border border-gray-200 dark:border-zinc-800" />
           ) : activeConversation?.type === 'CLOUD' ? (
-            <div className="w-9 h-9 rounded-full bg-indigo-500 text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-sm">
-              <Cloud className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-full bg-discord-blurple text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-sm">
+              <Cloud className="w-5 h-5" fill="currentColor" />
             </div>
           ) : activeFriend?.avatarUrl ? (
             <img src={activeFriend.avatarUrl} alt={activeFriend.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-zinc-800 shrink-0" />

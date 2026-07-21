@@ -1633,7 +1633,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         {visibleMessages.length === 0 && !hasMoreMessages && activeConversation?.type === 'CLOUD' && (
           <div className="flex-1 flex flex-col items-center justify-center opacity-70 my-auto py-20 text-center select-none">
             <div className="w-24 h-24 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
-              <Cloud className="w-12 h-12 text-indigo-500 dark:text-indigo-400" />
+              <Cloud className="w-12 h-12 text-discord-blurple dark:text-indigo-400" fill="currentColor" />
             </div>
             <h3 className="text-xl font-bold text-slate-800 dark:text-zinc-200 mb-2">Không gian lưu trữ cá nhân</h3>
             <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">

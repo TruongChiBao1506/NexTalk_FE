@@ -47,10 +47,10 @@ export const SidebarHeader = ({
           type="button"
           onClick={handleCloudClick}
           disabled={isCloudLoading}
-          className="w-8 h-8 rounded-xl bg-indigo-100/80 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-wait"
+          className="w-8 h-8 rounded-xl bg-indigo-100/80 dark:bg-indigo-500/10 flex items-center justify-center text-discord-blurple dark:text-indigo-300 hover:bg-discord-blurple hover:text-white dark:hover:bg-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-wait"
           title="Cloud của tôi"
         >
-          {isCloudLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+          {isCloudLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" fill="currentColor" />}
         </button>
         <button
           type="button"
