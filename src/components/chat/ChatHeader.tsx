@@ -11,7 +11,8 @@ import {
   Info,
   Users,
   CheckCircle2,
-  Bell
+  Bell,
+  MessageSquare
 } from 'lucide-react';
 import { useRelativeTime } from '../../hooks/useRelativeTime';
 
@@ -141,6 +142,45 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 text-gray-500 [-ms-overflow-style:none] [scrollbar-width:none] md:w-auto md:gap-3 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
 
 
+        {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' && setChannelView && (
+          <>
+            <button
+              onClick={() => {
+                setChannelView(channelView === 'tasks' ? 'chat' : 'tasks');
+                setIsSearchPanelOpen(false);
+                setIsPinnedPanelOpen(false);
+                setIsConversationInfoOpen(false);
+              }}
+              title="Tasks"
+              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
+                channelView === 'tasks' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
+              }`}
+            >
+              {channelView === 'tasks' ? <MessageSquare className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={() => {
+                setChannelView(channelView === 'notifications' ? 'chat' : 'notifications');
+                if (setTaskUnreadCount) setTaskUnreadCount(0);
+                setIsSearchPanelOpen(false);
+                setIsPinnedPanelOpen(false);
+                setIsConversationInfoOpen(false);
+              }}
+              title="Thông báo"
+              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
+                channelView === 'notifications' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
+              }`}
+            >
+              {channelView === 'notifications' ? <MessageSquare className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+              {taskUnreadCount !== undefined && taskUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
+                  {taskUnreadCount > 99 ? '99+' : taskUnreadCount}
+                </span>
+              )}
+            </button>
+          </>
+        )}
+
         {/* Voice Call Button (Gọi khẩn cấp, chỉ cho Trưởng/Phó nhóm) */}
         {shouldShowCallButtons && (
           <button
@@ -205,44 +245,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </button>
         )}
 
-        {isGroupConversation && activeGroup && (activeChannel?.isTaskEnabled ?? false) && activeChannel && activeChannel.type !== 'VOICE' && setChannelView && (
-          <>
-            <button
-              onClick={() => {
-                setChannelView(channelView === 'tasks' ? 'chat' : 'tasks');
-                setIsSearchPanelOpen(false);
-                setIsPinnedPanelOpen(false);
-                setIsConversationInfoOpen(false);
-              }}
-              title="Tasks"
-              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
-                channelView === 'tasks' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
-              }`}
-            >
-              <CheckCircle2 className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => {
-                setChannelView(channelView === 'notifications' ? 'chat' : 'notifications');
-                if (setTaskUnreadCount) setTaskUnreadCount(0);
-                setIsSearchPanelOpen(false);
-                setIsPinnedPanelOpen(false);
-                setIsConversationInfoOpen(false);
-              }}
-              title="Thông báo"
-              className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
-                channelView === 'notifications' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
-              }`}
-            >
-              <Bell className="h-5 w-5" />
-              {taskUnreadCount !== undefined && taskUnreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-discord-mid">
-                  {taskUnreadCount > 99 ? '99+' : taskUnreadCount}
-                </span>
-              )}
-            </button>
-          </>
-        )}
+
 
         {/* Pinned Messages Button */}
         {activeConversation && (
