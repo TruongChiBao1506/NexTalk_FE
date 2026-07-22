@@ -323,9 +323,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           });
         }).catch(() => undefined);
 
-        // Mark all conversations as delivered
-        for (const conv of sorted) {
-          messageService.markAsDelivered(conv.id).catch(() => {});
+        // Mark active conversation as delivered if present
+        const currentActive = get().activeConversation;
+        if (currentActive?.id) {
+          messageService.markAsDelivered(currentActive.id).catch(() => {});
         }
       }
     } catch (err) {
