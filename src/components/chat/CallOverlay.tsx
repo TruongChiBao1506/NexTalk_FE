@@ -417,7 +417,7 @@ export const CallOverlay = () => {
             </>
           ) : (
             <div className="flex flex-col items-center w-full">
-              <div className={`flex justify-center ${callState === 'connected' ? 'gap-4' : 'gap-6'} mb-8 w-full`}>
+              <div className="flex justify-center gap-8 mb-8 w-full">
                 <div className="flex flex-col items-center gap-2">
                   <button type="button" onClick={toggleMic} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
                     {isMicMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
@@ -429,20 +429,6 @@ export const CallOverlay = () => {
                     {isSpeakerOn ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
                   </button>
                   <span className="text-[11px] text-slate-500 font-bold">Loa ngoài</span>
-                </div>
-                {callState === 'connected' && (
-                  <div className="flex flex-col items-center gap-2">
-                    <button type="button" onClick={startVideo} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
-                      <Video className="h-6 w-6" />
-                    </button>
-                    <span className="text-[11px] text-slate-500 font-bold">Video</span>
-                  </div>
-                )}
-                <div className="flex flex-col items-center gap-2">
-                  <button type="button" className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
-                    <Grip className="h-6 w-6" />
-                  </button>
-                  <span className="text-[11px] text-slate-500 font-bold">Bàn phím</span>
                 </div>
               </div>
               <div className="flex flex-col items-center gap-2">
