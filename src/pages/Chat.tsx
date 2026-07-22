@@ -238,6 +238,7 @@ export const Chat = () => {
   }, [user?.id, reloadMessageDrafts]);
   useEffect(() => {
     setChannelView('chat');
+    setMessageFilter('ALL');
   }, [activeConversation?.id]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [channelSettingsData, setChannelSettingsData] = useState<{ groupId: string; channel: ChannelResponse } | null>(null);
@@ -3301,7 +3302,7 @@ export const Chat = () => {
     ...activeAiPendingSystemMessages,
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  if (messageFilter !== 'ALL') {
+  if (activeConversation?.type === 'CLOUD' && messageFilter !== 'ALL') {
     visibleMessages = visibleMessages.filter((msg) => {
       if (msg.messageType === 'SYSTEM') return false;
       if (messageFilter === 'MEDIA') {
@@ -3499,7 +3500,9 @@ export const Chat = () => {
               setTaskUnreadCount={setTaskUnreadCount}
             />
             
-            <MessageFilterBar filter={messageFilter} setFilter={setMessageFilter} />
+            {activeConversation?.type === 'CLOUD' && (
+              <MessageFilterBar filter={messageFilter} setFilter={setMessageFilter} />
+            )}
 
 
             {!isGroupConversation && activeConversation.type !== 'CLOUD' && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
