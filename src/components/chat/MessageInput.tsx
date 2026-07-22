@@ -919,7 +919,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
 
         {/* Input Box Row */}
-        <div className="flex items-end gap-2 p-2 bg-white dark:bg-discord-mid rounded-b-[23px]">
+        <div className="flex items-center gap-2 p-2 bg-white dark:bg-discord-mid rounded-b-[23px]">
           <input
             type="file"
             ref={fileInputRef}
@@ -935,7 +935,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             className="hidden"
           />
 
-          <div className="flex items-center shrink-0 pb-1 pl-1">
+          <div className="flex items-center shrink-0">
             {/* Emoji smile face */}
             <button
               type="button"
@@ -944,7 +944,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 setEmojiStickerTab('emoji');
                 setIsEmojiStickerOpen((open) => !open);
               }}
-              className={`p-1.5 rounded-lg transition disabled:opacity-45 disabled:hover:bg-transparent ${
+              className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
                 isEmojiStickerOpen && emojiStickerTab === 'emoji'
                   ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
                   : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
@@ -998,9 +998,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <div className="relative min-w-0 flex-1">
               <EditorContent
                 editor={editor}
-                className="nextalk-tiptap-input rounded-xl border border-slate-300 bg-white transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:border-zinc-700 dark:bg-discord-mid dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30 pr-8"
+                className="nextalk-tiptap-input rounded-2xl border border-slate-200 bg-slate-50/50 transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:bg-white dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30 pr-9"
               />
-              {Boolean(editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) && (
+              {Boolean(editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -1014,38 +1014,31 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 >
                   <X className="w-4 h-4" />
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowToolbar(!showToolbar)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 dark:text-discord-blurple dark:hover:text-white dark:hover:bg-zinc-700/60 transition-colors"
+                  title={showToolbar ? 'Ẩn thanh công cụ' : 'Mở thanh công cụ'}
+                >
+                  {showToolbar ? <MinusCircle className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+                </button>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0 pb-1">
-            <div className={`flex items-center gap-1 transition-all duration-300 ease-in-out overflow-hidden ${
-              Boolean((editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) || pendingAttachments.length > 0)
-                ? 'max-w-0 opacity-0 scale-90 pointer-events-none'
-                : 'max-w-[80px] opacity-100 scale-100'
-            }`}>
-              <button
-                type="button"
-                onClick={() => setShowToolbar(!showToolbar)}
-                className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-discord-blurple transition"
-                title="Mở thanh công cụ"
-              >
-                {showToolbar ? <MinusCircle className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
-              </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
+              onClick={startVoiceRecording}
+              className="p-2 rounded-xl text-gray-500 transition hover:bg-gray-200/60 hover:text-rose-600 disabled:opacity-45 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-rose-300"
+              title="Ghi tin nhắn thoại"
+            >
+              {isUploadingVoice ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
+            </button>
 
-              <button
-                type="button"
-                disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
-                onClick={startVoiceRecording}
-                className="p-1.5 rounded-lg text-gray-500 transition hover:bg-gray-200/60 hover:text-rose-600 disabled:opacity-45 disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-rose-300"
-                title="Ghi tin nhắn thoại"
-              >
-                {isUploadingVoice ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
-              </button>
-            </div>
-
-            {/* Unified composer action: like when empty, send when content exists. */}
-            {(!inputMessage.trim() && pendingAttachments.length === 0) ? (
+            {(!inputMessage.trim() && pendingAttachments.length === 0 && (editor ? editor.isEmpty : true)) ? (
               <button
                 type="button"
                 onClick={handleSendThumbsUp}
@@ -1063,7 +1056,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 disabled={
                   canSendInActiveConversation
                     ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
-                    : activePrivateChatBlocked || !inputMessage.trim() || isSendingBlockedChatRequest
+                    : activePrivateChatBlocked || (editor ? editor.isEmpty : !inputMessage.trim()) || isSendingBlockedChatRequest
                 }
                 className="nextalk-theme-bg inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition hover:bg-indigo-700 active:scale-95 disabled:scale-100 disabled:opacity-50 dark:bg-discord-blurple dark:hover:bg-indigo-600"
                 title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}

@@ -1263,10 +1263,8 @@ export const Chat = () => {
       : !canSendInActiveConversation
         ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
         : activeConversation?.type === 'CLOUD'
-          ? 'Lưu trữ tin nhắn, ảnh, tài liệu...'
-          : activeConversation?.type === 'GROUP'
-            ? `Nhập @, tin nhắn tới #${groups.find(group => getGroupConversationId(group) === activeConversation.id)?.name || 'group'}...`
-            : `Nhập @, tin nhắn tới @${activeConversation?.members.find(member => member.id !== user?.id)?.username || 'friend'}`;
+          ? 'Lưu trữ tin nhắn, tệp...'
+          : 'Nhắn tin...';
 
 
 
