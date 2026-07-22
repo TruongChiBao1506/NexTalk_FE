@@ -16,6 +16,8 @@ import {
   FileText,
   Image,
   PhoneMissed,
+  PhoneOff,
+  VideoOff,
   Users,
   AlertTriangle,
   Play,
@@ -773,15 +775,26 @@ export const MessageList: React.FC<MessageListProps> = ({
                         <button
                           type="button"
                           onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
-                          className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-300"
+                          className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold transition hover:opacity-80 dark:hover:opacity-90"
                           title="Xem chi tiết cuộc gọi"
                         >
-                          {callMetadata?.callType === 'VIDEO' ? (
-                            <Video className="h-4 w-4 text-indigo-500" />
+                          {callMetadata?.status === 'MISSED' ? (
+                            callMetadata?.callType === 'VIDEO' ? <VideoOff className="h-4 w-4 text-red-500" /> : <PhoneMissed className="h-4 w-4 text-red-500" />
+                          ) : callMetadata?.status === 'REJECTED' ? (
+                            callMetadata?.callType === 'VIDEO' ? <VideoOff className="h-4 w-4 text-rose-600" /> : <PhoneOff className="h-4 w-4 text-rose-600" />
+                          ) : callMetadata?.status === 'CANCELED' ? (
+                            callMetadata?.callType === 'VIDEO' ? <VideoOff className="h-4 w-4 text-amber-600" /> : <PhoneOff className="h-4 w-4 text-amber-600" />
                           ) : (
-                            <Phone className="h-4 w-4 text-indigo-500" />
+                            callMetadata?.callType === 'VIDEO' ? <Video className="h-4 w-4 text-emerald-500" /> : <Phone className="h-4 w-4 text-emerald-500" />
                           )}
-                          <span className="truncate">{getCallHistorySummary(msg)}</span>
+                          <span className={`truncate ${
+                            callMetadata?.status === 'MISSED' ? 'text-red-600 dark:text-red-400' :
+                            callMetadata?.status === 'REJECTED' ? 'text-rose-600 dark:text-rose-400' :
+                            callMetadata?.status === 'CANCELED' ? 'text-amber-600 dark:text-amber-400' :
+                            'text-emerald-600 dark:text-emerald-400'
+                          }`}>
+                            {getCallHistorySummary(msg)}
+                          </span>
                         </button>
 
                         {expandedCallLogId === msg.id && (
