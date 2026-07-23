@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { groupService } from '../services/groupService';
 import type { GroupResponse, CreateGroupRequest, GroupRole, UpdateGroupRequest, GroupInvitationResponse } from '../types/group';
+import { encryptedCacheService } from '../services/encryptedCacheService';
+import { useAuthStore } from './authStore';
 
 const dedupeGroups = (groups: GroupResponse[]) => {
   const byId = new Map<string, GroupResponse>();
@@ -41,7 +43,18 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   error: null,
 
   fetchGroups: async () => {
-    set({ isLoading: true, error: null });
+    const userId = useAuthStore.getState().user?.id;
+
+    // ── Stale-While-Revalidate: Tải cache nhóm mã hóa từ IndexedDB (< 2ms) ───
+    const cachedData = await encryptedCacheService.load(userId);
+    if (cachedData && cachedData.groups && cachedData.groups.length > 0) {
+      const cachedGroups = dedupeGroups(cachedData.groups);
+      set({ groups: cachedGroups, isLoading: false });
+    } else {
+      set({ isLoading: true, error: null });
+    }
+
+    // ── Revalidation ngầm với Server (/api/groups) ───────────────────────────
     try {
       const response = await groupService.getMyGroups();
       if (response.success && response.data) {
@@ -56,6 +69,9 @@ export const useGroupStore = create<GroupState>((set, get) => ({
           );
           void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
         });
+
+        // Ghi ngầm danh sách nhóm đã mã hóa AES-256 vào IndexedDB
+        await encryptedCacheService.patch(userId, { groups: fetchedGroups });
       }
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch groups', isLoading: false });
@@ -96,7 +112,12 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   deleteGroup: async (id: string) => {
     try {
       await groupService.deleteGroup(id);
-      set((state) => ({ groups: state.groups.filter((g) => g.id !== id) }));
+      set((state) => {
+        const updated = state.groups.filter((g) => g.id !== id);
+        const userId = useAuthStore.getState().user?.id;
+        encryptedCacheService.patch(userId, { groups: updated }).catch(() => {});
+        return { groups: updated };
+      });
       return true;
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete group' });
@@ -120,7 +141,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   removeMember: async (groupId: string, userId: string) => {
     try {
       await groupService.removeMember(groupId, userId);
-      // Refresh the group
       const response = await groupService.getGroup(groupId);
       if (response.success && response.data) {
         get().upsertGroup(response.data);
@@ -147,13 +167,18 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
   upsertGroup: (group: GroupResponse) => {
     set((state) => {
+      let list: GroupResponse[];
       const idx = state.groups.findIndex((g) => g.id === group.id);
       if (idx > -1) {
-        const list = [...state.groups];
+        list = [...state.groups];
         list[idx] = group;
-        return { groups: dedupeGroups(list) };
+      } else {
+        list = [group, ...state.groups];
       }
-      return { groups: dedupeGroups([group, ...state.groups]) };
+      const updatedList = dedupeGroups(list);
+      const userId = useAuthStore.getState().user?.id;
+      encryptedCacheService.patch(userId, { groups: updatedList }).catch(() => {});
+      return { groups: updatedList };
     });
   },
 

@@ -1,9 +1,11 @@
 import type { ConversationResponse, MessageResponse } from '../types/chat';
+import type { GroupResponse } from '../types/group';
 
 export interface CachedConversationData {
   conversations: ConversationResponse[];
   lastMessages: Record<string, MessageResponse>;
   unreadCounts: Record<string, number>;
+  groups?: GroupResponse[];
   timestamp: number;
 }
 
@@ -189,6 +191,7 @@ class EncryptedCacheService {
         conversations: partial.conversations ?? existing?.conversations ?? [],
         lastMessages: { ...existing?.lastMessages, ...partial.lastMessages },
         unreadCounts: { ...existing?.unreadCounts, ...partial.unreadCounts },
+        groups: partial.groups ?? existing?.groups ?? [],
       };
 
       await this.save(userId, updated);
