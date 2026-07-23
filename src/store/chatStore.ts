@@ -715,10 +715,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '');
-    const wsNativeUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
 
     const client = new Client({
-      brokerURL: wsNativeUrl,
       webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
