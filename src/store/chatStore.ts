@@ -715,166 +715,168 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '');
+    const wsRawUrl = baseUrl.replace(/^http/, 'ws') + '/ws-raw';
 
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
-      connectHeaders: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      // Debug disabled to prevent JWT token leaking into browser console
-      debug: () => {},
-      reconnectDelay: 3000,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
-    });
+    let isUsingNativeWs = true;
 
-    client.beforeConnect = () => {
-      // Always refresh token header before each connect/reconnect attempt
-      const currentToken = useAuthStore.getState().accessToken;
-      if (currentToken) {
-        client.connectHeaders = {
-          Authorization: `Bearer ${currentToken}`,
-        };
-      }
-    };
-
-    client.onConnect = () => {
-      console.info('[STOMP] WebSocket connected.');
-      set({ isConnected: true, isConnecting: false, stompClient: client });
-      stopPresenceHeartbeat();
-
-      // Subscribe to global presence channel FIRST so we catch instant online broadcast
-      client.subscribe('/topic/presence', (message) => {
-        try {
-          const body = JSON.parse(message.body); // { userId, username, status, lastSeen }
-          useFriendStore.getState().updateFriendPresence(body.userId, body.status, body.lastSeen);
-          get().updateMemberPresence(body.userId, body.status, body.lastSeen);
-        } catch (e) {
-          console.error('[STOMP] Failed to process presence update:', e);
-        }
+    const createStompClient = (useRawWs: boolean): Client => {
+      const stompClient = new Client({
+        ...(useRawWs
+          ? { brokerURL: wsRawUrl }
+          : { webSocketFactory: () => new SockJS(`${baseUrl}/ws`) }),
+        connectHeaders: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        debug: () => {},
+        reconnectDelay: 3000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
       });
 
-      // Subscribe to personal private chat channel
-      client.subscribe('/user/queue/private', (message) => {
-        try {
-          const body = JSON.parse(message.body);
-          if (body.type === 'ALL_SESSIONS_REVOKED') {
-            get().disconnectWebSocket();
-            useAuthStore.getState().logout();
-          } else if (body.type === 'SESSION_REVOKED') {
-            const accessToken = useAuthStore.getState().accessToken;
-            if (getTokenSessionId(accessToken) === body.sessionId) {
+      stompClient.beforeConnect = () => {
+        const currentToken = useAuthStore.getState().accessToken;
+        if (currentToken) {
+          stompClient.connectHeaders = {
+            Authorization: `Bearer ${currentToken}`,
+          };
+        }
+      };
+
+      stompClient.onConnect = () => {
+        console.info(`[STOMP] WebSocket connected (${useRawWs ? 'Native 1-RTT' : 'SockJS Fallback'}).`);
+        set({ isConnected: true, isConnecting: false, stompClient });
+        stopPresenceHeartbeat();
+
+        // Subscribe to global presence channel FIRST so we catch instant online broadcast
+        stompClient.subscribe('/topic/presence', (message) => {
+          try {
+            const body = JSON.parse(message.body); // { userId, username, status, lastSeen }
+            useFriendStore.getState().updateFriendPresence(body.userId, body.status, body.lastSeen);
+            get().updateMemberPresence(body.userId, body.status, body.lastSeen);
+          } catch (e) {
+            console.error('[STOMP] Failed to process presence update:', e);
+          }
+        });
+
+        // Subscribe to personal private chat channel
+        stompClient.subscribe('/user/queue/private', (message) => {
+          try {
+            const body = JSON.parse(message.body);
+            if (body.type === 'ALL_SESSIONS_REVOKED') {
               get().disconnectWebSocket();
               useAuthStore.getState().logout();
+            } else if (body.type === 'SESSION_REVOKED') {
+              const accessToken = useAuthStore.getState().accessToken;
+              if (getTokenSessionId(accessToken) === body.sessionId) {
+                get().disconnectWebSocket();
+                useAuthStore.getState().logout();
+              }
+            } else if (body.type === 'STATUS_UPDATE') {
+              get().handleStatusUpdate(body);
+            } else if (body.type === 'TYPING') {
+              get().handleTypingIndicator(body);
+            } else if (body.type === 'CONVERSATION_SUMMARY') {
+              get().setConversationSummary(body);
+            } else if (body.type === 'CONVERSATION_UPDATE') {
+              get().updateConversation(body.data);
+            } else {
+              if (shouldPlayIncomingMessageSound(body)) {
+                audioSynth.playMessageNotification();
+              }
+              get().addIncomingMessage(body);
             }
-          } else if (body.type === 'STATUS_UPDATE') {
-            get().handleStatusUpdate(body);
-          } else if (body.type === 'TYPING') {
-            get().handleTypingIndicator(body);
-          } else if (body.type === 'CONVERSATION_SUMMARY') {
-            get().setConversationSummary(body);
-          } else if (body.type === 'CONVERSATION_UPDATE') {
-            get().updateConversation(body.data);
-          } else {
-            if (shouldPlayIncomingMessageSound(body)) {
-              audioSynth.playMessageNotification();
+          } catch (e) {
+            console.error('[STOMP] Failed to process incoming message:', e);
+          }
+        });
+
+        // Subscribe to personal notifications channel
+        stompClient.subscribe('/user/queue/notifications', (message) => {
+          try {
+            const body = JSON.parse(message.body);
+            const activeConversation = get().activeConversation;
+            
+            if ((body.type === 'NEW_MESSAGE' || body.type === 'MENTION') && activeConversation && body.referenceId === activeConversation.id) {
+              const readNotification = { ...body, read: true };
+              useNotificationStore.getState().addNotification(readNotification);
+              notificationService.markAsRead(body.id).catch(() => {});
+            } else {
+              useNotificationStore.getState().addNotification(body);
             }
-            get().addIncomingMessage(body);
+          } catch (e) {
+            console.error('[STOMP] Failed to process incoming notification:', e);
           }
-        } catch (e) {
-          console.error('[STOMP] Failed to process incoming message:', e);
-        }
-      });
+        });
 
-      // Subscribe to personal notifications channel
-      client.subscribe('/user/queue/notifications', (message) => {
-        try {
-          const body = JSON.parse(message.body);
-          const activeConversation = get().activeConversation;
-          
-          if ((body.type === 'NEW_MESSAGE' || body.type === 'MENTION') && activeConversation && body.referenceId === activeConversation.id) {
-            // Automatically mark as read if conversation is currently active
-            const readNotification = { ...body, read: true };
-            useNotificationStore.getState().addNotification(readNotification);
-            notificationService.markAsRead(body.id).catch(() => {});
-          } else {
-            useNotificationStore.getState().addNotification(body);
+        // Send initial presence heartbeat NOW after subscriptions are registered
+        const sendPresenceHeartbeat = () => stompClient.connected && stompClient.publish({ destination: '/app/presence.heartbeat', body: '{}' });
+        sendPresenceHeartbeat();
+        presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 15_000);
+
+        // Subscribe to personal calling signals channel
+        stompClient.subscribe('/user/queue/calls', (message) => {
+          try {
+            const body = JSON.parse(message.body);
+            useCallStore.getState().handleIncomingSignal(body);
+          } catch (e) {
+            console.error('[STOMP] Failed to process call signal:', e);
           }
-        } catch (e) {
-          console.error('[STOMP] Failed to process incoming notification:', e);
+        });
+
+        import('./groupStore').then(({ useGroupStore }) => {
+          const groups = useGroupStore.getState().groups;
+          groups.forEach((group) => get().subscribeToGroupVoice(group.id));
+          const voiceChannelIds = groups.flatMap((group) =>
+            group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
+          );
+          void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
+        }).catch(() => undefined);
+      };
+
+      stompClient.onDisconnect = () => {
+        stopPresenceHeartbeat();
+        console.info('[STOMP] WebSocket disconnected.');
+        set({ isConnected: false, stompClient: null });
+      };
+
+      stompClient.onWebSocketError = async (evt) => {
+        stopPresenceHeartbeat();
+        console.warn('[STOMP] Native WebSocket error, attempting SockJS fallback:', evt);
+        if (isUsingNativeWs) {
+          isUsingNativeWs = false;
+          stompClient.deactivate();
+          const fallbackClient = createStompClient(false);
+          fallbackClient.activate();
         }
-      });
+      };
 
-      // Send initial presence heartbeat NOW after subscriptions are registered
-      const sendPresenceHeartbeat = () => client.connected && client.publish({ destination: '/app/presence.heartbeat', body: '{}' });
-      sendPresenceHeartbeat();
-      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 15_000);
+      stompClient.onStompError = async (frame) => {
+        stopPresenceHeartbeat();
+        console.error('[STOMP] STOMP error:', frame.headers['message']);
+        set({ error: frame.headers['message'] || 'STOMP Protocol Error', isConnecting: false });
 
-      // Subscribe to personal calling signals channel
-      client.subscribe('/user/queue/calls', (message) => {
-        try {
-          const body = JSON.parse(message.body);
-          useCallStore.getState().handleIncomingSignal(body);
-        } catch (e) {
-          console.error('[STOMP] Failed to process call signal:', e);
+        const currentToken = useAuthStore.getState().accessToken;
+        if (currentToken && isTokenExpired(currentToken, 30)) {
+          console.log('[STOMP] STOMP error due to expired token. Refreshing token...');
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            stompClient.deactivate();
+            set({ stompClient: null, isConnected: false });
+            get().connectWebSocket();
+          }
+        } else if (isUsingNativeWs) {
+          isUsingNativeWs = false;
+          stompClient.deactivate();
+          const fallbackClient = createStompClient(false);
+          fallbackClient.activate();
         }
-      });
+      };
 
-      import('./groupStore').then(({ useGroupStore }) => {
-        const groups = useGroupStore.getState().groups;
-        groups.forEach((group) => get().subscribeToGroupVoice(group.id));
-        const voiceChannelIds = groups.flatMap((group) =>
-          group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
-        );
-        void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
-      }).catch(() => undefined);
+      return stompClient;
     };
 
-    client.onDisconnect = () => {
-      stopPresenceHeartbeat();
-      console.info('[STOMP] WebSocket disconnected.');
-      set({ isConnected: false, stompClient: null });
-    };
-
-    client.onStompError = async (frame) => {
-      stopPresenceHeartbeat();
-      console.error('[STOMP] STOMP error:', frame.headers['message']);
-      set({ error: frame.headers['message'] || 'STOMP Protocol Error', isConnecting: false });
-
-      // If connection fails due to invalid/expired token, refresh and reconnect
-      const currentToken = useAuthStore.getState().accessToken;
-      if (currentToken && isTokenExpired(currentToken, 30)) {
-        console.log('[STOMP] STOMP error due to expired token. Refreshing token...');
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          console.log('[STOMP] Token refreshed, retrying WebSocket connection...');
-          client.deactivate();
-          set({ stompClient: null, isConnected: false });
-          get().connectWebSocket();
-        }
-      }
-    };
-
-    client.onWebSocketError = async () => {
-      stopPresenceHeartbeat();
-      console.error('[STOMP] WebSocket connection failed.');
-      set({ error: 'WebSocket connection failed', isConnecting: false });
-
-      // If connection fails due to invalid/expired token, refresh and reconnect
-      const currentToken = useAuthStore.getState().accessToken;
-      if (currentToken && isTokenExpired(currentToken, 30)) {
-        console.log('[STOMP] Connection failed due to expired token. Refreshing token...');
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          console.log('[STOMP] Token refreshed, retrying WebSocket connection...');
-          client.deactivate();
-          set({ stompClient: null, isConnected: false });
-          get().connectWebSocket();
-        }
-      }
-    };
-
-    client.activate();
+    const initialClient = createStompClient(true);
+    initialClient.activate();
   },
 
   disconnectWebSocket: () => {
