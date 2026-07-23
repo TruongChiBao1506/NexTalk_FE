@@ -744,9 +744,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.info('[STOMP] WebSocket connected.');
       set({ isConnected: true, isConnecting: false, stompClient: client });
       stopPresenceHeartbeat();
-      const sendPresenceHeartbeat = () => client.connected && client.publish({ destination: '/app/presence.heartbeat', body: '{}' });
-      sendPresenceHeartbeat();
-      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 30_000);
+
+      // Subscribe to global presence channel FIRST so we catch instant online broadcast
+      client.subscribe('/topic/presence', (message) => {
+        try {
+          const body = JSON.parse(message.body); // { userId, username, status, lastSeen }
+          useFriendStore.getState().updateFriendPresence(body.userId, body.status, body.lastSeen);
+          get().updateMemberPresence(body.userId, body.status, body.lastSeen);
+        } catch (e) {
+          console.error('[STOMP] Failed to process presence update:', e);
+        }
+      });
 
       // Subscribe to personal private chat channel
       client.subscribe('/user/queue/private', (message) => {
@@ -799,16 +807,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       });
 
-      // Subscribe to global presence channel
-      client.subscribe('/topic/presence', (message) => {
-        try {
-          const body = JSON.parse(message.body); // { userId, username, status, lastSeen }
-          useFriendStore.getState().updateFriendPresence(body.userId, body.status, body.lastSeen);
-          get().updateMemberPresence(body.userId, body.status, body.lastSeen);
-        } catch (e) {
-          console.error('[STOMP] Failed to process presence update:', e);
-        }
-      });
+      // Send initial presence heartbeat NOW after subscriptions are registered
+      const sendPresenceHeartbeat = () => client.connected && client.publish({ destination: '/app/presence.heartbeat', body: '{}' });
+      sendPresenceHeartbeat();
+      presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 15_000);
 
       // Subscribe to personal calling signals channel
       client.subscribe('/user/queue/calls', (message) => {
