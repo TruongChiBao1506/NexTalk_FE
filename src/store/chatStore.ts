@@ -714,16 +714,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? window.location.origin).replace(/\/$/, '');
+    const wsNativeUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
+
     const client = new Client({
-      webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_BASE_URL ?? ''}/ws`),
+      brokerURL: wsNativeUrl,
+      webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
       },
       // Debug disabled to prevent JWT token leaking into browser console
       debug: () => {},
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      reconnectDelay: 3000,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
     });
 
     client.beforeConnect = () => {
