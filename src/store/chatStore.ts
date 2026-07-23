@@ -4,6 +4,7 @@ import SockJS from 'sockjs-client';
 import { conversationService } from '../services/conversationService';
 import { messageService } from '../services/messageService';
 import { notificationService } from '../services/notificationService';
+import { encryptedCacheService } from '../services/encryptedCacheService';
 import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
 import { useFriendStore } from './friendStore';
@@ -298,27 +299,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchConversations: async () => {
-    set({ isLoadingConversations: true });
+    const userId = useAuthStore.getState().user?.id;
+
+    // ── Stale-While-Revalidate: Tải cache mã hóa từ IndexedDB (< 2ms) ───────
+    const cached = await encryptedCacheService.load(userId);
+    if (cached && cached.conversations && cached.conversations.length > 0) {
+      set({
+        conversations: cached.conversations,
+        lastMessages: { ...cached.lastMessages, ...get().lastMessages },
+        unreadCounts: { ...cached.unreadCounts, ...get().unreadCounts },
+        isLoadingConversations: false,
+      });
+    } else {
+      set({ isLoadingConversations: true });
+    }
+
+    // ── Revalidation ngầm với Server (/api/conversations/with-previews) ─────
     try {
       const response = await conversationService.getConversationsWithPreviews();
       if (response.success && response.data) {
         const sorted = sortConversations(response.data.conversations);
-        set((state) => ({
+        const freshLastMessages = { ...response.data.lastMessages, ...get().lastMessages };
+        const freshUnreadCounts = { ...response.data.unreadCounts, ...get().unreadCounts };
+
+        set({
           conversations: sorted,
-          lastMessages: { ...response.data.lastMessages, ...state.lastMessages },
-          unreadCounts: { ...response.data.unreadCounts, ...state.unreadCounts },
+          lastMessages: freshLastMessages,
+          unreadCounts: freshUnreadCounts,
           isLoadingConversations: false,
-        }));
+        });
 
         // Mark active conversation as delivered if present
         const currentActive = get().activeConversation;
         if (currentActive?.id) {
           messageService.markAsDelivered(currentActive.id).catch(() => {});
         }
+
+        // Lưu cache mã hóa AES-256 vào IndexedDB để lần mở sau hiển thị 0ms
+        await encryptedCacheService.save(userId, {
+          conversations: sorted,
+          lastMessages: freshLastMessages,
+          unreadCounts: freshUnreadCounts,
+        });
       }
     } catch (err) {
       console.error('Failed to fetch conversations with previews:', err);
-      set({ isLoadingConversations: false });
+      if (!cached) set({ isLoadingConversations: false });
     }
   },
 
@@ -850,6 +876,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   disconnectWebSocket: () => {
     const { stompClient } = get();
     stopPresenceHeartbeat();
+    const userId = useAuthStore.getState().user?.id;
+    encryptedCacheService.clear(userId).catch(() => {});
     if (stompClient) {
       stompClient.deactivate();
       Object.values(typingIndicatorTimeouts).forEach(clearTimeout);
@@ -892,6 +920,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ? { ...state.unreadCounts, [message.conversationId]: (state.unreadCounts[message.conversationId] ?? 0) + 1 }
         : { ...state.unreadCounts, [message.conversationId]: 0 },
     }));
+
+    // Ghi đè ngầm IndexedDB cache mới nhất
+    const currentUserId = useAuthStore.getState().user?.id;
+    const currentState = get();
+    encryptedCacheService.patch(currentUserId, {
+      lastMessages: currentState.lastMessages,
+      unreadCounts: currentState.unreadCounts,
+    }).catch(() => {});
 
     // If belongs to the active conversation
     if (activeConversation && activeConversation.id === message.conversationId) {
