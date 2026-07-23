@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
   ChevronDown,
-  Grip,
   Lock,
   Maximize2,
   MessageSquare,
@@ -164,7 +163,6 @@ export const CallOverlay = () => {
     toggleMic,
     toggleCamera,
     toggleSpeaker,
-    startVideo,
     toggleScreenShare,
     activeVoiceChannelId
   } = useCallStore();
