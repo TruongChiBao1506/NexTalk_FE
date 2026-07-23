@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { ConversationResponse, ConversationSummaryResponse } from '../types/chat';
+import type { ConversationResponse, ConversationSummaryResponse, ConversationWithPreviewsResponse } from '../types/chat';
 
 export const conversationService = {
   async getOrCreatePrivateConversation(friendId: string): Promise<ApiResponse<ConversationResponse>> {
@@ -15,6 +15,11 @@ export const conversationService = {
 
   async getUserConversations(): Promise<ApiResponse<ConversationResponse[]>> {
     const response = await apiClient.get<ApiResponse<ConversationResponse[]>>('/conversations');
+    return response.data;
+  },
+
+  async getConversationsWithPreviews(): Promise<ApiResponse<ConversationWithPreviewsResponse>> {
+    const response = await apiClient.get<ApiResponse<ConversationWithPreviewsResponse>>('/conversations/with-previews');
     return response.data;
   },
 

@@ -300,28 +300,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchConversations: async () => {
     set({ isLoadingConversations: true });
     try {
-      const response = await conversationService.getUserConversations();
+      const response = await conversationService.getConversationsWithPreviews();
       if (response.success && response.data) {
-        // Sort conversations by updatedAt descending
-        const sorted = sortConversations(response.data);
-        set({ conversations: sorted });
-        void get().fetchUnreadCounts();
-        
-        // Fetch all conversation previews in one request (avoids N+1 HTTP calls).
-        messageService.getLatestMessages(sorted.map((conv) => conv.id)).then(response => {
-          const results = (response.data ?? []).map((msg) => ({ convId: msg.conversationId, msg }));
-          set(state => {
-            const newLastMessages = { ...state.lastMessages };
-            let hasChanges = false;
-            for (const r of results) {
-              if (r && !newLastMessages[r.convId]) {
-                newLastMessages[r.convId] = r.msg;
-                hasChanges = true;
-              }
-            }
-            return hasChanges ? { lastMessages: newLastMessages } : state;
-          });
-        }).catch(() => undefined);
+        const sorted = sortConversations(response.data.conversations);
+        set((state) => ({
+          conversations: sorted,
+          lastMessages: { ...response.data.lastMessages, ...state.lastMessages },
+          unreadCounts: { ...response.data.unreadCounts, ...state.unreadCounts },
+          isLoadingConversations: false,
+        }));
 
         // Mark active conversation as delivered if present
         const currentActive = get().activeConversation;
@@ -330,8 +317,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
     } catch (err) {
-      console.error('Failed to fetch conversations:', err);
-    } finally {
+      console.error('Failed to fetch conversations with previews:', err);
       set({ isLoadingConversations: false });
     }
   },
@@ -339,7 +325,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchUnreadCounts: async () => {
     try {
       const response = await messageService.getUnreadCounts();
-      if (response.success && response.data) set({ unreadCounts: response.data });
+      if (response.success && response.data) {
+        set({ unreadCounts: response.data });
+      }
     } catch {
       // Giữ dữ liệu hiện tại nếu đồng bộ nền thất bại.
     }

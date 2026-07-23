@@ -19,6 +19,12 @@ export interface ConversationResponse {
   updatedAt: string;
 }
 
+export interface ConversationWithPreviewsResponse {
+  conversations: ConversationResponse[];
+  lastMessages: Record<string, MessageResponse>;
+  unreadCounts: Record<string, number>;
+}
+
 export interface MessageRequest {
   conversationId: string;
   content: string;
