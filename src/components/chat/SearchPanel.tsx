@@ -47,7 +47,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString();
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) + ' ' + date.toLocaleDateString();
   };
 
   const escapeRegExp = (string: string) => {

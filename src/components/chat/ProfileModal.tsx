@@ -378,7 +378,7 @@ export const ProfileModal = ({
               <div className="min-w-0 pb-1 text-left">
                 <h3 className="m-0 truncate text-xl font-bold">{activeFriend?.username}</h3>
                 <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-discord-muted">
-                  <span className={`h-2 w-2 rounded-full ${activeFriend?.status === 'AWAY' ? 'bg-amber-500' : activeFriend?.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'}`} />
+                  <span className={`h-2 w-2 rounded-full ${activeFriend?.status?.toUpperCase() === 'AWAY' ? 'bg-amber-500' : activeFriend?.status?.toUpperCase() === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'}`} />
                   <span className="capitalize">{activeFriend?.status?.toLowerCase()}</span>
                 </p>
               </div>
@@ -433,7 +433,13 @@ export const ProfileModal = ({
                 <div className="rounded-xl bg-gray-50 p-3 dark:bg-discord-black/35">
                   <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-500">Lần cuối</p>
                   <p className="mt-1 text-sm font-semibold">
-                    {activeFriend?.status === 'OFFLINE' && activeFriend?.lastSeen ? formatRelativeTime(activeFriend.lastSeen) : activeFriend?.status?.toLowerCase()}
+                    {activeFriend?.status?.toUpperCase() !== 'ONLINE' && activeFriend?.status?.toUpperCase() !== 'AWAY' && activeFriend?.lastSeen
+                      ? `Offline · ${formatRelativeTime(activeFriend.lastSeen)}`
+                      : activeFriend?.status?.toUpperCase() === 'ONLINE'
+                        ? 'Online'
+                        : activeFriend?.status?.toUpperCase() === 'AWAY'
+                          ? 'Away'
+                          : 'Offline'}
                   </p>
                 </div>
               </div>

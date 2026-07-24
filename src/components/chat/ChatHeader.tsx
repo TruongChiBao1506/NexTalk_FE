@@ -130,19 +130,25 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <Users className="w-3 h-3" />
                   <span>{activeGroup?.memberCount ?? '?'} thành viên</span>
                 </>
-              ) : activeFriend && activeFriend.status !== 'HIDDEN' ? (
-                <>
-                  <span className={`w-1.5 h-1.5 rounded-full ${activeFriend.status === 'AWAY' ? 'bg-amber-500' : activeFriend.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-550'}`} />
-                  <span className="truncate">
-                    {activeFriend.status === 'ONLINE' ? 'Online' : activeFriend.status === 'AWAY' ? 'Away' : 'Offline'}
-                    {activeFriend.status === 'OFFLINE' && lastSeenText && (
-                      <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1 normal-case font-normal">
-                        · {lastSeenText}
-                      </span>
-                    )}
-                  </span>
-                </>
-              ) : null}
+              ) : activeFriend && activeFriend.status?.toUpperCase() !== 'HIDDEN' ? (() => {
+                const friendStatus = activeFriend.status?.toUpperCase() || 'OFFLINE';
+                const isOnline = friendStatus === 'ONLINE';
+                const isAway = friendStatus === 'AWAY';
+                const isOffline = !isOnline && !isAway;
+                return (
+                  <>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isAway ? 'bg-amber-500' : isOnline ? 'bg-green-500' : 'bg-gray-400 dark:bg-zinc-500'}`} />
+                    <span className="truncate">
+                      {isOnline ? 'Online' : isAway ? 'Away' : 'Offline'}
+                      {isOffline && lastSeenText && (
+                        <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1 normal-case font-normal">
+                          · {lastSeenText}
+                        </span>
+                      )}
+                    </span>
+                  </>
+                );
+              })() : null}
             </p>
           </div>
         </button>

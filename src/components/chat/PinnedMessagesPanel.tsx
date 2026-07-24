@@ -75,7 +75,7 @@ const getFilterIcon = (filter: PinnedFilter) => {
 const formatPinnedDate = (dateString?: string | null) => {
   if (!dateString) return '';
   const date = new Date(dateString);
-  return `${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${date.toLocaleDateString()}`;
+  return `${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} ${date.toLocaleDateString()}`;
 };
 
 const getHostName = (url: string) => {

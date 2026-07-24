@@ -2471,7 +2471,7 @@ export const Chat = () => {
   // Helper to extract display info for a PRIVATE conversation
   const getFriendInfo = (conversation: ConversationResponse) => {
     if (conversation.type === 'PRIVATE') {
-      return conversation.members.find(m => m.id !== user?.id) || {
+      const member = conversation.members.find(m => m.id !== user?.id) || {
         id: '',
         username: 'Unknown User',
         avatarUrl: null,
@@ -2480,6 +2480,17 @@ export const Chat = () => {
         status: 'OFFLINE',
         lastSeen: undefined
       };
+      const friendFromStore = friends.find((f) => f.id === member.id);
+      if (friendFromStore) {
+        return {
+          ...member,
+          status: friendFromStore.status ?? member.status,
+          lastSeen: friendFromStore.lastSeen ?? member.lastSeen,
+          bio: friendFromStore.bio ?? member.bio,
+          avatarUrl: friendFromStore.avatarUrl ?? member.avatarUrl,
+        };
+      }
+      return member;
     }
     return {
       id: '',
@@ -2846,7 +2857,7 @@ export const Chat = () => {
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
     if (date.toDateString() === today.toDateString()) {
-      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Hôm qua';
     }
@@ -2888,12 +2899,12 @@ export const Chat = () => {
   };
 
   const formatMessageTime = (dateString: string) => {
-    if (!dateString) return new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (!dateString) return new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     const date = new Date(dateString);
     if (isNaN(date.getTime()) || date.getTime() === 0) {
-      return new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+      return new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     }
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
   const getMessageStatus = (msg: MessageResponse) => {
