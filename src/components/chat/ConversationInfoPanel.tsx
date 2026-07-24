@@ -19,7 +19,8 @@ import {
   Loader2,
   LogOut,
   Palette,
-  Pencil
+  Pencil,
+  UserMinus
 } from 'lucide-react';
 import type { ConversationResponse } from '../../types/chat';
 import type { ChannelResponse } from '../../types/group';
@@ -40,7 +41,6 @@ interface ConversationInfoPanelProps {
   isGroupModerator?: boolean;
   isTogglingTasks?: boolean;
   handleToggleTaskEnabled?: () => void;
-  setIsProfileModalOpen: (open: boolean) => void;
   onOpenSearch: () => void;
   onToggleMuted: () => Promise<void>;
   getConversationInfoSubtitle: () => string;
@@ -66,6 +66,8 @@ interface ConversationInfoPanelProps {
   handleDeleteConversation: (conversationId: string) => void;
   handleLeaveActiveGroup: () => void;
   profileActionLoading: boolean;
+  activeFriendIsFriend: boolean;
+  handleProfileFriendAction: () => void;
   currentUserIsGroupOwner: boolean;
   handleToggleBlockUser: () => void;
   blockActionLoading: boolean;
@@ -87,7 +89,6 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeConversation,
   activeChannel,
   isGroupModerator,
-  setIsProfileModalOpen,
   onOpenSearch,
   onToggleMuted,
   getConversationInfoSubtitle,
@@ -113,6 +114,8 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   handleDeleteConversation,
   handleLeaveActiveGroup,
   profileActionLoading,
+  activeFriendIsFriend,
+  handleProfileFriendAction,
   currentUserIsGroupOwner,
   handleToggleBlockUser,
   blockActionLoading,
@@ -248,16 +251,11 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 {(activeFriend?.username || 'U').charAt(0).toUpperCase()}
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setIsProfileModalOpen(true)}
-              className="mt-3 max-w-full rounded-lg px-2 py-1 text-lg font-bold text-gray-950 transition hover:bg-gray-100 dark:text-white dark:hover:bg-zinc-800"
-              title={isGroupConversation ? 'Xem hồ sơ nhóm' : 'Xem hồ sơ'}
-            >
+            <div className="mt-3 max-w-full px-2 py-1 text-lg font-bold text-gray-950 dark:text-white">
               <span className="block truncate">
                 {isGroupConversation ? (activeGroup?.name || activeConversation.name || activeFriend?.username) : (activeFriend?.id ? activeConversation.nicknames?.[activeFriend.id] : null) || activeFriend?.username}
               </span>
-            </button>
+            </div>
             <p className="m-0 text-xs font-medium text-gray-500 dark:text-zinc-400">{getConversationInfoSubtitle()}</p>
           </section>
 
@@ -733,15 +731,28 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 </button>
               ) : (
                 activeFriend?.email !== 'moderator@nextalk.local' && (
-                  <button
-                    type="button"
-                    onClick={handleToggleBlockUser}
-                    disabled={blockActionLoading}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
-                  >
-                    {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                    <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
-                  </button>
+                  <>
+                    {activeFriendIsFriend && (
+                      <button
+                        type="button"
+                        onClick={handleProfileFriendAction}
+                        disabled={profileActionLoading}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                      >
+                        {profileActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4" />}
+                        <span>Hủy kết bạn</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleToggleBlockUser}
+                      disabled={blockActionLoading}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-3 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                    >
+                      {blockActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                      <span>{activePrivateChatBlockedByMe ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}</span>
+                    </button>
+                  </>
                 )
               )}
             </div>

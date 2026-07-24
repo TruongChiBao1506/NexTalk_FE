@@ -32,7 +32,6 @@ import CallOverlay from '../components/chat/CallOverlay';
 import { useCallStore } from '../store/callStore';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { useNotificationStore } from '../store/notificationStore';
-import { formatRelativeTime } from '../utils/time';
 import { useStickerStore } from '../store/stickerStore';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import type { CallHistoryMetadata, ConversationResponse, MessageAttachment, MessageResponse, PollMetadata } from '../types/chat';
@@ -58,7 +57,6 @@ import { SidebarSearch } from '../components/chat/SidebarSearch';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
 import { VoiceConnectedPanel } from '../components/chat/VoiceConnectedPanel';
 import { VoiceChannelGrid } from '../components/chat/VoiceChannelGrid';
-import { ProfileModal } from '../components/chat/ProfileModal';
 import { CreatePollModal } from '../components/chat/CreatePollModal';
 import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
@@ -219,7 +217,7 @@ export const Chat = () => {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
 
-  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, updateMemberRole, fetchPendingInvitations } = useGroupStore();
+  const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, fetchPendingInvitations } = useGroupStore();
   const { fetchPacks: fetchStickers } = useStickerStore();
   const { friends, fetchFriends, fetchPending, sendFriendRequest, removeFriend } = useFriendStore();
   const { initiateCall, joinVoiceChannel, activeVoiceChannelId } = useCallStore();
@@ -283,12 +281,7 @@ export const Chat = () => {
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [blockActionLoading, setBlockActionLoading] = useState(false);
   const [isUpdatingSelfDestruct] = useState(false);
-  const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
   const [isUpdatingGroupAvatar, setIsUpdatingGroupAvatar] = useState(false);
-  const [isEditingGroupName, setIsEditingGroupName] = useState(false);
-  const [editingGroupName, setEditingGroupName] = useState('');
-  const [isRenamingGroup, setIsRenamingGroup] = useState(false);
-  const [isTogglingApproval, setIsTogglingApproval] = useState(false);
   const [isTogglingTasks, setIsTogglingTasks] = useState(false);
   const [isRefreshingInviteCode, setIsRefreshingInviteCode] = useState(false);
   const [messagePriority, setMessagePriority] = useState<string | null>(null);
@@ -360,7 +353,6 @@ export const Chat = () => {
 
   const {
     isInviteMembersOpen: _, setIsInviteMembersOpen: __,
-    isProfileModalOpen, setIsProfileModalOpen,
     isCreatePollOpen, setIsCreatePollOpen,
     pollVoterDialog, setPollVoterDialog,
     activeMedia, setActiveMedia,
@@ -463,7 +455,6 @@ export const Chat = () => {
     isGlobalSearching,
     globalSearchError,
     pinUnlockStatus,
-    groupMemberSearchQuery, setGroupMemberSearchQuery,
     normalizeSearchTerm,
     handleOpenSearchMessage
   } = useChatSearch({
@@ -699,12 +690,6 @@ export const Chat = () => {
     document.addEventListener('click', closeConversationMenu);
     return () => document.removeEventListener('click', closeConversationMenu);
   }, [openConversationMenuId]);
-
-  useEffect(() => {
-    if (!isProfileModalOpen) {
-      setGroupMemberSearchQuery('');
-    }
-  }, [isProfileModalOpen]);
 
   useEffect(() => {
     return () => {
@@ -1101,7 +1086,6 @@ export const Chat = () => {
   useEffect(() => {
     if (activeConversation) {
       setSelectedChatRequest(null);
-      setIsProfileModalOpen(false);
       setIsConversationInfoOpen(false);
       setConversationArchiveMessages([]);
       setShowScrollToLatest(false);
@@ -2446,28 +2430,6 @@ export const Chat = () => {
     }
   };
 
-  const handleRenameGroup = async () => {
-    const newName = editingGroupName.trim();
-    if (!activeGroup || !newName || isRenamingGroup) return;
-    if (newName === activeGroup.name) {
-      setIsEditingGroupName(false);
-      return;
-    }
-    setIsRenamingGroup(true);
-    try {
-      const updatedGroup = await updateGroup(activeGroup.id, { name: newName });
-      if (updatedGroup) {
-        setIsEditingGroupName(false);
-      } else {
-        showAlertDialog('Không thể đổi tên nhóm. Vui lòng thử lại.', 'Thông báo', 'danger');
-      }
-    } catch (err: any) {
-      showAlertDialog(err?.response?.data?.message || err?.message || 'Không thể đổi tên nhóm.', 'Thông báo', 'danger');
-    } finally {
-      setIsRenamingGroup(false);
-    }
-  };
-
   // Helper to extract display info for a PRIVATE conversation
   const getFriendInfo = (conversation: ConversationResponse) => {
     if (conversation.type === 'PRIVATE') {
@@ -2508,7 +2470,6 @@ export const Chat = () => {
     ? activeConversation.members.find((member) => member.id !== user?.id)
     : null;
   const activeFriendIsFriend = currentChatUser ? isExistingFriend(currentChatUser?.id ?? '') : false;
-  const activeFriendRequestSent = currentChatUser ? sentFriendRequestIds.includes(currentChatUser?.id ?? '') : false;
   const handleSendFriendRequestFromSearch = async (targetUserId: string) => {
     setFriendRequestActionId(targetUserId);
     const success = await sendFriendRequest(targetUserId);
@@ -2652,7 +2613,7 @@ export const Chat = () => {
     try {
       const ok = await removeGroupMember(activeGroup.id, user.id);
       if (ok) {
-        setIsProfileModalOpen(false);
+        setIsConversationInfoOpen(false);
         await fetchGroups();
         await fetchConversations();
         await selectConversation(null);
@@ -2664,89 +2625,8 @@ export const Chat = () => {
 
   const groupLeaderRoles: GroupRole[] = ['OWNER', 'LEADER', 'ADMIN'];
   const groupModeratorRoles: GroupRole[] = ['OWNER', 'LEADER', 'ADMIN', 'DEPUTY'];
-  const roleLabels: Record<GroupRole, string> = {
-    OWNER: 'Trưởng nhóm',
-    LEADER: 'Trưởng nhóm',
-    DEPUTY: 'Phó nhóm',
-    ADMIN: 'Trưởng nhóm',
-    MEMBER: 'Thành viên',
-  };
-
   const isGroupLeaderRole = (role?: GroupRole | null) => Boolean(role && groupLeaderRoles.includes(role));
   const isGroupModeratorRole = (role?: GroupRole | null) => Boolean(role && groupModeratorRoles.includes(role));
-
-  const canSetGroupMemberRole = (member: GroupResponse['members'][number], role: GroupRole) => {
-    if (!activeGroup || !currentGroupMembership || member.userId === user?.id || member.role === role) {
-      return false;
-    }
-    if (role === 'OWNER') {
-      return currentGroupMembership.role === 'OWNER' && member.role !== 'OWNER';
-    }
-    return isGroupLeaderRole(currentGroupMembership.role)
-      && !isGroupLeaderRole(member.role)
-      && (role === 'DEPUTY' || role === 'MEMBER');
-  };
-
-  const canKickGroupMember = (member: GroupResponse['members'][number]) => {
-    if (!activeGroup || !currentGroupMembership || member.userId === user?.id || isGroupLeaderRole(member.role)) {
-      return false;
-    }
-    if (isGroupLeaderRole(currentGroupMembership.role)) {
-      return true;
-    }
-    return currentGroupMembership.role === 'DEPUTY' && member.role === 'MEMBER';
-  };
-
-  const handleUpdateGroupMemberRole = async (member: GroupResponse['members'][number], role: GroupRole) => {
-    if (!activeGroup || !canSetGroupMemberRole(member, role) || groupMemberActionId) return;
-    const groupId = activeGroup.id;
-    const actionId = `${member.userId}:${role}`;
-
-    setConfirmDialog({
-      title: role === 'OWNER' ? 'Chuyển quyền trưởng nhóm' : 'Cập nhật vai trò',
-      description: role === 'OWNER'
-        ? `Bạn có chắc muốn chuyển toàn bộ quyền trưởng nhóm cho ${member.username}? Sau thao tác này bạn sẽ trở thành thành viên.`
-        : `Bạn có chắc muốn cập nhật ${member.username} thành ${roleLabels[role]}?`,
-      confirmLabel: role === 'OWNER' ? 'Chuyển quyền' : 'Cập nhật',
-      variant: 'primary',
-      onConfirm: async () => {
-        setGroupMemberActionId(actionId);
-        try {
-          const ok = await updateMemberRole(groupId, member.userId, role);
-          if (ok) {
-            await fetchGroups();
-          }
-        } finally {
-          setGroupMemberActionId(null);
-          setConfirmDialog(null);
-        }
-      },
-    });
-  };
-
-  const handleKickGroupMember = async (member: GroupResponse['members'][number]) => {
-    if (!activeGroup || !canKickGroupMember(member) || groupMemberActionId) return;
-
-    setConfirmDialog({
-      title: 'Mời khỏi nhóm',
-      description: `Kick ${member.username} khỏi nhóm ${activeGroup.name}?`,
-      confirmLabel: 'Đồng ý',
-      variant: 'danger',
-      onConfirm: async () => {
-        setGroupMemberActionId(member.userId);
-        try {
-          const ok = await removeGroupMember(activeGroup.id, member.userId);
-          if (ok) {
-            await fetchGroups();
-            await fetchConversations();
-          }
-        } finally {
-          setGroupMemberActionId(null);
-          setConfirmDialog(null);
-        }
-      },
-    });
-  };
 
   const getConversationTitle = (conversationId: string) => {
     const conversation = conversations.find((item) => item.id === conversationId);
@@ -2841,14 +2721,6 @@ export const Chat = () => {
     }
     return currentGroupMembership.role === 'DEPUTY';
   };
-  const normalizedGroupMemberSearch = groupMemberSearchQuery.trim().toLowerCase();
-  const filteredGroupMembers = (activeGroup?.members ?? []).filter((member) => {
-    if (!normalizedGroupMemberSearch) return true;
-    return [member.username, member.role.toLowerCase()]
-      .filter(Boolean)
-      .some((value) => value.toLowerCase().includes(normalizedGroupMemberSearch));
-  });
-
   const formatConversationTime = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -2862,13 +2734,6 @@ export const Chat = () => {
       return 'Hôm qua';
     }
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  };
-
-  const formatProfileDate = (dateString?: string | null) => {
-    if (!dateString) return 'Không rõ';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Không rõ';
-    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const selfDestructOptions = [
@@ -3008,23 +2873,6 @@ export const Chat = () => {
 
   const getPollMetadata = (msg: MessageResponse): PollMetadata => (msg.metadata ?? {}) as PollMetadata;
 
-
-  const handleToggleRequiresApproval = async () => {
-    if (!activeGroup || isTogglingApproval) return;
-    setIsTogglingApproval(true);
-    try {
-      const updatedGroup = await updateGroup(activeGroup.id, { requiresApproval: !activeGroup.requiresApproval });
-      if (!updatedGroup) {
-        showAlertDialog('Không thể thay đổi cài đặt nhóm. Vui lòng thử lại.', 'Thông báo', 'danger');
-      } else {
-        await fetchGroups();
-      }
-    } catch (err: any) {
-      showAlertDialog(err.message || 'Lỗi khi cập nhật nhóm', 'Thông báo', 'danger');
-    } finally {
-      setIsTogglingApproval(false);
-    }
-  };
 
   const handleToggleTaskEnabled = async () => {
     if (!activeGroup || isTogglingTasks) return;
@@ -3481,7 +3329,6 @@ export const Chat = () => {
             {/* Chat Header */}
             <ChatHeader
               selectConversation={selectConversation}
-              setIsProfileModalOpen={setIsProfileModalOpen}
               isGroupConversation={isGroupConversation}
               activeGroup={activeGroup}
               activeFriend={activeFriendForDisplay}
@@ -3916,7 +3763,6 @@ export const Chat = () => {
               activeFriend={activeFriend}
               activeConversation={activeConversation}
               activeChannel={activeChannel}
-              setIsProfileModalOpen={setIsProfileModalOpen}
               onOpenSearch={() => {
                 setIsConversationInfoOpen(false);
                 setIsSearchPanelOpen(true);
@@ -3953,6 +3799,8 @@ export const Chat = () => {
               handleDeleteConversation={handleDeleteConversation}
               handleLeaveActiveGroup={handleLeaveActiveGroup}
               profileActionLoading={profileActionLoading}
+              activeFriendIsFriend={activeFriendIsFriend}
+              handleProfileFriendAction={handleProfileFriendAction}
               currentUserIsGroupOwner={currentUserIsGroupOwner}
               handleToggleBlockUser={handleToggleBlockUser}
               blockActionLoading={blockActionLoading}
@@ -4173,51 +4021,6 @@ export const Chat = () => {
         />
       )}
 
-      {isProfileModalOpen && activeConversation && (activeFriend || isGroupConversation) && (
-        <ProfileModal
-          setIsProfileModalOpen={setIsProfileModalOpen}
-          activeConversation={activeConversation}
-          activeFriend={activeFriend}
-          isUpdatingGroupAvatar={isUpdatingGroupAvatar}
-          isGroupConversation={isGroupConversation}
-          currentUserIsGroupOwner={currentUserIsGroupOwner}
-          groupAvatarInputRef={groupAvatarInputRef as any}
-          activeGroup={activeGroup}
-          isEditingGroupName={isEditingGroupName}
-          editingGroupName={editingGroupName}
-          setEditingGroupName={setEditingGroupName}
-          setIsEditingGroupName={setIsEditingGroupName}
-          isRenamingGroup={isRenamingGroup}
-          handleRenameGroup={handleRenameGroup}
-          isTogglingApproval={isTogglingApproval}
-          handleToggleRequiresApproval={handleToggleRequiresApproval}
-          isTogglingTasks={isTogglingTasks}
-          handleToggleTaskEnabled={handleToggleTaskEnabled}
-          handleLeaveActiveGroup={handleLeaveActiveGroup}
-          profileActionLoading={profileActionLoading}
-          canInviteToActiveGroup={canInviteToActiveGroup}
-          setIsInviteMembersOpen={setIsInviteMembersOpen}
-          groupMemberSearchQuery={groupMemberSearchQuery}
-          setGroupMemberSearchQuery={setGroupMemberSearchQuery}
-          filteredGroupMembers={filteredGroupMembers}
-          canKickGroupMember={canKickGroupMember}
-          canSetGroupMemberRole={canSetGroupMemberRole as any}
-          groupMemberActionId={groupMemberActionId}
-          roleLabels={roleLabels}
-          handleUpdateGroupMemberRole={handleUpdateGroupMemberRole as any}
-          handleKickGroupMember={handleKickGroupMember}
-          activeFriendIsFriend={activeFriendIsFriend}
-          activeFriendRequestSent={activeFriendRequestSent}
-          handleProfileFriendAction={handleProfileFriendAction}
-          handleToggleBlockUser={handleToggleBlockUser}
-          blockActionLoading={blockActionLoading}
-          activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}
-          formatProfileDate={formatProfileDate}
-          formatRelativeTime={formatRelativeTime}
-          user={user}
-        />
-      )}
-
       <SearchProfileModal
         searchProfileUser={searchProfileUser}
         setSearchProfileUser={setSearchProfileUser}
@@ -4298,10 +4101,10 @@ export const Chat = () => {
         description={confirmDialog?.description ?? ''}
         confirmLabel={confirmDialog?.confirmLabel}
         variant={confirmDialog?.variant}
-        isLoading={profileActionLoading || blockActionLoading || Boolean(groupMemberActionId)}
+        isLoading={profileActionLoading || blockActionLoading}
         showCancel={confirmDialog?.showCancel}
         onCancel={() => {
-          if (!profileActionLoading && !blockActionLoading && !groupMemberActionId) {
+          if (!profileActionLoading && !blockActionLoading) {
             setConfirmDialog(null);
           }
         }}

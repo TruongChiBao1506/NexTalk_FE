@@ -19,7 +19,6 @@ import { useRelativeTime } from '../../hooks/useRelativeTime';
 
 interface ChatHeaderProps {
   selectConversation: (conversation: any) => void;
-  setIsProfileModalOpen: (open: boolean) => void;
   isGroupConversation: boolean;
   activeGroup: any;
   activeFriend: any;
@@ -51,7 +50,6 @@ import { GroupAvatar } from './GroupAvatar';
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   selectConversation,
-  setIsProfileModalOpen,
   isGroupConversation,
   activeGroup,
   activeFriend,
@@ -95,9 +93,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setIsProfileModalOpen(true)}
+          onClick={() => {
+            setIsConversationInfoOpen(true);
+            setIsSearchPanelOpen(false);
+            setIsPinnedPanelOpen(false);
+          }}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl pr-2 text-left transition hover:bg-indigo-50/80 dark:hover:bg-zinc-800/60 md:flex-none"
-          title={isGroupConversation ? 'Xem thông tin nhóm' : 'Xem hồ sơ'}
+          title="Mở thông tin hội thoại"
         >
           {isGroupConversation ? (
             <GroupAvatar conversation={activeGroup} size={36} className="!rounded-xl border border-gray-200 dark:border-zinc-800" />

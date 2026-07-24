@@ -811,7 +811,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Send initial presence heartbeat NOW after subscriptions are registered
         const sendPresenceHeartbeat = () => stompClient.connected && stompClient.publish({ destination: '/app/presence.heartbeat', body: '{}' });
         sendPresenceHeartbeat();
-        presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 15_000);
+        presenceHeartbeatTimer = setInterval(sendPresenceHeartbeat, 30_000);
 
         // Subscribe to personal calling signals channel
         stompClient.subscribe('/user/queue/calls', (message) => {

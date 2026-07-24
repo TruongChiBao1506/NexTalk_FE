@@ -4,7 +4,6 @@ import type { MessageResponse, PollOption } from '../types/chat';
 
 export const useChatModals = () => {
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
   const [pollVoterDialog, setPollVoterDialog] = useState<{ option: PollOption; anonymous: boolean } | null>(null);
   const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'IMAGE' | 'VIDEO'; name?: string } | null>(null);
@@ -23,7 +22,6 @@ export const useChatModals = () => {
   const closeConfirmDialog = () => setConfirmDialog(null);
   const closeAllModals = () => {
     setIsInviteMembersOpen(false);
-    setIsProfileModalOpen(false);
     setIsCreatePollOpen(false);
     setPollVoterDialog(null);
     setActiveMedia(null);
@@ -47,7 +45,6 @@ export const useChatModals = () => {
 
   return {
     isInviteMembersOpen, setIsInviteMembersOpen,
-    isProfileModalOpen, setIsProfileModalOpen,
     isCreatePollOpen, setIsCreatePollOpen,
     pollVoterDialog, setPollVoterDialog,
     activeMedia, setActiveMedia,
