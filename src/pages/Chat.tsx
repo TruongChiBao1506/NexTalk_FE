@@ -1070,6 +1070,14 @@ export const Chat = () => {
       const accessToken = await ensureFreshAccessToken(120);
       if (!accessToken || cancelled) return;
 
+      // Realtime should not wait for the initial REST fan-out. Starting the
+      // socket first lets messages/presence arrive while the sidebar data is
+      // revalidated in parallel.
+      const { isConnected: currentlyConnected, isConnecting: currentlyConnecting } = useChatStore.getState();
+      if (!currentlyConnected && !currentlyConnecting) {
+        connectWebSocket();
+      }
+
       await Promise.allSettled([
         fetchConversations(),
         fetchGroups(),
@@ -1090,10 +1098,6 @@ export const Chat = () => {
         }
       }
 
-      const { isConnected: currentlyConnected, isConnecting: currentlyConnecting } = useChatStore.getState();
-      if (!currentlyConnected && !currentlyConnecting) {
-        connectWebSocket();
-      }
     };
 
     reloadChatData();

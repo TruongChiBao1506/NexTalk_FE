@@ -700,6 +700,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   connectWebSocket: async () => {
+    const connectionStartedAt = performance.now();
     const { stompClient, isConnected, isConnecting } = get();
     // Do not reconnect if already active or connecting
     if (stompClient?.active || isConnected || isConnecting) return;
@@ -752,7 +753,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
 
       stompClient.onConnect = () => {
-        console.info(`[STOMP] WebSocket connected (${useRawWs ? 'Native 1-RTT' : 'SockJS Fallback'}).`);
+        const elapsedMs = Math.round(performance.now() - connectionStartedAt);
+        console.info(`[STOMP] WebSocket connected (${useRawWs ? 'Native 1-RTT' : 'SockJS Fallback'}) in ${elapsedMs}ms.`);
         set({ isConnected: true, isConnecting: false, stompClient });
         stopPresenceHeartbeat();
 
