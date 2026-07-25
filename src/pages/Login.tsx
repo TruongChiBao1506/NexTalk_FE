@@ -11,7 +11,7 @@ import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
-import logo from '../assets/logo_notext.png';
+const logo = '/favicon.svg';
 
 const POLL_INTERVAL_MS = 2000;
 

@@ -76,8 +76,22 @@ const newerMessage = (current: MessageResponse | undefined, candidate: MessageRe
 };
 
 const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
+const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
 const MESSAGE_PAGE_SIZE = 25;
+const SEEN_RECEIPT_DEBOUNCE_MS = 400;
+
+const scheduleSeenReceipt = (conversationId: string) => {
+  const pending = seenReceiptTimeouts[conversationId];
+  if (pending) clearTimeout(pending);
+
+  seenReceiptTimeouts[conversationId] = setTimeout(() => {
+    delete seenReceiptTimeouts[conversationId];
+    messageService.markAsSeen(conversationId).catch((error) => {
+      console.error('Failed to mark conversation as seen:', error);
+    });
+  }, SEEN_RECEIPT_DEBOUNCE_MS);
+};
 
 export interface TypingUser {
   userId: string;
@@ -442,12 +456,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const history = response.data;
         
         // Mark messages as seen
-        messageService.markAsSeen(conversationId)
-          .then(() => get().fetchUnreadCounts())
-          .catch((e) => {
-            console.error('Failed to mark seen:', e);
-            void get().fetchUnreadCounts();
-          });
+        scheduleSeenReceipt(conversationId);
 
         // Fetch pinned messages in background
         get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
@@ -953,9 +962,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       if (currentUser && message.senderId !== currentUser.id) {
-        messageService.markAsSeen(message.conversationId)
-          .then(() => get().fetchUnreadCounts())
-          .catch(() => get().fetchUnreadCounts());
+        scheduleSeenReceipt(message.conversationId);
       }
 
       // Also update messagesCache if present

@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, Monitor, XCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/common/ThemeToggle';
-import logo from '../assets/logo_notext.png';
+const logo = '/favicon.svg';
 
 export const QrLoginConfirm = () => {
   const [searchParams] = useSearchParams();

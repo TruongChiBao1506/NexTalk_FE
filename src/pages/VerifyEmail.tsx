@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
-import logo from '../assets/logo_notext.png';
+const logo = '/favicon.svg';
 
 export const VerifyEmail = () => {
   const [searchParams] = useSearchParams();

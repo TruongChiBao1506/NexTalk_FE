@@ -9,7 +9,7 @@ import { registerSchema } from '../types/authRequests';
 import type { RegisterFormInput } from '../types/authRequests';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
-import logo from '../assets/logo_notext.png';
+const logo = '/favicon.svg';
 
 const translateAuthError = (msg: string | undefined | null): string => {
   if (!msg) return 'Đã có lỗi xảy ra. Vui lòng thử lại.';

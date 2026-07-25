@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Bell, CheckCheck, LockKeyhole, LogOut, MessageCircleMore, MoreHorizontal, Paperclip, Phone, Plus, Search, Smile, UsersRound, Video } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
-import logo from '../assets/logo_notext.png';
+const logo = '/favicon.svg';
 
 const features = [
   {
