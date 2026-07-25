@@ -78,7 +78,7 @@ import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
-import { zipFolder } from '../utils/folderZip';
+import { pickAndZipFolder, supportsDirectoryPicker, zipFolder } from '../utils/folderZip';
 import { stripHtml } from '../utils/text';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
@@ -808,6 +808,32 @@ export const Chat = () => {
     } catch (error) {
       showAlertDialog(
         error instanceof Error ? error.message : 'Không thể nén thư mục đã chọn.',
+        'Không thể gửi thư mục',
+        'danger'
+      );
+    } finally {
+      setIsZippingFolder(false);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    if (!canSendInActiveConversation || isZippingFolder) return;
+
+    // Firefox/Safari currently need the legacy directory input. Chromium uses
+    // the File System Access API to avoid its extra "Upload N files?" dialog.
+    if (!supportsDirectoryPicker()) {
+      folderInputRef.current?.click();
+      return;
+    }
+
+    setIsZippingFolder(true);
+    try {
+      const archive = await pickAndZipFolder();
+      await addUploadedFile(archive);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      showAlertDialog(
+        error instanceof Error ? error.message : 'Không thể đọc và nén thư mục đã chọn.',
         'Không thể gửi thư mục',
         'danger'
       );
@@ -3756,6 +3782,7 @@ export const Chat = () => {
                   handleFileChange={handleFileChange}
                   folderInputRef={folderInputRef}
                   handleFolderChange={handleFolderChange}
+                  handleSelectFolder={handleSelectFolder}
                   isZippingFolder={isZippingFolder}
                   groupAvatarInputRef={groupAvatarInputRef as any}
                   handleGroupAvatarSelected={handleGroupAvatarSelected}

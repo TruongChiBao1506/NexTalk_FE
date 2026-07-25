@@ -119,6 +119,7 @@ interface MessageInputProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   folderInputRef: React.RefObject<HTMLInputElement | null>;
   handleFolderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSelectFolder: () => void;
   isZippingFolder: boolean;
   groupAvatarInputRef: React.RefObject<HTMLInputElement | null>;
   handleGroupAvatarSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -192,6 +193,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   handleFileChange,
   folderInputRef,
   handleFolderChange,
+  handleSelectFolder,
   isZippingFolder,
   groupAvatarInputRef,
   handleGroupAvatarSelected,
@@ -597,7 +599,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               disabled={!canSendInActiveConversation || isZippingFolder}
               onClick={() => {
                 if (!canSendInActiveConversation || isZippingFolder) return;
-                folderInputRef.current?.click();
+                handleSelectFolder();
               }}
               className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
               title={isZippingFolder ? 'Đang nén thư mục...' : 'Gửi thư mục dưới dạng ZIP'}
