@@ -37,6 +37,8 @@ async function sha256(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+const MAX_RAW_FILE_SIZE = 10 * 1024 * 1024;
+
 export const fileService = {
   async uploadFile(
     file: File,
@@ -44,6 +46,10 @@ export const fileService = {
   ): Promise<ApiResponse<FileUploadResponse>> {
     // Compress image client-side if it's an image file
     const fileToUpload = await compressImage(file);
+
+    if (fileToUpload.type === 'application/zip' && fileToUpload.size > MAX_RAW_FILE_SIZE) {
+      throw new Error('File ZIP vượt quá giới hạn 10 MB của Cloudinary Free.');
+    }
 
     const hash = await sha256(fileToUpload);
     const prepare = await apiClient.post<ApiResponse<DirectUploadPrepareResponse>>('/files/direct-upload/prepare', {

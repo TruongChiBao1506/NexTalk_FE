@@ -1,5 +1,6 @@
 const MAX_SOURCE_SIZE = 250 * 1024 * 1024;
-const MAX_ZIP_SIZE = 50 * 1024 * 1024;
+// Cloudinary Free limits raw assets (ZIP, Office files, etc.) to 10 MiB.
+const MAX_ZIP_SIZE = 10 * 1024 * 1024;
 const MAX_FILE_COUNT = 5_000;
 
 type FileHandleLike = {
@@ -77,12 +78,12 @@ const createZip = async (entries: FolderEntry[], rootFolder: string): Promise<Fi
     type: 'blob',
     mimeType: 'application/zip',
     compression: 'DEFLATE',
-    compressionOptions: { level: 6 },
+    compressionOptions: { level: 9 },
     streamFiles: true,
   });
 
   if (blob.size > MAX_ZIP_SIZE) {
-    throw new Error('File ZIP sau khi nén vượt quá giới hạn upload 50 MB.');
+    throw new Error('File ZIP sau khi nén vượt quá giới hạn 10 MB của Cloudinary Free.');
   }
 
   return new File([blob], safeArchiveName(rootFolder), {

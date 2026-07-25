@@ -2355,6 +2355,11 @@ export const Chat = () => {
           updateOptimisticMessage(clientMessageId, {
             metadata: { clientMessageId, optimistic: true, deliveryState: 'failed' }
           });
+          showAlertDialog(
+            err?.response?.data?.message || err?.message || 'Không thể tải tệp lên máy chủ.',
+            'Gửi tệp thất bại',
+            'danger'
+          );
         }
       })();
 
