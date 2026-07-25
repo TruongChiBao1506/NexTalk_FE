@@ -80,13 +80,13 @@ export const fileService = {
     formData.append('public_id', ticket.publicId);
     formData.append('overwrite', 'true');
 
-    const cloudinary = await axios.post<CloudinaryUploadResponse>(uploadUrl.toString(), formData, {
-      onUploadProgress: event => {
-        if (event.total) onUploadProgress?.(Math.round((event.loaded * 95) / event.total));
-      },
-    });
-
     try {
+      const cloudinary = await axios.post<CloudinaryUploadResponse>(uploadUrl.toString(), formData, {
+        onUploadProgress: event => {
+          if (event.total) onUploadProgress?.(Math.round((event.loaded * 95) / event.total));
+        },
+      });
+
       const response = await apiClient.post<ApiResponse<FileUploadResponse>>('/files/direct-upload/confirm', {
         hash,
         publicId: cloudinary.data.public_id,
@@ -103,9 +103,9 @@ export const fileService = {
       onUploadProgress?.(100);
       return response.data;
     } catch (error) {
-      // Some Cloudinary accounts omit or vary fields used by direct-upload confirmation.
-      // Fall back to the authenticated backend upload so the task never loses a file
-      // that the user has already selected.
+      // Retry through the authenticated backend when Cloudinary rejects a
+      // direct upload or its response cannot be confirmed. This is especially
+      // important for raw assets such as ZIP and Office documents.
       if (!axios.isAxiosError(error) || error.response?.status !== 400) throw error;
 
       const fallbackForm = new FormData();
