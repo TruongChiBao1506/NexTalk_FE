@@ -42,7 +42,8 @@ const MAX_RAW_FILE_SIZE = 10 * 1024 * 1024;
 export const fileService = {
   async uploadFile(
     file: File,
-    onUploadProgress?: (progress: number) => void
+    onUploadProgress?: (progress: number) => void,
+    signal?: AbortSignal
   ): Promise<ApiResponse<FileUploadResponse>> {
     // Compress image client-side if it's an image file
     const fileToUpload = await compressImage(file);
@@ -57,7 +58,7 @@ export const fileService = {
       fileName: fileToUpload.name,
       contentType: fileToUpload.type || 'application/octet-stream',
       size: fileToUpload.size,
-    });
+    }, { signal });
 
     if (prepare.data.data.deduplicated && prepare.data.data.file) {
       onUploadProgress?.(100);
@@ -88,6 +89,7 @@ export const fileService = {
 
     try {
       const cloudinary = await axios.post<CloudinaryUploadResponse>(uploadUrl.toString(), formData, {
+        signal,
         onUploadProgress: event => {
           if (event.total) onUploadProgress?.(Math.round((event.loaded * 95) / event.total));
         },
@@ -105,7 +107,7 @@ export const fileService = {
         fileName: fileToUpload.name,
         contentType: fileToUpload.type || 'application/octet-stream',
         size: fileToUpload.size,
-      });
+      }, { signal });
       onUploadProgress?.(100);
       return response.data;
     } catch (error) {
@@ -117,6 +119,7 @@ export const fileService = {
       const fallbackForm = new FormData();
       fallbackForm.append('file', fileToUpload);
       const fallback = await apiClient.post<ApiResponse<FileUploadResponse>>('/files/upload', fallbackForm, {
+        signal,
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: event => {
           if (event.total) onUploadProgress?.(95 + Math.round((event.loaded * 5) / event.total));

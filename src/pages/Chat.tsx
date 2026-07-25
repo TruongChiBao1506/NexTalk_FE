@@ -194,6 +194,35 @@ export const Chat = () => {
     batchDeleteMessages,
     batchRecallMessages,
   } = useChatStore();
+
+  useEffect(() => {
+    const failStaleOptimisticMessages = () => {
+      const now = Date.now();
+      const staleMessages = useChatStore.getState().messages.filter((message) => {
+        if (!message.metadata?.optimistic || message.metadata?.deliveryState !== 'sending') return false;
+        const createdAt = new Date(message.createdAt).getTime();
+        return Number.isFinite(createdAt) && now - createdAt >= 120_000;
+      });
+
+      staleMessages.forEach((message) => {
+        const staleClientMessageId = message.clientMessageId ?? message.metadata?.clientMessageId;
+        if (staleClientMessageId) {
+          updateOptimisticMessage(staleClientMessageId, {
+            metadata: {
+              clientMessageId: staleClientMessageId,
+              optimistic: true,
+              deliveryState: 'failed'
+            }
+          });
+        }
+      });
+    };
+
+    failStaleOptimisticMessages();
+    const watchdog = window.setInterval(failStaleOptimisticMessages, 5_000);
+    return () => window.clearInterval(watchdog);
+  }, [updateOptimisticMessage]);
+
   const {
     incoming: incomingChatRequests,
     isLoadingIncoming: isLoadingChatRequests,
@@ -2313,12 +2342,29 @@ export const Chat = () => {
                 size: item.size
               });
             } else if (item.sourceFile) {
-              const res = await fileService.uploadFile(item.sourceFile, (percent) => {
-                const totalProgress = Math.round(((i + percent / 100) / attachmentsToUpload.length) * 100);
-                updateOptimisticMessage(clientMessageId, {
-                  metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: totalProgress }
-                });
-              });
+              const uploadController = new AbortController();
+              let uploadTimedOut = false;
+              const uploadTimeout = window.setTimeout(() => {
+                uploadTimedOut = true;
+                uploadController.abort();
+              }, 120_000);
+
+              let res;
+              try {
+                res = await fileService.uploadFile(item.sourceFile, (percent) => {
+                  const totalProgress = Math.round(((i + percent / 100) / attachmentsToUpload.length) * 100);
+                  updateOptimisticMessage(clientMessageId, {
+                    metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: totalProgress }
+                  });
+                }, uploadController.signal);
+              } catch (error) {
+                if (uploadTimedOut) {
+                  throw new Error('Tải tệp quá 2 phút và đã được dừng. Vui lòng thử lại.');
+                }
+                throw error;
+              } finally {
+                window.clearTimeout(uploadTimeout);
+              }
 
               if (res.success && res.data) {
                 finalAttachments.push({
@@ -2342,7 +2388,7 @@ export const Chat = () => {
           optimisticPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
 
           // Dispatch real message via STOMP with clientMessageId for overwrite matching
-          sendStompMessage(
+          const published = sendStompMessage(
             caption,
             messageType as any,
             replyTo?.id ?? undefined,
@@ -2350,6 +2396,27 @@ export const Chat = () => {
             messagePriority || undefined,
             clientMessageId
           );
+          if (!published) {
+            throw new Error('Mất kết nối máy chủ tin nhắn. Vui lòng thử lại.');
+          }
+
+          // Publishing to STOMP is fire-and-forget. If the server does not
+          // echo a durable message, fail the optimistic item instead of
+          // leaving it spinning forever.
+          window.setTimeout(() => {
+            const pending = useChatStore.getState().messages.find(
+              (message) => (
+                (message.clientMessageId ?? message.metadata?.clientMessageId) === clientMessageId
+                && message.metadata?.optimistic
+                && message.metadata?.deliveryState === 'sending'
+              )
+            );
+            if (pending) {
+              updateOptimisticMessage(clientMessageId, {
+                metadata: { clientMessageId, optimistic: true, deliveryState: 'failed' }
+              });
+            }
+          }, 15_000);
         } catch (err: any) {
           console.error('[Optimistic Media Upload Error]', err);
           updateOptimisticMessage(clientMessageId, {

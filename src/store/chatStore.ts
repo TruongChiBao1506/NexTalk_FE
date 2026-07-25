@@ -1461,7 +1461,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const updateList = (list: MessageResponse[]) =>
         list.map((m) => {
-          if (m.metadata?.clientMessageId === clientMessageId) {
+          if (getClientMessageId(m) === clientMessageId) {
             return {
               ...m,
               ...updates,
@@ -1478,7 +1478,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: updateList(state.messages),
         messagesCache: Object.fromEntries(
           Object.entries(state.messagesCache).map(([cid, list]) => [cid, updateList(list)])
-        )
+        ),
+        lastMessages: Object.fromEntries(
+          Object.entries(state.lastMessages).map(([cid, message]) => [
+            cid,
+            message && getClientMessageId(message) === clientMessageId
+              ? updateList([message])[0]
+              : message
+          ])
+        ),
       };
     });
   },
