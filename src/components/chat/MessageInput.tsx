@@ -40,7 +40,8 @@ import {
   Mic,
   MicOff,
   Square,
-  Eye
+  Eye,
+  FolderArchive
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
@@ -116,6 +117,9 @@ interface MessageInputProps {
   handleSendSticker: (sticker: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  folderInputRef: React.RefObject<HTMLInputElement | null>;
+  handleFolderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isZippingFolder: boolean;
   groupAvatarInputRef: React.RefObject<HTMLInputElement | null>;
   handleGroupAvatarSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleInputPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
@@ -186,6 +190,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   handleSendSticker,
   fileInputRef,
   handleFileChange,
+  folderInputRef,
+  handleFolderChange,
+  isZippingFolder,
   groupAvatarInputRef,
   handleGroupAvatarSelected,
   handleInputPaste,
@@ -584,6 +591,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <Paperclip className="w-4 h-4" />
             </button>
 
+            {/* Folder attachment (compressed to ZIP in the browser) */}
+            <button
+              type="button"
+              disabled={!canSendInActiveConversation || isZippingFolder}
+              onClick={() => {
+                if (!canSendInActiveConversation || isZippingFolder) return;
+                folderInputRef.current?.click();
+              }}
+              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+              title={isZippingFolder ? 'Đang nén thư mục...' : 'Gửi thư mục dưới dạng ZIP'}
+            >
+              {isZippingFolder ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FolderArchive className="w-4 h-4" />
+              )}
+            </button>
+
             {/* Contact card */}
             <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Contact Card">
               <User className="w-4 h-4" />
@@ -926,6 +951,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             onChange={handleFileChange}
             multiple
             className="hidden"
+          />
+          <input
+            type="file"
+            ref={folderInputRef}
+            onChange={handleFolderChange}
+            multiple
+            className="hidden"
+            {...({ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
           />
           <input
             type="file"

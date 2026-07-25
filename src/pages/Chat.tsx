@@ -78,6 +78,7 @@ import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
+import { zipFolder } from '../utils/folderZip';
 import { stripHtml } from '../utils/text';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
@@ -333,9 +334,11 @@ export const Chat = () => {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const [isZippingFolder, setIsZippingFolder] = useState(false);
   const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const voiceRecorderRef = useRef<MediaRecorder | null>(null);
@@ -788,6 +791,28 @@ export const Chat = () => {
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFolderChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+
+    if (!canSendInActiveConversation || files.length === 0) return;
+
+    setIsZippingFolder(true);
+    try {
+      const archive = await zipFolder(files);
+      await addUploadedFile(archive);
+    } catch (error) {
+      showAlertDialog(
+        error instanceof Error ? error.message : 'Không thể nén thư mục đã chọn.',
+        'Không thể gửi thư mục',
+        'danger'
+      );
+    } finally {
+      setIsZippingFolder(false);
     }
   };
 
@@ -3729,6 +3754,9 @@ export const Chat = () => {
                   handleSendSticker={handleSendSticker}
                   fileInputRef={fileInputRef}
                   handleFileChange={handleFileChange}
+                  folderInputRef={folderInputRef}
+                  handleFolderChange={handleFolderChange}
+                  isZippingFolder={isZippingFolder}
                   groupAvatarInputRef={groupAvatarInputRef as any}
                   handleGroupAvatarSelected={handleGroupAvatarSelected}
                   handleInputPaste={handleInputPaste}
