@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, Monitor, XCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/common/ThemeToggle';
-const logo = '/favicon.svg';
+const logo = '/nextalk-logo.svg';
 
 export const QrLoginConfirm = () => {
   const [searchParams] = useSearchParams();

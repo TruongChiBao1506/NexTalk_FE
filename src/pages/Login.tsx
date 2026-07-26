@@ -11,7 +11,7 @@ import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from '../components/common/ThemeToggle';
 import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
-const logo = '/favicon.svg';
+const logo = '/nextalk-logo.svg';
 
 const POLL_INTERVAL_MS = 2000;
 

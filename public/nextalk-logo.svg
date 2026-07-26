@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">NexTalk</title>
+  <defs>
+    <linearGradient id="nextalk-gradient" x1="72" y1="64" x2="438" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6d4aff"/>
+      <stop offset="0.52" stop-color="#5438ec"/>
+      <stop offset="1" stop-color="#3425bd"/>
+    </linearGradient>
+    <linearGradient id="nextalk-highlight" x1="130" y1="112" x2="382" y2="384" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c5cff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#4b32dc" stop-opacity=".72"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded conversation outline -->
+  <path
+    d="M122 126v226c0 49 39 88 88 88h168c49 0 88-39 88-88V126"
+    fill="none"
+    stroke="url(#nextalk-gradient)"
+    stroke-width="74"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- The folded N -->
+  <path
+    d="M126 126c0-23 18-41 41-41 11 0 22 4 30 12l242 226c17 16 18 43 2 60-16 17-43 18-60 2L139 159a42 42 0 0 1-13-33Z"
+    fill="url(#nextalk-highlight)"
+  />
+
+  <!-- Chat tail -->
+  <path d="M210 430h104l-92 78c-12 10-30 2-30-14v-46c0-10 8-18 18-18Z" fill="url(#nextalk-gradient)"/>
+</svg>

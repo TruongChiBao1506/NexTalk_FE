@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Bell, CheckCheck, LockKeyhole, LogOut, MessageCircleMore, MoreHorizontal, Paperclip, Phone, Plus, Search, Smile, UsersRound, Video } from 'lucide-react';
 import ThemeToggle from '../components/common/ThemeToggle';
-const logo = '/favicon.svg';
+const logo = '/nextalk-logo.svg';
 
 const features = [
   {

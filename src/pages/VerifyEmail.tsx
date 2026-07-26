@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
-const logo = '/favicon.svg';
+const logo = '/nextalk-logo.svg';
 
 export const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
