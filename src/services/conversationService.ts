@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { ConversationResponse, ConversationSummaryResponse, ConversationWithPreviewsResponse } from '../types/chat';
+import type { ConversationNotificationMode, ConversationResponse, ConversationSummaryResponse, ConversationWithPreviewsResponse } from '../types/chat';
 
 export const conversationService = {
   async getOrCreatePrivateConversation(friendId: string): Promise<ApiResponse<ConversationResponse>> {
@@ -71,6 +71,18 @@ export const conversationService = {
 
   async updateMuted(id: string, muted: boolean): Promise<ApiResponse<ConversationResponse>> {
     const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/muted`, null, { params: { muted } });
+    return response.data;
+  },
+
+  async updateNotificationSettings(
+    id: string,
+    mode: ConversationNotificationMode,
+    mutedUntil?: string | null
+  ): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(
+      `/conversations/${id}/notification-settings`,
+      { mode, mutedUntil: mutedUntil ?? null }
+    );
     return response.data;
   },
 

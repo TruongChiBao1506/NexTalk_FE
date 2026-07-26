@@ -3992,10 +3992,10 @@ export const Chat = () => {
                 setIsConversationInfoOpen(false);
                 setIsSearchPanelOpen(true);
               }}
-              onToggleMuted={async () => {
+              onUpdateNotificationSettings={async (mode, mutedUntil) => {
                 setConversationActionId(activeConversation.id);
                 try {
-                  await conversationService.updateMuted(activeConversation.id, !activeConversation.muted);
+                  await conversationService.updateNotificationSettings(activeConversation.id, mode, mutedUntil);
                   await fetchConversations();
                 } finally {
                   setConversationActionId(null);

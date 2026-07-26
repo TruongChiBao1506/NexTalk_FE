@@ -22,13 +22,14 @@ import {
   Pencil,
   UserMinus
 } from 'lucide-react';
-import type { ConversationResponse } from '../../types/chat';
+import type { ConversationNotificationMode, ConversationResponse } from '../../types/chat';
 import type { ChannelResponse } from '../../types/group';
 import { GroupQrModal } from './GroupQrModal';
 import { GroupAvatar } from './GroupAvatar';
 import { groupService } from '../../services/groupService';
 import { useGroupStore } from '../../store/groupStore';
 import { downloadFile } from '../../utils/fileUtils';
+import { ConversationNotificationSettings } from './ConversationNotificationSettings';
 
 interface ConversationInfoPanelProps {
   isConversationInfoOpen: boolean;
@@ -42,7 +43,7 @@ interface ConversationInfoPanelProps {
   isTogglingTasks?: boolean;
   handleToggleTaskEnabled?: () => void;
   onOpenSearch: () => void;
-  onToggleMuted: () => Promise<void>;
+  onUpdateNotificationSettings: (mode: ConversationNotificationMode, mutedUntil?: string | null) => Promise<void>;
   getConversationInfoSubtitle: () => string;
   isPinnedPanelOpen: boolean;
   setIsPinnedPanelOpen: (open: boolean) => void;
@@ -90,7 +91,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeChannel,
   isGroupModerator,
   onOpenSearch,
-  onToggleMuted,
+  onUpdateNotificationSettings,
   getConversationInfoSubtitle,
   isPinnedPanelOpen,
   setIsPinnedPanelOpen,
@@ -133,6 +134,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [showAllFiles, setShowAllFiles] = useState(false);
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [notificationFeedback, setNotificationFeedback] = useState<string | null>(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showNicknameManager, setShowNicknameManager] = useState(false);
   const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
@@ -195,11 +197,14 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
     }
   };
 
-  const handleToggleNotifications = async () => {
-    const nextMuted = !activeConversation.muted;
+  const handleUpdateNotificationSettings = async (
+    mode: ConversationNotificationMode,
+    mutedUntil?: string | null
+  ) => {
     try {
-      await onToggleMuted();
-      setNotificationFeedback(nextMuted ? 'Đã tắt thông báo' : 'Đã bật thông báo');
+      await onUpdateNotificationSettings(mode, mutedUntil);
+      setNotificationFeedback('Đã cập nhật thông báo');
+      setShowNotificationSettings(false);
     } catch {
       setNotificationFeedback('Không thể cập nhật thông báo');
     } finally {
@@ -379,12 +384,12 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleToggleNotifications}
+                onClick={() => setShowNotificationSettings(true)}
                 disabled={conversationActionId === activeConversation.id}
                 className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {activeConversation.muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-                <span>{activeConversation.muted ? 'Bật thông báo' : 'Tắt thông báo'}</span>
+                <span>Thông báo</span>
               </button>
               <button
                 type="button"
@@ -767,6 +772,15 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
         <GroupQrModal
           group={activeGroup}
           onClose={() => setShowGroupQrModal(false)}
+        />
+      )}
+      {showNotificationSettings && (
+        <ConversationNotificationSettings
+          currentMode={activeConversation.notificationMode ?? (activeConversation.muted ? 'NONE' : 'ALL')}
+          mutedUntil={activeConversation.mutedUntil}
+          saving={conversationActionId === activeConversation.id}
+          onClose={() => setShowNotificationSettings(false)}
+          onSave={handleUpdateNotificationSettings}
         />
       )}
     </aside>

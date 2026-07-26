@@ -1,5 +1,7 @@
 import type { User } from './auth';
 
+export type ConversationNotificationMode = 'ALL' | 'MENTIONS_ONLY' | 'NONE';
+
 export interface ConversationResponse {
   id: string;
   type: 'PRIVATE' | 'GROUP' | 'CLOUD';
@@ -10,6 +12,8 @@ export interface ConversationResponse {
   pinned?: boolean;
   hidden?: boolean;
   muted?: boolean;
+  notificationMode?: ConversationNotificationMode;
+  mutedUntil?: string | null;
   selfDestructSeconds?: number;
   themeColor?: string;
   wallpaperUrl?: string;
