@@ -1,9 +1,10 @@
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 
 interface StrangerWarningBannerProps {
   onAddFriend: () => void;
   onBlock: () => void;
   onReport: () => void;
+  onDismiss: () => void;
   isAddFriendLoading: boolean;
   isAddFriendSent: boolean;
   isBlockLoading: boolean;
@@ -14,6 +15,7 @@ export const StrangerWarningBanner = ({
   onAddFriend,
   onBlock,
   onReport,
+  onDismiss,
   isAddFriendLoading,
   isAddFriendSent,
   isBlockLoading,
@@ -53,6 +55,15 @@ export const StrangerWarningBanner = ({
           className="px-3 py-1.5 rounded-md bg-rose-100 hover:bg-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold transition flex items-center gap-1.5"
         >
           Báo xấu
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          title="Ẩn cảnh báo người lạ"
+          aria-label="Ẩn cảnh báo người lạ"
+          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-300 transition flex items-center justify-center"
+        >
+          <X className="w-4 h-4" />
         </button>
       </div>
     </div>

@@ -238,7 +238,35 @@ export const Chat = () => {
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const strangerWarningStorageKey = `nextalk:stranger-warning-dismissed:${user?.id ?? 'anonymous'}`;
+  const [dismissedStrangerWarnings, setDismissedStrangerWarnings] = useState<Set<string>>(() => {
+    try {
+      const storedConversationIds = JSON.parse(window.localStorage.getItem(strangerWarningStorageKey) ?? '[]');
+      return new Set(Array.isArray(storedConversationIds) ? storedConversationIds : []);
+    } catch {
+      return new Set();
+    }
+  });
   const [messageFilter, setMessageFilter] = useState<'ALL' | 'MEDIA' | 'FILE' | 'LINK'>('ALL');
+
+  useEffect(() => {
+    try {
+      const storedConversationIds = JSON.parse(window.localStorage.getItem(strangerWarningStorageKey) ?? '[]');
+      setDismissedStrangerWarnings(new Set(Array.isArray(storedConversationIds) ? storedConversationIds : []));
+    } catch {
+      setDismissedStrangerWarnings(new Set());
+    }
+  }, [strangerWarningStorageKey]);
+
+  const dismissStrangerWarning = useCallback((conversationId: string) => {
+    setDismissedStrangerWarnings((current) => {
+      const next = new Set(current).add(conversationId);
+      try {
+        window.localStorage.setItem(strangerWarningStorageKey, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  }, [strangerWarningStorageKey]);
 
   const [isConversationInfoOpen, setIsConversationInfoOpen] = useState(false);
   const [conversationArchiveMessages, setConversationArchiveMessages] = useState<MessageResponse[]>([]);
@@ -3503,6 +3531,7 @@ export const Chat = () => {
               setChannelView={setChannelView}
               taskUnreadCount={taskUnreadCount}
               setTaskUnreadCount={setTaskUnreadCount}
+              activeFriendIsFriend={activeFriendIsFriend}
             />
             
             {activeConversation?.type === 'CLOUD' && (
@@ -3510,7 +3539,7 @@ export const Chat = () => {
             )}
 
 
-            {!isGroupConversation && activeConversation.type !== 'CLOUD' && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && (
+            {!isGroupConversation && activeConversation.type !== 'CLOUD' && activeFriend && !activeFriendIsFriend && !activeConversation.blockedByMe && !activeConversation.blockedMe && activeFriend.email !== 'moderator@nextalk.local' && !dismissedStrangerWarnings.has(activeConversation.id) && (
               <StrangerWarningBanner
                 messagingRestricted={activePrivateChatRequiresFriendship}
                 onAddFriend={() => handleSendFriendRequestFromSearch(activeFriend.id)}
@@ -3519,6 +3548,7 @@ export const Chat = () => {
                 onBlock={handleToggleBlockUser}
                 isBlockLoading={blockActionLoading}
                 onReport={() => setIsReportModalOpen(true)}
+                onDismiss={() => dismissStrangerWarning(activeConversation.id)}
               />
             )}
 

@@ -44,6 +44,7 @@ interface ChatHeaderProps {
   setChannelView?: (view: 'chat' | 'tasks' | 'notifications') => void;
   taskUnreadCount?: number;
   setTaskUnreadCount?: (count: number) => void;
+  activeFriendIsFriend: boolean;
 }
 
 import { GroupAvatar } from './GroupAvatar';
@@ -73,11 +74,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   setIsInviteMembersOpen,
   activeChannel,
   isGroupModerator,
+  activeFriendIsFriend,
 }) => {
   const lastSeenText = useRelativeTime(activeFriend?.lastSeen);
   const isChungChannel = !activeChannel || activeChannel.name?.toLowerCase() === 'chung' || activeChannel.name?.toLowerCase() === 'general';
   const shouldShowCallButtons = activeConversation && activeConversation.type !== 'CLOUD' && activeCallTarget && activeFriend?.email !== 'moderator@nextalk.local' && (
-    !isGroupConversation || (isGroupModerator && isChungChannel)
+    (!isGroupConversation && activeFriendIsFriend)
+    || (isGroupConversation && isGroupModerator && isChungChannel)
   );
 
   return (
