@@ -1253,18 +1253,20 @@ export const Chat = () => {
       try {
         const pageSize = 50;
         const maxPages = 5;
-        const archive: MessageResponse[] = [];
+        const archiveById = new Map<string, MessageResponse>();
 
         for (let page = 0; page < maxPages; page += 1) {
           const response = await messageService.getConversationMessages(activeConversation.id, page, pageSize);
           if (!response.success || !response.data || cancelled) break;
 
-          archive.push(...response.data);
+          const sizeBeforePage = archiveById.size;
+          response.data.forEach((message) => archiveById.set(message.id, message));
+          if (archiveById.size === sizeBeforePage) break;
           if (response.data.length < pageSize) break;
         }
 
         if (!cancelled) {
-          setConversationArchiveMessages(archive);
+          setConversationArchiveMessages([...archiveById.values()]);
         }
       } catch (err) {
         console.error('Failed to load conversation archive:', err);
@@ -2975,22 +2977,55 @@ export const Chat = () => {
     }
   };
 
-  const conversationArchiveSource = conversationArchiveMessages.length > 0
-    ? conversationArchiveMessages
-    : messages;
-  const activeConversationAttachments = conversationArchiveSource.flatMap((message) =>
-    (message.attachments ?? []).map((attachment) => ({ ...attachment, message }))
+  const conversationArchiveSource = useMemo(() => {
+    const source = conversationArchiveMessages.length > 0
+      ? conversationArchiveMessages
+      : messages;
+    const uniqueMessages = new Map<string, MessageResponse>();
+
+    for (const message of source) {
+      if (!message.isRecalled) {
+        uniqueMessages.set(message.id, message);
+      }
+    }
+
+    return [...uniqueMessages.values()];
+  }, [conversationArchiveMessages, messages]);
+
+  const activeConversationAttachments = useMemo(() => {
+    const seenAttachments = new Set<string>();
+
+    return conversationArchiveSource.flatMap((message) =>
+      (message.attachments ?? []).flatMap((attachment) => {
+        const key = `${message.id}\u0000${attachment.type}\u0000${attachment.url.trim()}`;
+        if (seenAttachments.has(key)) return [];
+        seenAttachments.add(key);
+        return [{ ...attachment, message }];
+      })
+    );
+  }, [conversationArchiveSource]);
+
+  const activeConversationMedia = useMemo(
+    () => activeConversationAttachments.filter((item) => item.type === 'IMAGE' || item.type === 'VIDEO'),
+    [activeConversationAttachments]
   );
-  const activeConversationMedia = activeConversationAttachments
-    .filter((item) => item.type === 'IMAGE' || item.type === 'VIDEO')
-    .slice(0, 8);
-  const activeConversationFiles = activeConversationAttachments
-    .filter((item) => item.type === 'FILE')
-    .slice(0, 8);
-  const activeConversationLinks = conversationArchiveSource.flatMap((message) => {
-    const matches = message.content.match(/https?:\/\/[^\s)]+/gi) ?? [];
-    return matches.map((url) => ({ url, message }));
-  }).slice(0, 8);
+  const activeConversationFiles = useMemo(
+    () => activeConversationAttachments.filter((item) => item.type === 'FILE'),
+    [activeConversationAttachments]
+  );
+  const activeConversationLinks = useMemo(() => {
+    const seenLinks = new Set<string>();
+
+    return conversationArchiveSource.flatMap((message) => {
+      const matches = message.content.match(/https?:\/\/[^\s)]+/gi) ?? [];
+      return matches.flatMap((url) => {
+        const key = `${message.id}\u0000${url}`;
+        if (seenLinks.has(key)) return [];
+        seenLinks.add(key);
+        return [{ url, message }];
+      });
+    });
+  }, [conversationArchiveSource]);
 
   const conversationInfoOffsetClass = isConversationInfoOpen
     ? 'md:mr-[360px] xl:mr-[25vw]'
