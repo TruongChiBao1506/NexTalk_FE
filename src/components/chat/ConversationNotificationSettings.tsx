@@ -27,6 +27,17 @@ const tomorrowMorning = () => {
   return value.toISOString();
 };
 
+const formatRemainingMute = (mutedUntil: string) => {
+  const remainingMinutes = Math.max(1, Math.ceil((new Date(mutedUntil).getTime() - Date.now()) / 60_000));
+  const days = Math.floor(remainingMinutes / (24 * 60));
+  const hours = Math.floor((remainingMinutes % (24 * 60)) / 60);
+  const minutes = remainingMinutes % 60;
+
+  if (days > 0) return `Còn ${days} ngày${hours > 0 ? ` ${hours} giờ` : ''}`;
+  if (hours > 0) return `Còn ${hours} giờ${minutes > 0 ? ` ${minutes} phút` : ''}`;
+  return `Còn ${minutes} phút`;
+};
+
 export function ConversationNotificationSettings({
   currentMode,
   mutedUntil,
@@ -108,9 +119,16 @@ export function ConversationNotificationSettings({
             ))}
           </div>
           {mutedUntil && (
-            <p className="m-0 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              Đang tắt đến {new Date(mutedUntil).toLocaleString('vi-VN')}.
-            </p>
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+              <div className="flex items-center gap-2 text-sm font-black">
+                <Clock3 className="h-4 w-4" />
+                Đang tắt tạm thời
+              </div>
+              <p className="m-0 mt-1 text-xs font-bold">{formatRemainingMute(mutedUntil)}</p>
+              <p className="m-0 mt-0.5 text-[11px] font-medium opacity-80">
+                Tự động bật lại lúc {new Date(mutedUntil).toLocaleString('vi-VN')}.
+              </p>
+            </div>
           )}
         </div>
       </section>

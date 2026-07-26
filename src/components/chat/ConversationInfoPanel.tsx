@@ -389,7 +389,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                 className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {activeConversation.muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-                <span>Thông báo</span>
+                <span>{activeConversation.mutedUntil ? 'Tắt tạm thời' : 'Thông báo'}</span>
               </button>
               <button
                 type="button"
