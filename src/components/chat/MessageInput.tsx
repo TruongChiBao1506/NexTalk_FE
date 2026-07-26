@@ -31,7 +31,7 @@ import {
   AlignRight,
   Eraser,
   ThumbsUp,
-  Send,
+  SendHorizontal,
   X,
   Video,
   AlertCircle,
@@ -1078,11 +1078,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 type="button"
                 onClick={handleSendThumbsUp}
                 disabled={!canSendInActiveConversation || isRecordingVoice || isUploadingVoice}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow transition hover:bg-amber-600 active:scale-95 disabled:scale-100 disabled:opacity-45"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-transparent text-amber-500 transition hover:scale-105 hover:text-amber-600 active:scale-90 disabled:scale-100 disabled:opacity-45"
                 title="Gửi lượt thích"
                 aria-label="Gửi lượt thích"
               >
-                <ThumbsUp className="h-[19px] w-[19px] fill-current" />
+                <ThumbsUp className="h-5 w-5" strokeWidth={2.2} />
               </button>
             ) : (
               <button
@@ -1093,13 +1093,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
                     : activePrivateChatBlocked || (editor ? editor.isEmpty : !inputMessage.trim()) || isSendingBlockedChatRequest
                 }
-                className="nextalk-theme-bg inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition hover:bg-indigo-700 active:scale-95 disabled:scale-100 disabled:opacity-50 dark:bg-discord-blurple dark:hover:bg-indigo-600"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-transparent transition hover:scale-105 active:scale-90 disabled:scale-100 disabled:opacity-50"
+                style={{ color: 'var(--theme-color, #4f46e5)' }}
                 title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
               >
                 {isSendingBlockedChatRequest ? (
                   <Loader2 className="h-[19px] w-[19px] animate-spin" />
                 ) : (
-                  <Send className="h-[19px] w-[19px]" />
+                  <SendHorizontal className="h-5 w-5" strokeWidth={2.2} />
                 )}
               </button>
             )}

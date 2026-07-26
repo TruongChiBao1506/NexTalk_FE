@@ -1436,6 +1436,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             messages: isActive && hidden ? [] : state.messages,
           };
         });
+
+        if (updated.type === 'GROUP') {
+          const { useGroupStore } = await import('./groupStore');
+          await useGroupStore.getState().fetchGroups();
+        }
         return true;
       }
     } catch (err) {

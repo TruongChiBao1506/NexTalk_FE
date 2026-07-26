@@ -6,6 +6,7 @@ import { getMessagePreviewData } from '../../utils/messagePreview';
 interface MessageReminderModalProps {
   message: MessageResponse | null;
   isOpen: boolean;
+  suggestedRemindAt?: Date | null;
   onClose: () => void;
   onSave: (payload: { remindAt: string; note: string }) => void;
 }
@@ -46,6 +47,7 @@ const getPreviewIcon = (kind: ReturnType<typeof getMessagePreviewData>['kind']) 
 export const MessageReminderModal = ({
   message,
   isOpen,
+  suggestedRemindAt,
   onClose,
   onSave,
 }: MessageReminderModalProps) => {
@@ -54,9 +56,12 @@ export const MessageReminderModal = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    setRemindAt(toDatetimeLocalValue(getPresetDate('1h')));
+    const initialDate = suggestedRemindAt && suggestedRemindAt.getTime() > Date.now()
+      ? suggestedRemindAt
+      : getPresetDate('1h');
+    setRemindAt(toDatetimeLocalValue(initialDate));
     setNote('');
-  }, [isOpen, message?.id]);
+  }, [isOpen, message?.id, suggestedRemindAt]);
 
   const preview = useMemo(() => getMessagePreviewData(message), [message]);
   const PreviewIcon = getPreviewIcon(preview.kind);

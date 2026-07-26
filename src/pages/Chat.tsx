@@ -284,13 +284,14 @@ export const Chat = () => {
 
   const getGroupConversationId = (group: GroupResponse) =>
     group.conversationId
-    ?? group.channels?.find((channel) => channel.name === 'Chung')?.conversationId
-    ?? group.channels?.find((channel) => channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
-    ?? group.channels?.[0]?.conversationId
+    ?? group.channels?.find((channel) => !channel.hidden && channel.name === 'Chung')?.conversationId
+    ?? group.channels?.find((channel) => !channel.hidden && channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
+    ?? group.channels?.find((channel) => !channel.hidden)?.conversationId
     ?? null;
 
   const getLatestGroupMessage = (group: GroupResponse) =>
     (group.channels ?? [])
+      .filter((channel) => !channel.hidden)
       .map((channel) => lastMessages[channel.conversationId])
       .filter(Boolean)
       .reduce<typeof lastMessages[string] | undefined>((latest, message) =>
@@ -329,6 +330,7 @@ export const Chat = () => {
   const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const [reminderTargetMessage, setReminderTargetMessage] = useState<MessageResponse | null>(null);
+  const [suggestedReminderTime, setSuggestedReminderTime] = useState<Date | null>(null);
   const [messageReminders, setMessageReminders] = useState<MessageReminder[]>([]);
   const [triggeredReminder, setTriggeredReminder] = useState<MessageReminder | null>(null);
   const [pendingAiReplies, setPendingAiReplies] = useState<PendingAiReply[]>([]);
@@ -578,6 +580,7 @@ export const Chat = () => {
     });
 
     setReminderTargetMessage(null);
+    setSuggestedReminderTime(null);
 
     if ('Notification' in window && Notification.permission === 'default') {
       await Notification.requestPermission();
@@ -3614,7 +3617,14 @@ export const Chat = () => {
                       }
                       setSharingMessage(message);
                     }}
-                    setReminderTargetMessage={setReminderTargetMessage}
+                    setReminderTargetMessage={(message) => {
+                      setSuggestedReminderTime(null);
+                      setReminderTargetMessage(message);
+                    }}
+                    onSuggestedReminder={(message, remindAt) => {
+                      setSuggestedReminderTime(remindAt);
+                      setReminderTargetMessage(message);
+                    }}
                     onDeleteMessageReminder={handleDeleteMessageReminder}
                     onRecreateMessageReminder={handleRecreateMessageReminder}
                     canRecallMessageInActiveConversation={canRecallMessageInActiveConversation}
@@ -4125,7 +4135,11 @@ export const Chat = () => {
       <MessageReminderModal
         message={reminderTargetMessage}
         isOpen={Boolean(reminderTargetMessage)}
-        onClose={() => setReminderTargetMessage(null)}
+        suggestedRemindAt={suggestedReminderTime}
+        onClose={() => {
+          setReminderTargetMessage(null);
+          setSuggestedReminderTime(null);
+        }}
         onSave={handleSaveMessageReminder}
       />
 

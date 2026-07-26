@@ -624,7 +624,9 @@ export const ConversationList = ({
           );
           const draftPreview = getDraftPreview(previewConversationId);
           const groupConversationIds = new Set(
-            (g.channels ?? []).map((channel: any) => channel.conversationId),
+            (g.channels ?? [])
+              .filter((channel: any) => !channel.hidden)
+              .map((channel: any) => channel.conversationId),
           );
           if (groupConversationId) groupConversationIds.add(groupConversationId);
           const channelUnreadCount = Array.from(groupConversationIds).reduce(
@@ -727,7 +729,7 @@ export const ConversationList = ({
                     </p>
                     {groupConversationId && groupConversation && (
                       <div className="flex items-center gap-0.5 shrink-0">
-                        {g.channels && g.channels.length > 0 && (
+                        {g.channels?.some((channel) => !channel.hidden) && (
                           <button
                             type="button"
                             className="p-1.5 shrink-0 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
@@ -869,9 +871,9 @@ export const ConversationList = ({
               </div>
 
               {/* Render channels if expanded */}
-              {isGroupExpanded && g.channels && g.channels.length > 0 && (
+              {isGroupExpanded && g.channels?.some((channel) => !channel.hidden) && (
                 <div className="flex flex-col ml-14 mr-3 my-1 gap-0.5 border-l-2 border-indigo-100 dark:border-zinc-800/50 pl-2">
-                  {g.channels.map((ch) => {
+                  {g.channels.filter((channel) => !channel.hidden).map((ch) => {
                     const isChannelSelected =
                       activeConversation?.id === ch.conversationId;
                     const channelLastMessage = lastMessages[ch.conversationId];

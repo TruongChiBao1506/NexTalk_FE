@@ -14,6 +14,7 @@ export interface ChannelResponse {
   isPostingRestricted?: boolean;
   groupId: string;
   conversationId: string;
+  hidden?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -665,7 +665,9 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   ) : (
                     <Unlock className="h-4 w-4 text-emerald-550" />
                   )}
-                  <span className="min-w-0 flex-1">Bỏ ẩn trò chuyện</span>
+                  <span className="min-w-0 flex-1">
+                    {activeConversation.type === 'GROUP' ? 'Bỏ ẩn kênh' : 'Bỏ ẩn trò chuyện'}
+                  </span>
                   <span className="text-xs text-emerald-500 font-bold">Đang ẩn</span>
                 </button>
               ) : (
@@ -680,7 +682,9 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   ) : (
                     <Lock className="h-4 w-4 text-gray-500" />
                   )}
-                  <span className="min-w-0 flex-1">Ẩn trò chuyện bằng PIN</span>
+                  <span className="min-w-0 flex-1">
+                    {activeConversation.type === 'GROUP' ? 'Ẩn kênh bằng PIN' : 'Ẩn trò chuyện bằng PIN'}
+                  </span>
                   <span className="text-xs text-gray-400">Tắt</span>
                 </button>
               )}

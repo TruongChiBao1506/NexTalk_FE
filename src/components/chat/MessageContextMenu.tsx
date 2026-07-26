@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BellRing, CornerUpLeft, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Forward, Check, ListTodo } from 'lucide-react';
+import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
 import { useChatStore } from '../../store/chatStore';
@@ -180,7 +180,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
         className="p-1 rounded hover:bg-gray-100 dark:hover:bg-indigo-500/15 hover:text-gray-900 dark:hover:text-white transition-colors duration-150"
         title="Trả lời"
       >
-        <CornerUpLeft className="w-4 h-4" />
+        <MessageSquareReply className="w-4 h-4" />
       </button>
 
       {!message.isRecalled && (
@@ -190,7 +190,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-indigo-500/15 hover:text-gray-900 dark:hover:text-white transition-colors duration-150"
           title="Chia sẻ tin nhắn"
         >
-          <Forward className="w-4 h-4" />
+          <MessageSquareShare className="w-4 h-4" />
         </button>
       )}
 

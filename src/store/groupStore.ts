@@ -65,7 +65,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         });
         import('./callStore').then(({ useCallStore }) => {
           const voiceChannelIds = fetchedGroups.flatMap((group) =>
-            group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
+            group.channels.filter((channel) => !channel.hidden && channel.type === 'VOICE').map((channel) => channel.id)
           );
           void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
         });

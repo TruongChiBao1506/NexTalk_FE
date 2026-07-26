@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, FileText, Forward, Image, Loader2, Search, Users, Video, X, ChevronRight, ChevronDown, Hash, Volume2 } from 'lucide-react';
+import { Check, FileText, MessageSquareShare, Image, Loader2, Search, Users, Video, X, ChevronRight, ChevronDown, Hash, Volume2 } from 'lucide-react';
 import type { ConversationResponse, MessageResponse } from '../../types/chat';
 import type { GroupResponse } from '../../types/group';
 import { stripHtml } from '../../utils/text';
@@ -49,7 +49,7 @@ const MessageTypeIcon = ({ type }: { type: MessageResponse['messageType'] }) => 
   if (type === 'IMAGE') return <Image className="w-4 h-4" />;
   if (type === 'VIDEO') return <Video className="w-4 h-4" />;
   if (type === 'FILE') return <FileText className="w-4 h-4" />;
-  return <Forward className="w-4 h-4" />;
+  return <MessageSquareShare className="w-4 h-4" />;
 };
 
 export const ShareMessageModal = ({
@@ -86,7 +86,8 @@ export const ShareMessageModal = ({
     }
 
     for (const group of groups) {
-      if (!group.channels || group.channels.length === 0) continue;
+      const visibleChannels = (group.channels ?? []).filter((channel) => !channel.hidden);
+      if (visibleChannels.length === 0) continue;
       
       targetMap.set(group.id, {
         id: group.id,
@@ -94,7 +95,7 @@ export const ShareMessageModal = ({
         subtitle: `${group.memberCount} thành viên`,
         avatarUrl: group.avatarUrl || null,
         kind: 'group',
-        channels: group.channels.map(c => ({
+        channels: visibleChannels.map(c => ({
           id: c.conversationId,
           name: c.name,
           type: c.type,
@@ -206,7 +207,7 @@ export const ShareMessageModal = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-indigo-600/10 dark:bg-discord-blurple/10 flex items-center justify-center text-indigo-600 dark:text-discord-blurple shrink-0">
-              <Forward className="w-5 h-5" />
+              <MessageSquareShare className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-gray-900 dark:text-white m-0">Chia sẻ tin nhắn</h2>
@@ -432,7 +433,7 @@ export const ShareMessageModal = ({
               disabled={isSharing || (selectedIds.size === 0 && selectedStrangerIds.size === 0)}
               className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-indigo-600 dark:bg-discord-blurple hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 transition flex items-center gap-2 shadow"
             >
-              {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Forward className="w-4 h-4" />}
+              {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquareShare className="w-4 h-4" />}
               Chia sẻ
             </button>
           </div>

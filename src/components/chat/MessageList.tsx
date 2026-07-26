@@ -44,6 +44,7 @@ import {
   MessageSquare,
   ExternalLink,
   SignalHigh,
+  MessageSquareShare,
   X
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
@@ -57,6 +58,7 @@ import { messageService } from '../../services/messageService';
 import { useChatStore } from '../../store/chatStore';
 import { useCallStore } from '../../store/callStore';
 import { useGroupStore } from '../../store/groupStore';
+import { detectVietnameseTime } from '../../utils/vietnameseTime';
 
 const parseVoiceInvite = (content?: string) => {
   const match = content?.match(/nextalk:\/\/voice\/([^?\s]+)\?groupId=([^&\s]*)&channelName=([^\s]+)/);
@@ -97,6 +99,7 @@ interface MessageListProps {
   deleteMessage: (id: string) => void;
   setSharingMessage: (msg: any) => void;
   setReminderTargetMessage: (msg: any) => void;
+  onSuggestedReminder: (msg: any, remindAt: Date) => void;
   onDeleteMessageReminder: (reminderId: string) => void;
   onRecreateMessageReminder: (messageId: string) => void;
   canRecallMessageInActiveConversation: (msg: any) => boolean;
@@ -172,6 +175,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   deleteMessage,
   setSharingMessage,
   setReminderTargetMessage,
+  onSuggestedReminder,
   onDeleteMessageReminder,
   onRecreateMessageReminder,
   canRecallMessageInActiveConversation,
@@ -698,6 +702,12 @@ export const MessageList: React.FC<MessageListProps> = ({
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
           const voiceInvite = !msg.isRecalled ? parseVoiceInvite(msg.content) : null;
+          const timeSuggestion = !msg.isRecalled
+            && msg.messageType === 'TEXT'
+            && !msg.metadata?.optimistic
+            && msg.content
+            ? detectVietnameseTime(stripMessageMarkup(msg.content), msg.createdAt)
+            : null;
 
           const isUnreadMarkerTarget = unreadMarker?.messageId === msg.id;
 
@@ -1164,7 +1174,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                           {msg.forwardedFromMessageId && (
                             <div className="inline-flex max-w-[180px] sm:max-w-[240px] items-center gap-1.5 text-[11px] text-gray-500 dark:text-discord-muted mb-1">
-                              <CornerUpLeft className="w-3 h-3 rotate-180 text-gray-400 dark:text-zinc-555 shrink-0" />
+                              <MessageSquareShare className="w-3 h-3 text-gray-400 dark:text-zinc-555 shrink-0" />
                               <span className="truncate">
                                 Tin chuyển tiếp{msg.forwardedFromSenderUsername ? ` từ ${msg.forwardedFromSenderUsername}` : ''}
                               </span>
@@ -1563,6 +1573,27 @@ export const MessageList: React.FC<MessageListProps> = ({
                                   </span>
                                 )}
                               </div>
+                              {timeSuggestion && !isSelectionMode && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onSuggestedReminder(msg, timeSuggestion.date);
+                                  }}
+                                  className={`mt-2 -mx-1 -mb-1 flex w-[calc(100%+0.5rem)] items-center gap-2 border-t px-1 pt-2 text-left text-xs transition ${
+                                    isMe
+                                      ? 'border-indigo-300/60 text-indigo-700 hover:text-indigo-900 dark:border-white/20 dark:text-indigo-100 dark:hover:text-white'
+                                      : 'border-amber-200 text-amber-700 hover:text-amber-900 dark:border-amber-500/25 dark:text-amber-200 dark:hover:text-amber-100'
+                                  }`}
+                                  title={`Đặt nhắc hẹn lúc ${timeSuggestion.label}`}
+                                >
+                                  <BellRing className="h-4 w-4 shrink-0" />
+                                  <span className="min-w-0">
+                                    <span className="font-bold">Đặt nhắc hẹn</span>
+                                    <span className="ml-1.5 opacity-80">{timeSuggestion.label}</span>
+                                  </span>
+                                </button>
+                              )}
                             </div>
                           )}
 
