@@ -13,6 +13,7 @@ import {
   PinOff,
   ScreenShare,
   Settings,
+  Smartphone,
   UserPlus,
   Users,
   Video,
@@ -164,6 +165,7 @@ export const CallOverlay = () => {
     toggleCamera,
     toggleSpeaker,
     toggleScreenShare,
+    requestHandoff,
     activeVoiceChannelId
   } = useCallStore();
   const callConversation = useChatStore((state) =>
@@ -428,6 +430,14 @@ export const CallOverlay = () => {
                   </button>
                   <span className="text-[11px] text-slate-500 font-bold">Loa ngoài</span>
                 </div>
+                {callState === 'connected' && (
+                  <div className="flex flex-col items-center gap-2">
+                    <button type="button" onClick={requestHandoff} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+                      <Smartphone className="h-6 w-6" />
+                    </button>
+                    <span className="text-[11px] text-slate-500 font-bold">Chuyển máy</span>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col items-center gap-2">
                 <EndCallButton onClick={() => callState === 'connected' || callState === 'connecting' ? hangupCall() : cancelCall('canceled')} />
@@ -528,6 +538,10 @@ export const CallOverlay = () => {
              <button onClick={toggleScreenShare} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 <ScreenShare className={`w-5 h-5 ${isScreenSharing ? 'text-blue-500' : ''}`} />
                 <span className={`text-[10px] font-bold ${isScreenSharing ? 'text-blue-600' : 'text-slate-600'}`}>Share</span>
+             </button>
+             <button onClick={requestHandoff} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                <Smartphone className="w-5 h-5" />
+                <span className="text-[10px] font-bold text-slate-600">Handoff</span>
              </button>
              <button onClick={() => hangupCall()} className="flex items-center justify-center w-14 h-14 rounded-full bg-red-600 text-white hover:bg-red-500 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30 ml-2 cursor-pointer">
                 <span className="text-[11px] font-bold">End</span>

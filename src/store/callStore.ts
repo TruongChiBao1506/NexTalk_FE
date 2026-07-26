@@ -29,6 +29,17 @@ const javaStringHashUid = (value: string) => {
   return String(hash & 0x7fffffff);
 };
 
+const getBrowserCallDeviceId = () => {
+  const storageKey = 'nextalk-call-device-id';
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing) return existing;
+  const created = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(storageKey, created);
+  return created;
+};
+
 interface CallStore {
   callState: CallState;
   callType: CallType;
@@ -50,6 +61,7 @@ interface CallStore {
   activeSpeakerUids: string[];
   localAgoraUid: number | null;
   callNotices: CallNotice[];
+  handoffPending: boolean;
   outgoingRingTimeoutId: number | null;
   incomingRingTimeoutId: number | null;
   groupAloneTimeoutId: number | null;
@@ -79,6 +91,7 @@ interface CallStore {
   switchCamera: () => Promise<void>;
   startVideo: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
+  requestHandoff: () => void;
   stopScreenShare: () => Promise<void>;
   handleIncomingSignal: (signal: any) => void;
   clearTracks: () => void;
@@ -124,6 +137,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   activeSpeakerUids: [],
   localAgoraUid: null,
   callNotices: [],
+  handoffPending: false,
   outgoingRingTimeoutId: null,
   incomingRingTimeoutId: null,
   groupAloneTimeoutId: null,
@@ -166,7 +180,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       remoteAudioPlaybackBlocked: false,
       activeSpeakerUids: [],
       localAgoraUid: null,
-      callNotices: []
+      callNotices: [],
+      handoffPending: false
     });
 
     audioSynth.playOutgoingRing();
@@ -257,7 +272,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       remoteAudioPlaybackBlocked: false,
       activeSpeakerUids: [],
       localAgoraUid: null,
-      callNotices: []
+      callNotices: [],
+      handoffPending: false
     });
 
     audioSynth.playIncomingRing();
@@ -363,7 +379,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       remoteAudioPlaybackBlocked: false,
       activeSpeakerUids: [],
       localAgoraUid: null,
-      callNotices: []
+      callNotices: [],
+      handoffPending: false
     });
   },
 
@@ -413,7 +430,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       remoteAudioPlaybackBlocked: false,
       activeSpeakerUids: [],
       localAgoraUid: null,
-      callNotices: []
+      callNotices: [],
+      handoffPending: false
     });
   },
 
@@ -491,7 +509,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       remoteAudioPlaybackBlocked: false,
       activeSpeakerUids: [],
       localAgoraUid: null,
-      callNotices: []
+      callNotices: [],
+      handoffPending: false
     });
   },
 
@@ -646,6 +665,31 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
   },
 
+  requestHandoff: () => {
+    const state = get();
+    const currentUser = useAuthStore.getState().user;
+    const stompClient = useChatStore.getState().stompClient;
+    if (!currentUser || !stompClient?.connected || state.callState !== 'connected'
+      || !state.callId || !state.conversationId) return;
+    const peer = state.caller?.id === currentUser.id ? state.receiver : state.caller;
+    stompClient.publish({
+      destination: '/app/call.handoff',
+      body: JSON.stringify({
+        callId: state.callId,
+        conversationId: state.conversationId,
+        groupName: state.isGroupCall ? state.callTitle : undefined,
+        groupMemberCount: state.isGroupCall ? state.callMemberCount : undefined,
+        type: state.callType.toUpperCase(),
+        signalType: 'HANDOFF_REQUEST',
+        sourceDeviceId: getBrowserCallDeviceId(),
+        handoffPeerId: peer?.id,
+        handoffPeerName: peer?.username,
+        handoffPeerAvatar: peer?.avatarUrl,
+      }),
+    });
+    set({ handoffPending: true });
+  },
+
   handleIncomingSignal: (signal) => {
     const signalType = signal.signalType;
     console.info('[STOMP Call Signal]:', signalType, signal);
@@ -672,7 +716,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
         remoteAudioPlaybackBlocked: false,
         activeSpeakerUids: [],
         localAgoraUid: null,
-        callNotices: []
+        callNotices: [],
+        handoffPending: false
       });
     };
 
@@ -692,6 +737,61 @@ export const useCallStore = create<CallStore>((set, get) => ({
         audioSynth.stop();
         get().clearTracks();
         resetCall();
+        break;
+      case 'HANDOFF_REQUEST': {
+        if (!currentUser || signal.sourceDeviceId === getBrowserCallDeviceId() || callState !== 'idle') return;
+        const shouldContinue = window.confirm(
+          `Tiếp tục cuộc gọi ${signal.type === 'VIDEO' ? 'video' : 'thoại'} trên thiết bị này?`
+        );
+        if (!shouldContinue) return;
+        const isVideo = signal.type === 'VIDEO';
+        set({
+          callState: 'connecting',
+          callType: isVideo ? 'video' : 'voice',
+          callId: signal.callId,
+          conversationId: signal.conversationId,
+          caller: {
+            id: currentUser.id,
+            username: currentUser.username,
+            avatarUrl: currentUser.avatarUrl ?? undefined
+          },
+          receiver: {
+            id: signal.handoffPeerId ?? '',
+            username: signal.handoffPeerName ?? 'Cuộc gọi',
+            avatarUrl: signal.handoffPeerAvatar
+          },
+          isGroupCall: Boolean(signal.groupName),
+          callTitle: signal.groupName ?? null,
+          callMemberCount: signal.groupMemberCount ?? null,
+          isSpeakerOn: true,
+          handoffPending: false
+        });
+        get().joinAgoraChannel()
+          .then(() => {
+            const client = useChatStore.getState().stompClient;
+            if (!client?.connected) throw new Error('Realtime disconnected');
+            client.publish({
+              destination: '/app/call.handoff',
+              body: JSON.stringify({
+                ...signal,
+                signalType: 'HANDOFF_ACCEPTED',
+                handledByDeviceId: getBrowserCallDeviceId()
+              })
+            });
+          })
+          .catch((error) => {
+            console.error('Failed to receive call handoff:', error);
+            get().clearTracks();
+            resetCall();
+          });
+        break;
+      }
+      case 'HANDOFF_ACCEPTED':
+        if (signal.handledByDeviceId === getBrowserCallDeviceId()) return;
+        if (get().handoffPending && isSameConversation && isSameCall) {
+          get().clearTracks();
+          resetCall();
+        }
         break;
       case 'ANSWER':
         if (
@@ -943,7 +1043,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
 
       // If no remote users are left in a 1-1 call, end the call immediately.
-      if (client.remoteUsers.length === 0) {
+      if (client.remoteUsers.length === 0 && !get().handoffPending) {
         get().hangupCall();
       }
     });
