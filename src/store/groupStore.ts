@@ -18,7 +18,7 @@ interface GroupState {
   isLoading: boolean;
   error: string | null;
 
-  fetchGroups: () => Promise<void>;
+  fetchGroups: (options?: { skipCache?: boolean }) => Promise<void>;
   createGroup: (data: CreateGroupRequest) => Promise<GroupResponse | null>;
   updateGroup: (id: string, data: UpdateGroupRequest) => Promise<GroupResponse | null>;
   deleteGroup: (id: string) => Promise<boolean>;
@@ -42,16 +42,20 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchGroups: async () => {
+  fetchGroups: async (options) => {
     const userId = useAuthStore.getState().user?.id;
 
     // ── Stale-While-Revalidate: Tải cache nhóm mã hóa từ IndexedDB (< 2ms) ───
-    const cachedData = await encryptedCacheService.load(userId);
-    if (cachedData && cachedData.groups && cachedData.groups.length > 0) {
-      const cachedGroups = dedupeGroups(cachedData.groups);
-      set({ groups: cachedGroups, isLoading: false });
+    if (!options?.skipCache) {
+      const cachedData = await encryptedCacheService.load(userId);
+      if (cachedData && cachedData.groups && cachedData.groups.length > 0) {
+        const cachedGroups = dedupeGroups(cachedData.groups);
+        set({ groups: cachedGroups, isLoading: false });
+      } else {
+        set({ isLoading: true, error: null });
+      }
     } else {
-      set({ isLoading: true, error: null });
+      set({ error: null });
     }
 
     // ── Revalidation ngầm với Server (/api/groups) ───────────────────────────

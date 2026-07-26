@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { useEditor } from '@tiptap/react';
@@ -494,6 +494,25 @@ export const Chat = () => {
   } = useChatSearch({
     handleJumpToMessage
   });
+
+  const labeledGlobalConversationResults = useMemo(() => (
+    globalConversationResults.map((conversation) => {
+      if (conversation.type !== 'GROUP') return conversation;
+
+      const group = groups.find((candidate) =>
+        candidate.channels.some((channel) => channel.conversationId === conversation.id)
+      );
+      const channel = group?.channels.find(
+        (candidate) => candidate.conversationId === conversation.id
+      );
+      if (!channel?.name) return conversation;
+
+      return {
+        ...conversation,
+        name: `${group?.name || conversation.name || 'Nhóm'} · #${channel.name}`,
+      };
+    })
+  ), [globalConversationResults, groups]);
 
   const mapReminderResponse = (reminder: import('../services/reminderService').MessageReminderResponse): MessageReminder => ({
     id: reminder.id,
@@ -3418,7 +3437,7 @@ export const Chat = () => {
           handleStartChatFromSearch={handleStartChatFromSearch}
           handleSendFriendRequestFromSearch={handleSendFriendRequestFromSearch}
           friendRequestActionId={friendRequestActionId}
-          globalConversationResults={globalConversationResults}
+          globalConversationResults={labeledGlobalConversationResults}
           handleOpenSearchMessage={handleOpenSearchMessage}
           getConversationTitle={getConversationTitle}
           getSearchMessagePreview={getSearchMessagePreview}

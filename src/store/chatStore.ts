@@ -1439,7 +1439,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         if (updated.type === 'GROUP') {
           const { useGroupStore } = await import('./groupStore');
-          await useGroupStore.getState().fetchGroups();
+          useGroupStore.setState((state) => ({
+            groups: state.groups.map((group) => {
+              if (!group.channels.some((channel) => channel.conversationId === conversationId)) {
+                return group;
+              }
+
+              const channels = group.channels.map((channel) =>
+                channel.conversationId === conversationId
+                  ? { ...channel, hidden }
+                  : channel
+              );
+              const currentConversationWasHidden =
+                hidden && group.conversationId === conversationId;
+              const nextConversationId = currentConversationWasHidden
+                ? channels.find((channel) => !channel.hidden && channel.name === 'Chung')?.conversationId
+                  ?? channels.find((channel) => !channel.hidden && channel.type === 'TEXT' && !channel.isPrivate)?.conversationId
+                  ?? channels.find((channel) => !channel.hidden)?.conversationId
+                  ?? null
+                : group.conversationId;
+
+              return { ...group, channels, conversationId: nextConversationId };
+            }),
+          }));
+          await useGroupStore.getState().fetchGroups({ skipCache: true });
         }
         return true;
       }
