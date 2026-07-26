@@ -1,4 +1,4 @@
-import { Lock, Search } from 'lucide-react';
+import { Lock, Search, X } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 interface SidebarSearchProps {
@@ -22,8 +22,19 @@ export const SidebarSearch = ({ searchQuery, setSearchQuery }: SidebarSearchProp
           placeholder="Tìm người, nhóm, tin nhắn..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/72 dark:bg-zinc-900/70 text-sm px-9 py-2 rounded-xl border border-indigo-100/80 dark:border-zinc-800 focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 transition"
+          className={`w-full bg-white/72 dark:bg-zinc-900/70 text-sm pl-9 ${searchQuery ? 'pr-10' : 'pr-9'} py-2 rounded-xl border border-indigo-100/80 dark:border-zinc-800 focus:border-indigo-400 dark:focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 transition`}
         />
+        {searchQuery && (
+          <button
+            type="button"
+            aria-label="Xóa nội dung tìm kiếm"
+            title="Xóa nội dung tìm kiếm"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );
