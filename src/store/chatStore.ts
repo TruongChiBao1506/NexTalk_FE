@@ -1371,10 +1371,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
         : await conversationService.pinConversation(conversationId);
       if (response.success && response.data) {
         const updated = response.data;
+        let groupConversationIds: Set<string> | null = null;
+        if (updated.type === 'GROUP') {
+          const { useGroupStore } = await import('./groupStore');
+          const group = useGroupStore.getState().groups.find((candidate) =>
+            candidate.conversationId === conversationId
+            || candidate.channels?.some((channel) => channel.conversationId === conversationId)
+          );
+          if (group) {
+            groupConversationIds = new Set([
+              ...(group.conversationId ? [group.conversationId] : []),
+              ...(group.channels ?? []).map((channel) => channel.conversationId),
+            ]);
+          }
+        }
         set((state) => ({
-          activeConversation: state.activeConversation?.id === updated.id ? updated : state.activeConversation,
+          activeConversation: state.activeConversation?.id === updated.id
+            ? updated
+            : state.activeConversation && groupConversationIds?.has(state.activeConversation.id)
+              ? { ...state.activeConversation, pinned: updated.pinned }
+              : state.activeConversation,
           conversations: sortConversations(state.conversations.map((conversation) =>
-            conversation.id === updated.id ? updated : conversation
+            conversation.id === updated.id
+              ? updated
+              : groupConversationIds?.has(conversation.id)
+                ? { ...conversation, pinned: updated.pinned }
+                : conversation
           )),
         }));
         return true;
