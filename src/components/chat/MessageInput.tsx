@@ -43,9 +43,15 @@ import {
   Eye,
   FolderArchive,
   Sparkles,
-  Cake
+  Cake,
+  CalendarDays,
+  ChevronDown,
+  VolumeX,
+  CalendarClock
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
+import { ScheduledMessagesModal } from './ScheduledMessagesModal';
+import { ScheduleSendModal } from './ScheduleSendModal';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
 import { useStickerStore } from '../../store/stickerStore';
 import { conversationService, type BirthdayContextResponse } from '../../services/conversationService';
@@ -261,6 +267,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [isLoadingAssist, setIsLoadingAssist] = React.useState(false);
   const [assistError, setAssistError] = React.useState<string | null>(null);
   const [isAiMenuOpen, setIsAiMenuOpen] = React.useState(false);
+  const [isScheduledMessagesOpen, setIsScheduledMessagesOpen] = React.useState(false);
+  const [isScheduleSendModalOpen, setIsScheduleSendModalOpen] = React.useState(false);
+  const [isSendOptionsOpen, setIsSendOptionsOpen] = React.useState(false);
+  const sendOptionsRef = React.useRef<HTMLDivElement>(null);
   const birthdayContext = birthdayState?.conversationId === activeConversationId ? birthdayState.data : null;
 
   const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
@@ -324,6 +334,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       }
       if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
         setIsAiMenuOpen(false);
+      }
+      if (sendOptionsRef.current && !sendOptionsRef.current.contains(e.target as Node)) {
+        setIsSendOptionsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -875,6 +888,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   <button 
                     type="button" 
                     onClick={() => {
+                      setIsScheduledMessagesOpen(true);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CalendarDays className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <span>Tin nhắn đã hẹn giờ</span>
+                    </div>
+                  </button>
+                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
+                  <button 
+                    type="button" 
+                    onClick={() => {
                       setMessagePriority('IMPORTANT');
                       setIsMoreMenuOpen(false);
                     }}
@@ -1159,64 +1186,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <Smile className="w-5 h-5" />
             </button>
 
-            <div className="relative" ref={aiMenuRef}>
-              <button
-                type="button"
-                disabled={!canSendInActiveConversation}
-                onClick={() => setIsAiMenuOpen((open) => !open)}
-                className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                  isAiMenuOpen
-                    ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                    : 'text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-300 dark:hover:bg-zinc-800/60'
-                }`}
-                title="Công cụ AI"
-                aria-label="Mở công cụ AI"
-              >
-                <Sparkles className="h-5 w-5" />
-              </button>
-
-              {isAiMenuOpen && (
-                <div className="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                  <button
-                    type="button"
-                    disabled={isLoadingAssist || !lastMessageId}
-                    onClick={() => void loadSuggestions('reply')}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 disabled:opacity-50 dark:hover:bg-indigo-500/10"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-                      {isLoadingAssist && assistMode === 'reply'
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Sparkles className="h-4 w-4" />}
-                    </span>
-                    <span>
-                      <strong className="block text-sm text-slate-800 dark:text-zinc-100">Gợi ý trả lời</strong>
-                      <small className="text-xs text-slate-500 dark:text-zinc-400">Tạo 3 câu trả lời theo ngữ cảnh</small>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAiMenuOpen(false);
-                      onOpenTaskAssistant();
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                      <ListChecks className="h-4 w-4" />
-                    </span>
-                    <span>
-                      <strong className="block text-sm text-slate-800 dark:text-zinc-100">Trợ lý tác vụ</strong>
-                      <small className="text-xs text-slate-500 dark:text-zinc-400">Tìm tin, tạo task và nhắc việc</small>
-                    </span>
-                  </button>
-                  {assistError && (
-                    <div className="mx-2 mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
-                      {assistError}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           <div
@@ -1260,9 +1229,72 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               </div>
             )}
             <div className="relative min-w-0 flex-1">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20" ref={aiMenuRef}>
+                <button
+                  type="button"
+                  disabled={!canSendInActiveConversation}
+                  onClick={() => setIsAiMenuOpen((open) => !open)}
+                  className={`p-1.5 rounded-xl transition disabled:opacity-45 ${
+                    isAiMenuOpen
+                      ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/30 dark:text-indigo-300'
+                      : 'text-indigo-600 hover:bg-indigo-100/70 dark:text-indigo-400 dark:hover:bg-zinc-700/60'
+                  }`}
+                  title="NexTalk AI (Gợi ý & Trợ lý)"
+                  aria-label="NexTalk AI"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </button>
+
+                {isAiMenuOpen && (
+                  <div className="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-2 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>NexTalk AI</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isLoadingAssist || !lastMessageId}
+                      onClick={() => void loadSuggestions('reply')}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 disabled:opacity-50 dark:hover:bg-indigo-500/10"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                        {isLoadingAssist && assistMode === 'reply'
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Sparkles className="h-4 w-4" />}
+                      </span>
+                      <span>
+                        <strong className="block text-sm text-slate-800 dark:text-zinc-100">Gợi ý trả lời</strong>
+                        <small className="text-xs text-slate-500 dark:text-zinc-400">Tạo 3 câu trả lời theo ngữ cảnh</small>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAiMenuOpen(false);
+                        onOpenTaskAssistant();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                        <ListChecks className="h-4 w-4" />
+                      </span>
+                      <span>
+                        <strong className="block text-sm text-slate-800 dark:text-zinc-100">Trợ lý tác vụ</strong>
+                        <small className="text-xs text-slate-500 dark:text-zinc-400">Tìm tin, tạo task và nhắc việc</small>
+                      </span>
+                    </button>
+                    {assistError && (
+                      <div className="mx-2 mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+                        {assistError}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <EditorContent
                 editor={editor}
-                className="nextalk-tiptap-input rounded-2xl border border-slate-200 bg-slate-50/50 transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:bg-white dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30 pr-9"
+                className="nextalk-tiptap-input rounded-2xl border border-slate-200 bg-slate-50/50 transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:bg-white dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:focus-within:border-discord-blurple dark:focus-within:ring-discord-blurple/30 pr-9 pl-9"
               />
               {Boolean(editor ? !editor.isEmpty && editor.getText().trim().length > 0 : inputMessage.trim().length > 0) ? (
                 <button
@@ -1314,28 +1346,92 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 <ThumbsUp className="h-5 w-5" strokeWidth={2.2} />
               </button>
             ) : (
-              <button
-                type={canSendInActiveConversation ? 'submit' : 'button'}
-                onClick={!canSendInActiveConversation ? handleSendBlockedChatRequest : undefined}
-                disabled={
-                  canSendInActiveConversation
-                    ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
-                    : activePrivateChatBlocked || (editor ? editor.isEmpty : !inputMessage.trim()) || isSendingBlockedChatRequest
-                }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-transparent transition hover:scale-105 active:scale-90 disabled:scale-100 disabled:opacity-50"
-                style={{ color: 'var(--theme-color, #4f46e5)' }}
-                title={canSendInActiveConversation ? 'Send Message' : 'Gửi tin nhắn chờ'}
-              >
-                {isSendingBlockedChatRequest ? (
-                  <Loader2 className="h-[19px] w-[19px] animate-spin" />
-                ) : (
-                  <SendHorizontal className="h-5 w-5" strokeWidth={2.2} />
+              <div className="relative flex items-center gap-0.5" ref={sendOptionsRef}>
+                <button
+                  type={canSendInActiveConversation ? 'submit' : 'button'}
+                  onClick={!canSendInActiveConversation ? handleSendBlockedChatRequest : undefined}
+                  disabled={
+                    canSendInActiveConversation
+                      ? pendingAttachments.some((attachment) => attachment.isUploading) || isRecordingVoice || isUploadingVoice
+                      : activePrivateChatBlocked || (editor ? editor.isEmpty : !inputMessage.trim()) || isSendingBlockedChatRequest
+                  }
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-transparent transition hover:scale-105 active:scale-90 disabled:scale-100 disabled:opacity-50"
+                  style={{ color: 'var(--theme-color, #4f46e5)' }}
+                  title={canSendInActiveConversation ? 'Gửi tin nhắn' : 'Gửi tin nhắn chờ'}
+                >
+                  {isSendingBlockedChatRequest ? (
+                    <Loader2 className="h-[19px] w-[19px] animate-spin" />
+                  ) : (
+                    <SendHorizontal className="h-5 w-5" strokeWidth={2.2} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSendOptionsOpen(!isSendOptionsOpen)}
+                  disabled={!canSendInActiveConversation}
+                  className="inline-flex h-9 w-5 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 dark:text-zinc-500 dark:hover:text-indigo-400 transition hover:scale-105 active:scale-90 disabled:opacity-50"
+                  title="Tùy chọn gửi (Im lặng, Hẹn giờ)"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+
+                {isSendOptionsOpen && (
+                  <div className="absolute bottom-full right-0 z-50 mb-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        setIsSendOptionsOpen(false);
+                        handleSendMessage(e, { silent: true });
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-indigo-50 dark:text-zinc-200 dark:hover:bg-zinc-800 transition"
+                    >
+                      <VolumeX className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <div>
+                        <strong className="block text-slate-900 dark:text-zinc-100">Gửi im lặng</strong>
+                        <small className="text-[10px] text-slate-500 dark:text-zinc-400">Không phát âm thanh thông báo</small>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSendOptionsOpen(false);
+                        setIsScheduleSendModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-indigo-50 dark:text-zinc-200 dark:hover:bg-zinc-800 transition"
+                    >
+                      <CalendarClock className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <div>
+                        <strong className="block text-slate-900 dark:text-zinc-100">Hẹn giờ gửi</strong>
+                        <small className="text-[10px] text-slate-500 dark:text-zinc-400">Chọn ngày & giờ tự động gửi</small>
+                      </div>
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      <ScheduledMessagesModal
+        isOpen={isScheduledMessagesOpen}
+        conversationId={activeConversationId}
+        onClose={() => setIsScheduledMessagesOpen(false)}
+      />
+
+      <ScheduleSendModal
+        isOpen={isScheduleSendModalOpen}
+        conversationId={activeConversationId}
+        content={editor ? editor.getHTML() : inputMessage}
+        onClose={() => setIsScheduleSendModalOpen(false)}
+        onSuccess={() => {
+          if (editor) {
+            editor.commands.clearContent();
+          }
+        }}
+      />
     </form>
   );
 };

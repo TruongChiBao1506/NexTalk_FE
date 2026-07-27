@@ -135,5 +135,41 @@ export const conversationService = {
   async updateNickname(id: string, userId: string, nickname: string): Promise<ApiResponse<ConversationResponse>> {
     const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/nicknames/${userId}`, { nickname });
     return response.data;
+  },
+
+  async getPendingScheduledMessages(): Promise<ApiResponse<ScheduledMessageResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ScheduledMessageResponse[]>>('/messages/scheduled');
+    return response.data;
+  },
+
+  async cancelScheduledMessage(id: string): Promise<ApiResponse<ScheduledMessageResponse>> {
+    const response = await apiClient.delete<ApiResponse<ScheduledMessageResponse>>(`/messages/scheduled/${id}`);
+    return response.data;
+  },
+
+  async scheduleMessage(payload: ScheduleMessagePayload): Promise<ApiResponse<ScheduledMessageResponse>> {
+    const response = await apiClient.post<ApiResponse<ScheduledMessageResponse>>('/messages/scheduled', payload);
+    return response.data;
   }
 };
+
+export interface ScheduleMessagePayload {
+  message: {
+    conversationId: string;
+    content: string;
+  };
+  scheduledAt: string;
+  silent?: boolean;
+}
+
+export interface ScheduledMessageResponse {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderUsername: string;
+  conversationId: string;
+  content: string;
+  scheduledAt: string;
+  status: 'PENDING' | 'DISPATCHED' | 'CANCELLED';
+  createdAt: string;
+}

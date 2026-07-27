@@ -207,6 +207,19 @@ export function TaskAssistantModal({
                         </div>
                       )}
                     </div>
+                  ) : response.action.toolName === 'schedule_message' ? (
+                    <div className="mt-2 space-y-1.5 text-sm leading-5 text-amber-800 dark:text-amber-300">
+                      <div>
+                        <span className="font-semibold">Nội dung tin nhắn:</span>{' '}
+                        {textArgument(response.action.arguments.content)}
+                      </div>
+                      {textArgument(response.action.arguments.scheduledAt) && (
+                        <div>
+                          <span className="font-semibold">Thời gian hẹn gửi:</span>{' '}
+                          {formatDateTime(response.action.arguments.scheduledAt)}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="mt-1 text-sm leading-5 text-amber-800 dark:text-amber-300">
                       {response.action.summary}
