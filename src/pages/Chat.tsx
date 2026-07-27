@@ -62,6 +62,7 @@ import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
 import { MediaViewerModal } from '../components/chat/MediaViewerModal';
 import { ImageAiEditorModal, type ImageEditTarget } from '../components/chat/ImageAiEditorModal';
+import { TaskAssistantModal } from '../components/chat/TaskAssistantModal';
 import type { ImageEditResult } from '../services/imageEditService';
 import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import { StrangerWarningBanner } from '../components/chat/StrangerWarningBanner';
@@ -240,6 +241,7 @@ export const Chat = () => {
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [searchProfileUser, setSearchProfileUser] = useState<AuthUser | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isTaskAssistantOpen, setIsTaskAssistantOpen] = useState(false);
   const strangerWarningStorageKey = `nextalk:stranger-warning-dismissed:${user?.id ?? 'anonymous'}`;
   const [dismissedStrangerWarnings, setDismissedStrangerWarnings] = useState<Set<string>>(() => {
     try {
@@ -3173,6 +3175,9 @@ export const Chat = () => {
     }
 
     if (msg.messageType === 'SYSTEM') {
+      if (msg.metadata?.systemType === 'REACTION_PREVIEW') {
+        return msg.content;
+      }
       if (isCallHistoryMessage(msg)) {
         return getCallHistorySummary(msg);
       }
@@ -3936,6 +3941,18 @@ export const Chat = () => {
                   );
                 })()}
 
+                <div className={`flex justify-end px-4 pb-1 ${conversationInfoOffsetClass}`}>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskAssistantOpen(true)}
+                    className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-100 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                    title="Tìm tin nhắn, tạo task và lên lịch nhắc việc bằng AI"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Trợ lý tác vụ
+                  </button>
+                </div>
+
                 {/* Message Input */}
                 <MessageInput
                   handleSendMessage={handleSendMessage}
@@ -4346,6 +4363,25 @@ export const Chat = () => {
         <GroupApprovalsModal
           group={activeGroup}
           onClose={() => setIsGroupApprovalsModalOpen(false)}
+        />
+      )}
+
+      {isTaskAssistantOpen && activeConversation && (
+        <TaskAssistantModal
+          conversationId={activeConversation.id}
+          groupId={activeGroup?.id}
+          channelId={activeChannel?.isTaskEnabled ? activeChannel.id : undefined}
+          onClose={() => setIsTaskAssistantOpen(false)}
+          onActionCompleted={async (toolName) => {
+            if (toolName === 'schedule_reminder') {
+              const response = await reminderService.getMyReminders();
+              setMessageReminders((response.data ?? []).map(mapReminderResponse));
+              return;
+            }
+            if (toolName === 'create_channel_task' && activeGroup && activeChannel) {
+              await fetchSharedTaskCards(activeGroup.id, activeChannel.id);
+            }
+          }}
         />
       )}
 

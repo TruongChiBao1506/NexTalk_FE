@@ -75,6 +75,57 @@ const newerMessage = (current: MessageResponse | undefined, candidate: MessageRe
   return new Date(candidate.createdAt).getTime() > new Date(current.createdAt).getTime() ? candidate : current;
 };
 
+const reactionMessagePreview = (message: MessageResponse) => {
+  const plainText = (message.content || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plainText) return plainText.length > 56 ? `${plainText.slice(0, 53)}…` : plainText;
+  const attachment = message.attachments?.[0];
+  if (attachment?.type === 'IMAGE' || message.messageType === 'IMAGE') return 'Hình ảnh';
+  if (attachment?.type === 'VIDEO' || message.messageType === 'VIDEO') return 'Video';
+  if (message.messageType === 'AUDIO') return 'Tin nhắn thoại';
+  if (message.messageType === 'STICKER') return 'Nhãn dán';
+  return attachment?.name || 'Tin nhắn';
+};
+
+const createReactionConversationPreview = (
+  message: MessageResponse,
+  currentUserId: string | undefined,
+  isPrivateConversation: boolean,
+): MessageResponse | null => {
+  const metadata = message.metadata ?? {};
+  const reactorId = typeof metadata.reactionUserId === 'string' ? metadata.reactionUserId : '';
+  if (
+    metadata.realtimeEvent !== 'REACTION_UPDATED'
+    || metadata.reactionAdded !== true
+    || !currentUserId
+    || message.senderId !== currentUserId
+    || reactorId === currentUserId
+    || !isPrivateConversation
+  ) {
+    return null;
+  }
+  const emoji = typeof metadata.reactionEmoji === 'string' ? metadata.reactionEmoji : '';
+  const username = typeof metadata.reactionUsername === 'string' ? metadata.reactionUsername : '';
+  const now = new Date().toISOString();
+  return {
+    ...message,
+    id: `reaction-preview:${message.id}:${reactorId}:${Date.now()}`,
+    senderId: reactorId,
+    senderUsername: username,
+    messageType: 'SYSTEM',
+    content: `Đã bày tỏ cảm xúc${emoji ? ` ${emoji}` : ''} về tin nhắn của bạn “${reactionMessagePreview(message)}”`,
+    createdAt: now,
+    reactions: [],
+    metadata: {
+      systemType: 'REACTION_PREVIEW',
+      sourceMessageId: message.id,
+      reactionEmoji: emoji,
+    },
+  };
+};
+
 const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
@@ -926,17 +977,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addIncomingMessage: (message: MessageResponse) => {
     const { activeConversation, conversations } = get();
     const currentUser = useAuthStore.getState().user;
+    const targetConversation = conversations.find((item) => item.id === message.conversationId)
+      ?? (activeConversation?.id === message.conversationId ? activeConversation : undefined);
+    const isReactionUpdate = message.metadata?.realtimeEvent === 'REACTION_UPDATED';
+    const reactionPreview = createReactionConversationPreview(
+      message,
+      currentUser?.id,
+      targetConversation?.type === 'PRIVATE',
+    );
 
     // Update lastMessages registry
-    set((state) => ({
-      lastMessages: {
+    set((state) => {
+      const currentLastMessage = state.lastMessages[message.conversationId];
+      const nextLastMessage = reactionPreview
+        ?? (isReactionUpdate
+          ? (currentLastMessage?.id === message.id ? message : currentLastMessage)
+          : message);
+      return {
+      lastMessages: nextLastMessage ? {
         ...state.lastMessages,
-        [message.conversationId]: message,
-      },
+        [message.conversationId]: nextLastMessage,
+      } : state.lastMessages,
       unreadCounts: currentUser && message.senderId !== currentUser.id && activeConversation?.id !== message.conversationId
         ? { ...state.unreadCounts, [message.conversationId]: (state.unreadCounts[message.conversationId] ?? 0) + 1 }
         : { ...state.unreadCounts, [message.conversationId]: 0 },
-    }));
+    };
+    });
 
     // Ghi đè ngầm IndexedDB cache mới nhất
     const currentUserId = useAuthStore.getState().user?.id;
