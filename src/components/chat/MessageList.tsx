@@ -139,6 +139,7 @@ interface MessageListProps {
   handleSaveEdit: (msgId: string) => void;
   onCreateTaskFromMessage?: (message: any) => void;
   canCreateTaskFromMessage?: boolean;
+  onEditImage?: (target: { messageId: string; url: string; name?: string | null }) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -215,6 +216,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   handleSaveEdit,
   onCreateTaskFromMessage,
   canCreateTaskFromMessage,
+  onEditImage,
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
@@ -1162,6 +1164,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onShare={() => setSharingMessage(msg)}
                                 onRemind={() => setReminderTargetMessage(msg)}
                                 onCreateTask={() => onCreateTaskFromMessage?.(msg)}
+                                onEditImage={(image) => onEditImage?.({ messageId: msg.id, ...image })}
                                 canCreateTask={canCreateTaskFromMessage}
                                 canPin={canPinMessage(msg)}
                                 canRecall={canRecallMessageInActiveConversation(msg)}

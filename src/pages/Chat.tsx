@@ -61,6 +61,8 @@ import { CreatePollModal } from '../components/chat/CreatePollModal';
 import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
 import { MediaViewerModal } from '../components/chat/MediaViewerModal';
+import { ImageAiEditorModal, type ImageEditTarget } from '../components/chat/ImageAiEditorModal';
+import type { ImageEditResult } from '../services/imageEditService';
 import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import { StrangerWarningBanner } from '../components/chat/StrangerWarningBanner';
 import { ReportModal } from '../components/chat/ReportModal';
@@ -274,6 +276,7 @@ export const Chat = () => {
 
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+  const [imageEditTarget, setImageEditTarget] = useState<ImageEditTarget | null>(null);
 
   const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, fetchPendingInvitations } = useGroupStore();
   const { fetchPacks: fetchStickers } = useStickerStore();
@@ -411,7 +414,14 @@ export const Chat = () => {
   const isTypingSentRef = useRef(false);
   const typingConversationIdRef = useRef<string | null>(null);
   const isRestoringDraftRef = useRef(false);
-  const lastRestoredDraftConversationRef = useRef<string | null>(null);
+  const isChatMountedRef = useRef(false);
+
+  useEffect(() => {
+    isChatMountedRef.current = true;
+    return () => {
+      isChatMountedRef.current = false;
+    };
+  }, []);
 
   const {
     isInviteMembersOpen: _, setIsInviteMembersOpen: __,
@@ -1710,7 +1720,8 @@ export const Chat = () => {
   }, []);
 
 
-  const syncActiveFormats = (currentEditor: any) => {
+  const syncActiveFormats = useCallback((currentEditor: any) => {
+    if (!isChatMountedRef.current || currentEditor.isDestroyed) return;
     setActiveFormats({
       bold: currentEditor.isActive('bold'),
       italic: currentEditor.isActive('italic'),
@@ -1727,9 +1738,10 @@ export const Chat = () => {
           ? 'right'
           : 'left',
     });
-  };
+  }, []);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: false,
@@ -1934,12 +1946,13 @@ export const Chat = () => {
       },
     },
     onCreate: ({ editor: currentEditor }) => {
+      if (!isChatMountedRef.current || currentEditor.isDestroyed) return;
       const html = currentEditor.isEmpty ? '' : currentEditor.getHTML();
       setInputMessage(html);
-      lastRestoredDraftConversationRef.current = activeConversation?.id ?? null;
       syncActiveFormats(currentEditor);
     },
     onUpdate: ({ editor: currentEditor }) => {
+      if (!isChatMountedRef.current) return;
       const html = currentEditor.isEmpty ? '' : currentEditor.getHTML();
       setInputMessage(html);
       const conversationId = useChatStore.getState().activeConversation?.id;
@@ -3752,6 +3765,10 @@ export const Chat = () => {
                       setChannelView('tasks');
                       setActiveMenuMessageId(null);
                     }}
+                    onEditImage={(target) => {
+                      setImageEditTarget(target);
+                      setActiveMenuMessageId(null);
+                    }}
                   />
                 </div>
 
@@ -4283,6 +4300,22 @@ export const Chat = () => {
           onClose={() => setActiveMedia(null)}
           onRecallAttachment={(messageId, url) => {
             void messageService.recallAttachment(messageId, url);
+          }}
+        />
+      )}
+
+      {imageEditTarget && (
+        <ImageAiEditorModal
+          target={imageEditTarget}
+          onClose={() => setImageEditTarget(null)}
+          onSend={async (result: ImageEditResult) => {
+            if (!activeConversation || !canSendInActiveConversation) return false;
+            return sendStompMessage('', 'IMAGE', undefined, [{
+              url: result.url,
+              type: 'IMAGE',
+              name: result.fileName || 'nextalk-ai-edit.png',
+              size: result.size,
+            }]);
           }}
         />
       )}

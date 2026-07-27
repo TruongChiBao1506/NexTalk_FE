@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo } from 'lucide-react';
+import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo, Sparkles } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
 import { useChatStore } from '../../store/chatStore';
@@ -15,6 +15,7 @@ interface MessageActionsBarProps {
   onShare: () => void;
   onRemind: () => void;
   onCreateTask?: () => void;
+  onEditImage?: (image: { url: string; name?: string | null }) => void;
   canCreateTask?: boolean;
   canPin?: boolean;
   canRecall?: boolean;
@@ -134,6 +135,7 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
   onShare,
   onRemind,
   onCreateTask,
+  onEditImage,
   canCreateTask = false,
   canPin = true,
   canRecall,
@@ -171,6 +173,13 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
     onRemind();
     setShowDropdown(false);
   };
+
+  const editableImage = !message.isRecalled
+    ? message.attachments?.find((attachment) => attachment.type === 'IMAGE')
+      ?? (message.messageType === 'IMAGE' && message.content
+        ? { url: message.content, name: 'image' }
+        : undefined)
+    : undefined;
 
   return (
     <div className="flex items-center bg-white dark:bg-discord-mid border border-gray-200 dark:border-zinc-700 rounded-md shadow-md px-1.5 py-0.5 space-x-1 text-gray-700 dark:text-zinc-100 select-none h-8 transition-colors">
@@ -237,6 +246,20 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
               <Copy className="w-3.5 h-3.5 mr-2" />
               <span>Sao chép nội dung</span>
             </button>
+
+            {editableImage && onEditImage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onEditImage(editableImage);
+                  setShowDropdown(false);
+                }}
+                className="w-full flex items-center px-2 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-650 dark:hover:bg-indigo-500/15 dark:hover:text-white transition-colors duration-150 text-left font-medium"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                <span>Chỉnh sửa ảnh bằng AI</span>
+              </button>
+            )}
 
             <button
               type="button"

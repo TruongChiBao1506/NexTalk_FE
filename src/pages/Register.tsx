@@ -9,7 +9,7 @@ import { registerSchema } from '../types/authRequests';
 import type { RegisterFormInput } from '../types/authRequests';
 import { authService } from '../services/authService';
 import ThemeToggle from '../components/common/ThemeToggle';
-const logo = '/nextalk-logo.svg';
+const logo = '/favicon.png';
 
 const translateAuthError = (msg: string | undefined | null): string => {
   if (!msg) return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
@@ -112,7 +112,7 @@ export const Register = () => {
         
         {/* Brand logo / header */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex items-center justify-center w-20 h-20 mb-3 animate-bounce">
+          <div className="flex items-center justify-center w-20 h-20 mb-3">
             <img src={logo} alt="NexTalk Logo" className="w-full h-full object-cover rounded-2xl drop-shadow-xl border border-gray-200/50 dark:border-zinc-700/50" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white m-0">
