@@ -47,13 +47,17 @@ import {
   CalendarDays,
   ChevronDown,
   VolumeX,
-  CalendarClock
+  CalendarClock,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { ScheduledMessagesModal } from './ScheduledMessagesModal';
 import { ScheduleSendModal } from './ScheduleSendModal';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
+import { detectSensitiveInfo } from '../../utils/sensitiveInfoUtils';
 import { useStickerStore } from '../../store/stickerStore';
+import { useChatStore } from '../../store/chatStore';
 import { conversationService, type BirthdayContextResponse } from '../../services/conversationService';
 
 const emojiCategories = [
@@ -262,7 +266,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const aiMenuRef = React.useRef<HTMLDivElement>(null);
   const [birthdayState, setBirthdayState] = React.useState<{ conversationId: string; data: BirthdayContextResponse } | null>(null);
   const [assistSuggestions, setAssistSuggestions] = React.useState<string[]>([]);
-  const [assistBasedOnMessageId, setAssistBasedOnMessageId] = React.useState<string | undefined>();
+  const [_assistBasedOnMessageId, setAssistBasedOnMessageId] = React.useState<string | undefined>();
   const [assistMode, setAssistMode] = React.useState<'reply' | 'birthday' | null>(null);
   const [isLoadingAssist, setIsLoadingAssist] = React.useState(false);
   const [assistError, setAssistError] = React.useState<string | null>(null);
@@ -279,6 +283,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const currentEditorText = editor ? editor.getText() : inputMessage;
   const activeUrlRef = React.useRef<string | null>(null);
+
+  const [dismissedSensitiveWarning, setDismissedSensitiveWarning] = React.useState(false);
+  const sensitiveWarning = detectSensitiveInfo(currentEditorText);
+
+  React.useEffect(() => {
+    if (!currentEditorText.trim()) {
+      setDismissedSensitiveWarning(false);
+    }
+  }, [currentEditorText]);
 
   const loadSuggestions = async (mode: 'reply' | 'birthday', personalized = false) => {
     if (isLoadingAssist) return;
@@ -493,6 +506,47 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               {isLoadingAssist && assistMode === 'birthday' ? 'Đang tạo...' : '✨ Cá nhân hóa bằng AI'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sensitiveWarning.isSensitive && !dismissedSensitiveWarning && (
+        <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs font-semibold text-amber-900 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 animate-fadeIn">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <strong className="block font-bold text-amber-950 dark:text-amber-100">{sensitiveWarning.title}</strong>
+              <span className="text-[11px] font-normal text-amber-800 dark:text-amber-300">{sensitiveWarning.message}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const response = await conversationService.updateSelfDestruct(activeConversationId, 30);
+                  if (response.success && response.data) {
+                    useChatStore.getState().updateConversation(response.data);
+                  }
+                } catch (e) {
+                  console.error('Failed to update self destruct mode:', e);
+                }
+                setDismissedSensitiveWarning(true);
+              }}
+              className="inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-amber-700 active:scale-95 transition"
+              title="Bật chế độ tin nhắn tự xóa 30 giây"
+            >
+              <Lock className="h-3 w-3" />
+              <span>Tự xóa 30s</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissedSensitiveWarning(true)}
+              className="rounded-xl p-1.5 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-500/20 transition"
+              title="Bỏ qua cảnh báo"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
