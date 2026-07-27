@@ -3958,22 +3958,11 @@ export const Chat = () => {
                   );
                 })()}
 
-                <div className={`flex justify-end px-4 pb-1 ${conversationInfoOffsetClass}`}>
-                  <button
-                    type="button"
-                    onClick={() => setIsTaskAssistantOpen(true)}
-                    className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-100 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
-                    title="Tìm tin nhắn, tạo task và lên lịch nhắc việc bằng AI"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Trợ lý tác vụ
-                  </button>
-                </div>
-
                 {/* Message Input */}
                 <MessageInput
                   activeConversationId={activeConversation.id}
                   lastMessageId={messages[0]?.id}
+                  onOpenTaskAssistant={() => setIsTaskAssistantOpen(true)}
                   handleSendMessage={handleSendMessage}
                   conversationInfoOffsetClass={conversationInfoOffsetClass}
                   replyTo={replyTo}

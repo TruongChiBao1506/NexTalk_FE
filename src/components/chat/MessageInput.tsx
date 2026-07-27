@@ -93,6 +93,7 @@ const emojiCategories = [
 interface MessageInputProps {
   activeConversationId: string;
   lastMessageId?: string;
+  onOpenTaskAssistant: () => void;
   handleSendMessage: (e: any) => void;
   conversationInfoOffsetClass: string;
   replyTo: any;
@@ -169,6 +170,7 @@ const extractFirstUrl = (text: string): string | null => {
 export const MessageInput: React.FC<MessageInputProps> = ({
   activeConversationId,
   lastMessageId,
+  onOpenTaskAssistant,
   handleSendMessage,
   conversationInfoOffsetClass,
   replyTo,
@@ -231,12 +233,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showToolbar, setShowToolbar] = React.useState(false);
   const [previewModalUrl, setPreviewModalUrl] = React.useState<string | null>(null);
   const moreMenuRef = React.useRef<HTMLDivElement>(null);
+  const aiMenuRef = React.useRef<HTMLDivElement>(null);
   const [birthdayState, setBirthdayState] = React.useState<{ conversationId: string; data: BirthdayContextResponse } | null>(null);
   const [assistSuggestions, setAssistSuggestions] = React.useState<string[]>([]);
   const [assistBasedOnMessageId, setAssistBasedOnMessageId] = React.useState<string | undefined>();
   const [assistMode, setAssistMode] = React.useState<'reply' | 'birthday' | null>(null);
   const [isLoadingAssist, setIsLoadingAssist] = React.useState(false);
   const [assistError, setAssistError] = React.useState<string | null>(null);
+  const [isAiMenuOpen, setIsAiMenuOpen] = React.useState(false);
   const birthdayContext = birthdayState?.conversationId === activeConversationId ? birthdayState.data : null;
 
   const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
@@ -298,6 +302,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
         setIsMoreMenuOpen(false);
       }
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
+        setIsAiMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -341,6 +348,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       }
       setAssistSuggestions(response.data.suggestions);
       setAssistBasedOnMessageId(response.data.basedOnMessageId);
+      if (mode === 'reply') setIsAiMenuOpen(false);
     } catch (error) {
       const message = typeof error === 'object' && error !== null && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -432,21 +440,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         </div>
       )}
-
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={isLoadingAssist || !lastMessageId}
-          onClick={() => void loadSuggestions('reply')}
-          className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
-        >
-          {isLoadingAssist && assistMode === 'reply'
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            : <Sparkles className="h-3.5 w-3.5" />}
-          Gợi ý trả lời
-        </button>
-        {assistError && <span className="text-xs font-semibold text-rose-600 dark:text-rose-300">{assistError}</span>}
-      </div>
 
       {assistSuggestions.length > 0 && assistBasedOnMessageId === lastMessageId && (
         <div className="mb-2 grid gap-2 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
@@ -1118,6 +1111,65 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             >
               <Smile className="w-5 h-5" />
             </button>
+
+            <div className="relative" ref={aiMenuRef}>
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={() => setIsAiMenuOpen((open) => !open)}
+                className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
+                  isAiMenuOpen
+                    ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                    : 'text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-300 dark:hover:bg-zinc-800/60'
+                }`}
+                title="Công cụ AI"
+                aria-label="Mở công cụ AI"
+              >
+                <Sparkles className="h-5 w-5" />
+              </button>
+
+              {isAiMenuOpen && (
+                <div className="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    disabled={isLoadingAssist || !lastMessageId}
+                    onClick={() => void loadSuggestions('reply')}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 disabled:opacity-50 dark:hover:bg-indigo-500/10"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                      {isLoadingAssist && assistMode === 'reply'
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Sparkles className="h-4 w-4" />}
+                    </span>
+                    <span>
+                      <strong className="block text-sm text-slate-800 dark:text-zinc-100">Gợi ý trả lời</strong>
+                      <small className="text-xs text-slate-500 dark:text-zinc-400">Tạo 3 câu trả lời theo ngữ cảnh</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAiMenuOpen(false);
+                      onOpenTaskAssistant();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+                      <ListChecks className="h-4 w-4" />
+                    </span>
+                    <span>
+                      <strong className="block text-sm text-slate-800 dark:text-zinc-100">Trợ lý tác vụ</strong>
+                      <small className="text-xs text-slate-500 dark:text-zinc-400">Tìm tin, tạo task và nhắc việc</small>
+                    </span>
+                  </button>
+                  {assistError && (
+                    <div className="mx-2 mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+                      {assistError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div
