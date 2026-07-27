@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../types/auth';
 
-type SettingKey = 'showActivityStatus' | 'blockStrangerMessages' | 'enableBirthdayNotification';
+type SettingKey = 'showActivityStatus' | 'blockStrangerMessages' | 'birthdayReminderEnabled' | 'birthdayVisibility';
 type SettingUpdate = Partial<Pick<User, SettingKey>>;
 
 interface Props {
@@ -60,7 +60,7 @@ export function ProfileDashboard({ profile, sessionCount, isLoggingOut, onBack, 
     return () => window.clearTimeout(timer);
   }, [settingNotice]);
 
-  const updateSetting = async (key: SettingKey, value: boolean) => {
+  const updateSetting = async (key: SettingKey, value: boolean | 'NONE' | 'FRIENDS') => {
     if (pendingSetting) return;
     setPendingSetting(key);
     setSettingNotice(null);
@@ -140,7 +140,8 @@ export function ProfileDashboard({ profile, sessionCount, isLoggingOut, onBack, 
               <div className="divide-y divide-slate-100 p-2 dark:divide-zinc-800">
                 <div className="flex items-center gap-3 p-3"><Monitor className="h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 flex-1"><strong className="block text-xs">Trạng thái hoạt động</strong><small className="text-slate-400">Hiển thị Online và hoạt động gần đây</small></span><Toggle label="Trạng thái hoạt động" checked={profile.showActivityStatus !== false} disabled={!!pendingSetting} onClick={() => void updateSetting('showActivityStatus', profile.showActivityStatus === false)} /></div>
                 <div className="flex items-center gap-3 p-3"><ShieldCheck className="h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 flex-1"><strong className="block text-xs">Chỉ nhận tin từ bạn bè</strong><small className="text-slate-400">Chặn lời nhắn từ người lạ</small></span><Toggle label="Chỉ nhận tin từ bạn bè" checked={!!profile.blockStrangerMessages} disabled={!!pendingSetting} onClick={() => void updateSetting('blockStrangerMessages', !profile.blockStrangerMessages)} /></div>
-                <div className="flex items-center gap-3 p-3"><Bell className="h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 flex-1"><strong className="block text-xs">Thông báo sinh nhật</strong><small className="text-slate-400">Nhận nhắc nhở sinh nhật bạn bè</small></span><Toggle label="Thông báo sinh nhật" checked={profile.enableBirthdayNotification !== false} disabled={!!pendingSetting} onClick={() => void updateSetting('enableBirthdayNotification', profile.enableBirthdayNotification === false)} /></div>
+                <div className="flex items-center gap-3 p-3"><Bell className="h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 flex-1"><strong className="block text-xs">Nhắc sinh nhật bạn bè</strong><small className="text-slate-400">Hiển thị lời nhắc trong cuộc trò chuyện</small></span><Toggle label="Nhắc sinh nhật bạn bè" checked={profile.birthdayReminderEnabled !== false} disabled={!!pendingSetting} onClick={() => void updateSetting('birthdayReminderEnabled', profile.birthdayReminderEnabled === false)} /></div>
+                <div className="flex items-center gap-3 p-3"><Cake className="h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 flex-1"><strong className="block text-xs">Cho bạn bè biết sinh nhật</strong><small className="text-slate-400">Chỉ bạn bè đã kết nối mới được nhận nhắc</small></span><Toggle label="Cho bạn bè biết sinh nhật" checked={profile.birthdayVisibility !== 'NONE'} disabled={!!pendingSetting} onClick={() => void updateSetting('birthdayVisibility', profile.birthdayVisibility === 'NONE' ? 'FRIENDS' : 'NONE')} /></div>
               </div>
             </section>
           </div>

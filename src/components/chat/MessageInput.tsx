@@ -41,11 +41,14 @@ import {
   MicOff,
   Square,
   Eye,
-  FolderArchive
+  FolderArchive,
+  Sparkles,
+  Cake
 } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
 import { useStickerStore } from '../../store/stickerStore';
+import { conversationService, type BirthdayContextResponse } from '../../services/conversationService';
 
 const emojiCategories = [
   {
@@ -88,6 +91,8 @@ const emojiCategories = [
 
 
 interface MessageInputProps {
+  activeConversationId: string;
+  lastMessageId?: string;
   handleSendMessage: (e: any) => void;
   conversationInfoOffsetClass: string;
   replyTo: any;
@@ -162,6 +167,8 @@ const extractFirstUrl = (text: string): string | null => {
 };
 
 export const MessageInput: React.FC<MessageInputProps> = ({
+  activeConversationId,
+  lastMessageId,
   handleSendMessage,
   conversationInfoOffsetClass,
   replyTo,
@@ -224,6 +231,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [showToolbar, setShowToolbar] = React.useState(false);
   const [previewModalUrl, setPreviewModalUrl] = React.useState<string | null>(null);
   const moreMenuRef = React.useRef<HTMLDivElement>(null);
+  const [birthdayState, setBirthdayState] = React.useState<{ conversationId: string; data: BirthdayContextResponse } | null>(null);
+  const [assistSuggestions, setAssistSuggestions] = React.useState<string[]>([]);
+  const [assistBasedOnMessageId, setAssistBasedOnMessageId] = React.useState<string | undefined>();
+  const [assistMode, setAssistMode] = React.useState<'reply' | 'birthday' | null>(null);
+  const [isLoadingAssist, setIsLoadingAssist] = React.useState(false);
+  const [assistError, setAssistError] = React.useState<string | null>(null);
+  const birthdayContext = birthdayState?.conversationId === activeConversationId ? birthdayState.data : null;
 
   const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
   const [isLoadingLinkPreview, setIsLoadingLinkPreview] = React.useState(false);
@@ -289,6 +303,68 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    void conversationService.getBirthdayContext(activeConversationId)
+      .then((response) => {
+        if (!cancelled && response.success && response.data?.hasBirthday) {
+          setBirthdayState({ conversationId: activeConversationId, data: response.data });
+        }
+      })
+      .catch(() => {
+        // Birthday reminders are optional and must not block the composer.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConversationId]);
+
+  const loadSuggestions = async (mode: 'reply' | 'birthday', personalized = false) => {
+    if (isLoadingAssist) return;
+    setIsLoadingAssist(true);
+    setAssistMode(mode);
+    setAssistError(null);
+    try {
+      if (mode === 'birthday' && !personalized) {
+        setAssistSuggestions(birthdayContext?.templates ?? []);
+        setAssistBasedOnMessageId(lastMessageId);
+        return;
+      }
+      const response = mode === 'reply'
+        ? await conversationService.suggestReplies(activeConversationId, lastMessageId)
+        : await conversationService.personalizeBirthdayWishes(activeConversationId, lastMessageId);
+      if (!response.success || !response.data?.suggestions?.length) {
+        throw new Error(response.message || 'Không thể tạo gợi ý');
+      }
+      if (response.data.basedOnMessageId && lastMessageId && response.data.basedOnMessageId !== lastMessageId) {
+        throw new Error('Cuộc trò chuyện vừa có tin nhắn mới. Hãy tạo lại gợi ý.');
+      }
+      setAssistSuggestions(response.data.suggestions);
+      setAssistBasedOnMessageId(response.data.basedOnMessageId);
+    } catch (error) {
+      const message = typeof error === 'object' && error !== null && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : error instanceof Error ? error.message : undefined;
+      setAssistError(message || 'Không thể tạo gợi ý lúc này.');
+      setAssistSuggestions([]);
+    } finally {
+      setIsLoadingAssist(false);
+    }
+  };
+
+  const insertSuggestion = (suggestion: string) => {
+    editor?.commands.setContent(`<p>${suggestion.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    })[character]!)}</p>`);
+    editor?.commands.focus('end');
+    setAssistSuggestions([]);
+    setAssistError(null);
+  };
+
   const formatVoiceDuration = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
@@ -333,6 +409,60 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+      {birthdayContext?.hasBirthday && (
+        <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <Cake className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+            <span className="min-w-0 flex-1 text-sm font-bold">{birthdayContext.message}</span>
+            <button
+              type="button"
+              onClick={() => void loadSuggestions('birthday')}
+              className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-amber-700 shadow-sm hover:bg-amber-100 dark:bg-zinc-900 dark:text-amber-200"
+            >
+              ✨ Gợi ý lời chúc
+            </button>
+            <button
+              type="button"
+              disabled={isLoadingAssist}
+              onClick={() => void loadSuggestions('birthday', true)}
+              className="rounded-full border border-amber-300 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500/40 dark:text-amber-200"
+            >
+              {isLoadingAssist && assistMode === 'birthday' ? 'Đang tạo...' : '✨ Cá nhân hóa bằng AI'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={isLoadingAssist || !lastMessageId}
+          onClick={() => void loadSuggestions('reply')}
+          className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+        >
+          {isLoadingAssist && assistMode === 'reply'
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Sparkles className="h-3.5 w-3.5" />}
+          Gợi ý trả lời
+        </button>
+        {assistError && <span className="text-xs font-semibold text-rose-600 dark:text-rose-300">{assistError}</span>}
+      </div>
+
+      {assistSuggestions.length > 0 && assistBasedOnMessageId === lastMessageId && (
+        <div className="mb-2 grid gap-2 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
+          {assistSuggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => insertSuggestion(suggestion)}
+              className="rounded-xl bg-slate-50 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-indigo-500/10"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Reply Preview */}
       {replyTo && (
         <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />

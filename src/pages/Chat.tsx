@@ -3972,6 +3972,8 @@ export const Chat = () => {
 
                 {/* Message Input */}
                 <MessageInput
+                  activeConversationId={activeConversation.id}
+                  lastMessageId={messages[0]?.id}
                   handleSendMessage={handleSendMessage}
                   conversationInfoOffsetClass={conversationInfoOffsetClass}
                   replyTo={replyTo}

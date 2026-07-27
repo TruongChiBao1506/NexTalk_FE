@@ -2,6 +2,21 @@ import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
 import type { ConversationNotificationMode, ConversationResponse, ConversationSummaryResponse, ConversationWithPreviewsResponse } from '../types/chat';
 
+export interface ReplySuggestionsResponse {
+  suggestions: string[];
+  basedOnMessageId: string;
+  cached: boolean;
+}
+
+export interface BirthdayContextResponse {
+  hasBirthday: boolean;
+  userId?: string;
+  displayName?: string;
+  daysUntil?: number;
+  message?: string;
+  templates: string[];
+}
+
 export const conversationService = {
   async getOrCreatePrivateConversation(friendId: string): Promise<ApiResponse<ConversationResponse>> {
     const response = await apiClient.post<ApiResponse<ConversationResponse>>(`/conversations/private/${friendId}`);
@@ -30,6 +45,29 @@ export const conversationService = {
 
   async summarizeConversation(id: string): Promise<ApiResponse<ConversationSummaryResponse>> {
     const response = await apiClient.post<ApiResponse<ConversationSummaryResponse>>(`/conversations/${id}/summary`);
+    return response.data;
+  },
+
+  async suggestReplies(id: string, lastMessageId?: string): Promise<ApiResponse<ReplySuggestionsResponse>> {
+    const response = await apiClient.post<ApiResponse<ReplySuggestionsResponse>>(
+      `/conversations/${id}/reply-suggestions`,
+      { lastMessageId }
+    );
+    return response.data;
+  },
+
+  async getBirthdayContext(id: string): Promise<ApiResponse<BirthdayContextResponse>> {
+    const response = await apiClient.get<ApiResponse<BirthdayContextResponse>>(
+      `/conversations/${id}/birthday-context`
+    );
+    return response.data;
+  },
+
+  async personalizeBirthdayWishes(id: string, lastMessageId?: string): Promise<ApiResponse<ReplySuggestionsResponse>> {
+    const response = await apiClient.post<ApiResponse<ReplySuggestionsResponse>>(
+      `/conversations/${id}/birthday-wishes/personalize`,
+      { lastMessageId }
+    );
     return response.data;
   },
 

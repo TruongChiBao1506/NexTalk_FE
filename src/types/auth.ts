@@ -10,6 +10,8 @@ export interface User {
   hasChatPin?: boolean;
   birthday?: string;
   enableBirthdayNotification?: boolean;
+  birthdayVisibility?: 'NONE' | 'FRIENDS';
+  birthdayReminderEnabled?: boolean;
   showActivityStatus?: boolean;
   blockStrangerMessages?: boolean;
   createdAt: string;

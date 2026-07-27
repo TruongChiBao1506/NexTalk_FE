@@ -7,6 +7,8 @@ export interface UpdateProfilePayload {
   bio?: string;
   birthday?: string;
   enableBirthdayNotification?: boolean;
+  birthdayVisibility?: 'NONE' | 'FRIENDS';
+  birthdayReminderEnabled?: boolean;
   showActivityStatus?: boolean;
   blockStrangerMessages?: boolean;
 }
