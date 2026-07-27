@@ -100,7 +100,7 @@ interface MessageInputProps {
   activeConversationId: string;
   lastMessageId?: string;
   onOpenTaskAssistant: () => void;
-  handleSendMessage: (e: any) => void;
+  handleSendMessage: (e: any, _options?: { silent?: boolean }) => void;
   conversationInfoOffsetClass: string;
   replyTo: any;
   setReplyTo: (reply: any) => void;

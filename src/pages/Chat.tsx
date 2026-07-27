@@ -2334,7 +2334,7 @@ export const Chat = () => {
     ]);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent, _options?: { silent?: boolean }) => {
     e.preventDefault();
 
     if (!canSendInActiveConversation) {
