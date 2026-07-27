@@ -280,6 +280,50 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const currentEditorText = editor ? editor.getText() : inputMessage;
   const activeUrlRef = React.useRef<string | null>(null);
 
+  const loadSuggestions = async (mode: 'reply' | 'birthday', personalized = false) => {
+    if (isLoadingAssist) return;
+    if (mode === 'reply') {
+      setIsAiMenuOpen(false);
+    }
+    setAssistSuggestions([]);
+    setIsLoadingAssist(true);
+    setAssistMode(mode);
+    setAssistError(null);
+    try {
+      if (mode === 'birthday' && !personalized) {
+        setAssistSuggestions(birthdayContext?.templates ?? []);
+        setAssistBasedOnMessageId(lastMessageId);
+        return;
+      }
+      const response = mode === 'reply'
+        ? await conversationService.suggestReplies(activeConversationId, lastMessageId)
+        : await conversationService.personalizeBirthdayWishes(activeConversationId, lastMessageId);
+      setAssistSuggestions(response.data.suggestions);
+      setAssistBasedOnMessageId(response.data.basedOnMessageId || lastMessageId);
+    } catch (error) {
+      const message = typeof error === 'object' && error !== null && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : error instanceof Error ? error.message : undefined;
+      setAssistError(message || 'Không thể tạo gợi ý lúc này.');
+      setAssistSuggestions([]);
+    } finally {
+      setIsLoadingAssist(false);
+    }
+  };
+
+  const insertSuggestion = (suggestion: string) => {
+    editor?.commands.setContent(`<p>${suggestion.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    })[character]!)}</p>`);
+    editor?.commands.focus('end');
+    setAssistSuggestions([]);
+    setAssistError(null);
+  };
+
   React.useEffect(() => {
     const url = extractFirstUrl(currentEditorText);
     if (!url || dismissedUrls.has(url)) {
@@ -364,53 +408,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       cancelled = true;
     };
   }, [activeConversationId]);
-
-  const loadSuggestions = async (mode: 'reply' | 'birthday', personalized = false) => {
-    if (isLoadingAssist) return;
-    setIsLoadingAssist(true);
-    setAssistMode(mode);
-    setAssistError(null);
-    try {
-      if (mode === 'birthday' && !personalized) {
-        setAssistSuggestions(birthdayContext?.templates ?? []);
-        setAssistBasedOnMessageId(lastMessageId);
-        return;
-      }
-      const response = mode === 'reply'
-        ? await conversationService.suggestReplies(activeConversationId, lastMessageId)
-        : await conversationService.personalizeBirthdayWishes(activeConversationId, lastMessageId);
-      if (!response.success || !response.data?.suggestions?.length) {
-        throw new Error(response.message || 'Không thể tạo gợi ý');
-      }
-      if (response.data.basedOnMessageId && lastMessageId && response.data.basedOnMessageId !== lastMessageId) {
-        throw new Error('Cuộc trò chuyện vừa có tin nhắn mới. Hãy tạo lại gợi ý.');
-      }
-      setAssistSuggestions(response.data.suggestions);
-      setAssistBasedOnMessageId(response.data.basedOnMessageId);
-      if (mode === 'reply') setIsAiMenuOpen(false);
-    } catch (error) {
-      const message = typeof error === 'object' && error !== null && 'response' in error
-        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-        : error instanceof Error ? error.message : undefined;
-      setAssistError(message || 'Không thể tạo gợi ý lúc này.');
-      setAssistSuggestions([]);
-    } finally {
-      setIsLoadingAssist(false);
-    }
-  };
-
-  const insertSuggestion = (suggestion: string) => {
-    editor?.commands.setContent(`<p>${suggestion.replace(/[&<>"']/g, (character) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    })[character]!)}</p>`);
-    editor?.commands.focus('end');
-    setAssistSuggestions([]);
-    setAssistError(null);
-  };
 
   const dismissBirthday = () => {
     if (!birthdayContext) return;
@@ -501,7 +498,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {assistSuggestions.length > 0 && assistBasedOnMessageId === lastMessageId && (
+      {isLoadingAssist && assistMode === 'reply' && (
+        <div className="mb-2 flex items-center gap-2.5 rounded-2xl border border-indigo-100 bg-indigo-50/90 px-4 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 animate-pulse">
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <span>✨ NexTalk AI đang suy nghĩ 3 gợi ý trả lời...</span>
+        </div>
+      )}
+
+      {assistSuggestions.length > 0 && (
         <div className="mb-2 grid gap-2 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
           {assistSuggestions.map((suggestion) => (
             <button
