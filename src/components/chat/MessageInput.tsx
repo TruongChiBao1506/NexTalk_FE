@@ -167,6 +167,26 @@ const extractFirstUrl = (text: string): string | null => {
   return url;
 };
 
+const birthdayOccurrenceDate = (context: BirthdayContextResponse) => {
+  const occurrence = new Date();
+  occurrence.setHours(12, 0, 0, 0);
+  occurrence.setDate(occurrence.getDate() + Math.max(0, context.daysUntil ?? 0));
+  return [
+    occurrence.getFullYear(),
+    String(occurrence.getMonth() + 1).padStart(2, '0'),
+    String(occurrence.getDate()).padStart(2, '0')
+  ].join('-');
+};
+
+const birthdayDismissKey = (conversationId: string, context: BirthdayContextResponse) => {
+  const phase = context.daysUntil === 0 ? 'today' : 'upcoming';
+  return `nextalk:birthday-dismissed:${conversationId}:${context.userId ?? 'unknown'}:${birthdayOccurrenceDate(context)}:${phase}`;
+};
+
+const legacyBirthdayDismissKey = (conversationId: string, context: BirthdayContextResponse) => {
+  return `nextalk:birthday-dismissed:${conversationId}:${context.userId ?? 'unknown'}:${birthdayOccurrenceDate(context)}`;
+};
+
 export const MessageInput: React.FC<MessageInputProps> = ({
   activeConversationId,
   lastMessageId,
@@ -315,7 +335,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     void conversationService.getBirthdayContext(activeConversationId)
       .then((response) => {
         if (!cancelled && response.success && response.data?.hasBirthday) {
-          setBirthdayState({ conversationId: activeConversationId, data: response.data });
+          const key = birthdayDismissKey(activeConversationId, response.data);
+          const wasDismissed = window.localStorage.getItem(key) === '1';
+          const wasLegacyUpcomingDismissed = response.data.daysUntil !== 0
+            && window.localStorage.getItem(legacyBirthdayDismissKey(activeConversationId, response.data)) === '1';
+          if (!wasDismissed && !wasLegacyUpcomingDismissed) {
+            setBirthdayState({ conversationId: activeConversationId, data: response.data });
+          }
         }
       })
       .catch(() => {
@@ -373,6 +399,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     setAssistError(null);
   };
 
+  const dismissBirthday = () => {
+    if (!birthdayContext) return;
+    window.localStorage.setItem(birthdayDismissKey(activeConversationId, birthdayContext), '1');
+    setBirthdayState(null);
+    if (assistMode === 'birthday') {
+      setAssistSuggestions([]);
+      setAssistError(null);
+    }
+  };
+
   const formatVoiceDuration = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
@@ -418,14 +454,25 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   return (
     <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
       {birthdayContext?.hasBirthday && (
-        <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        <div className="relative mb-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <button
+            type="button"
+            onClick={dismissBirthday}
+            className="absolute right-2 top-2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            title="Ẩn thông báo sinh nhật"
+            aria-label="Ẩn thông báo sinh nhật"
+          >
+            <X className="h-4 w-4" />
+          </button>
           <div className="flex flex-wrap items-center gap-2">
-            <Cake className="h-5 w-5 text-amber-600 dark:text-amber-300" />
-            <span className="min-w-0 flex-1 text-sm font-bold">{birthdayContext.message}</span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-300">
+              <Cake className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 text-sm font-semibold text-slate-700 dark:text-zinc-200">{birthdayContext.message}</span>
             <button
               type="button"
               onClick={() => void loadSuggestions('birthday')}
-              className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-amber-700 shadow-sm hover:bg-amber-100 dark:bg-zinc-900 dark:text-amber-200"
+              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
             >
               ✨ Gợi ý lời chúc
             </button>
@@ -433,7 +480,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               type="button"
               disabled={isLoadingAssist}
               onClick={() => void loadSuggestions('birthday', true)}
-              className="rounded-full border border-amber-300 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500/40 dark:text-amber-200"
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               {isLoadingAssist && assistMode === 'birthday' ? 'Đang tạo...' : '✨ Cá nhân hóa bằng AI'}
             </button>
