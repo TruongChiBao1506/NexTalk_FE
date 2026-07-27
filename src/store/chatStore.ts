@@ -126,6 +126,9 @@ const createReactionConversationPreview = (
   };
 };
 
+const isConversationPreviewOnly = (message: MessageResponse | null | undefined) =>
+  message?.metadata?.systemType === 'REACTION_PREVIEW';
+
 const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
@@ -430,7 +433,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Save current active conversation state to cache before switching
     if (activeConversation) {
       set((state) => ({
-        messagesCache: { ...state.messagesCache, [activeConversation.id]: state.messages },
+        messagesCache: {
+          ...state.messagesCache,
+          [activeConversation.id]: state.messages.filter((message) => !isConversationPreviewOnly(message)),
+        },
         paginationCache: { ...state.paginationCache, [activeConversation.id]: { currentPage: state.currentPage, hasMoreMessages: state.hasMoreMessages } },
         pinnedMessagesCache: { ...state.pinnedMessagesCache, [activeConversation.id]: state.pinnedMessages }
       }));
@@ -480,9 +486,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
-    const cachedMessages = messagesCache[conversationId]?.length
-      ? messagesCache[conversationId]
-      : lastMessages[conversationId] ? [lastMessages[conversationId]] : [];
+    const cachedConversationMessages = (messagesCache[conversationId] ?? [])
+      .filter((message) => !isConversationPreviewOnly(message));
+    const lastMessage = lastMessages[conversationId];
+    const cachedMessages = cachedConversationMessages.length
+      ? cachedConversationMessages
+      : lastMessage && !isConversationPreviewOnly(lastMessage) ? [lastMessage] : [];
     const cachedPagination = paginationCache[conversationId] || { currentPage: 0, hasMoreMessages: true };
     const cachedPinnedMessages = pinnedMessagesCache[conversationId] || [];
 

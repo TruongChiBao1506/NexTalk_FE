@@ -3184,6 +3184,23 @@ export const Chat = () => {
       return `${msg.senderId === user?.id ? 'Bạn' : msg.senderUsername} ${msg.content}`;
     }
 
+    if (isGroup && !isMe) {
+      const mentionedUserIds = Array.isArray(msg.metadata?.mentionedUserIds)
+        ? msg.metadata.mentionedUserIds.map(String)
+        : [];
+      const mentionsEveryone = msg.metadata?.mentionAll === true;
+      const mentionsCurrentUser = Boolean(user?.id && mentionedUserIds.includes(user.id));
+      if (mentionsEveryone || mentionsCurrentUser) {
+        const plainContent = stripHtml(msg.content).replace(/\s+/g, ' ').trim();
+        const compactContent = plainContent.length > 72
+          ? `${plainContent.slice(0, 69)}…`
+          : plainContent;
+        return `${msg.senderUsername || 'Người dùng'} ${
+          mentionsEveryone ? 'đã nhắc đến mọi người' : 'đã nhắc đến bạn'
+        }: “${compactContent || '[Tin nhắn]'}”`;
+      }
+    }
+
     if (msg.messageType === 'POLL') {
       const metadata = getPollMetadata(msg);
       return `${prefix}[Bình chọn] ${metadata.question || msg.content}`;
