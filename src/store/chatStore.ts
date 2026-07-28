@@ -221,7 +221,7 @@ interface ChatState {
   selectConversation: (conversationId: string | null) => Promise<void>;
   updateConversation: (conversation: ConversationResponse) => void;
   loadMoreMessages: () => Promise<void>;
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => boolean;
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string, selfDestructSeconds?: number) => boolean;
   sendTypingIndicator: (typing: boolean, conversationId?: string) => void;
   setMessageDraft: (conversationId: string, content: string) => void;
   clearMessageDraft: (conversationId: string) => void;
@@ -607,14 +607,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string) => {
+  sendStompMessage: (content: string, messageType?: MessageType, parentId?: string, attachments?: MessageAttachment[], priority?: string, clientMessageId?: string, selfDestructSeconds?: number) => {
     const { stompClient, activeConversation } = get();
     if (!stompClient || !stompClient.connected || !activeConversation) {
       console.warn('[STOMP] Client not connected or no active conversation');
       return false;
     }
 
-    const messageRequest = {
+    const messageRequest: Record<string, any> = {
       conversationId: activeConversation.id,
       content,
       messageType: messageType || 'TEXT',
@@ -623,6 +623,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       priority: priority || undefined,
       clientMessageId: clientMessageId || undefined,
     };
+    if (selfDestructSeconds && selfDestructSeconds > 0) {
+      messageRequest.selfDestructSeconds = selfDestructSeconds;
+    }
 
     try {
       stompClient.publish({

@@ -703,8 +703,9 @@ export const MessageList: React.FC<MessageListProps> = ({
           const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
-          const voiceInvite = !msg.isRecalled ? parseVoiceInvite(msg.content) : null;
-          const timeSuggestion = !msg.isRecalled
+          const isRecalledMessage = Boolean(msg.isRecalled || (msg.expiresAt && new Date(msg.expiresAt).getTime() <= Date.now()));
+          const voiceInvite = !isRecalledMessage ? parseVoiceInvite(msg.content) : null;
+          const timeSuggestion = !isRecalledMessage
             && msg.messageType === 'TEXT'
             && !msg.metadata?.optimistic
             && msg.content
@@ -1139,7 +1140,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                         <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isSelectionMode ? 'pointer-events-none' : ''}`}>
                           {/* Context menu actions bar */}
-                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && !isSelectionMode && (
+                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !isRecalledMessage && !isSelectionMode && (
                             <div
                               className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${isMe
                                   ? 'right-0 md:right-[calc(100%+8px)] md:left-auto'
@@ -1184,7 +1185,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </div>
                           )}
 
-                          {msg.isRecalled ? (
+                          {isRecalledMessage ? (
                             <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
                                 ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
                                 : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
@@ -1600,7 +1601,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </div>
                           )}
 
-                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !msg.isRecalled && (
+                          {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !isRecalledMessage && (
                             <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
                               <MessageReactionButton
                                 onReact={(emoji) => reactToMessage(msg.id, emoji)}
@@ -1611,7 +1612,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           )}
 
                           {/* Reactions list */}
-                          {!msg.isRecalled && msg.reactions && msg.reactions.length > 0 && (
+                          {!isRecalledMessage && msg.reactions && msg.reactions.length > 0 && (
                             <div className={`mt-1 max-w-[min(72vw,360px)] ${isMe ? 'self-end pr-1' : 'self-start pl-1'}`}>
                               <MessageReactions
                                 reactions={msg.reactions}

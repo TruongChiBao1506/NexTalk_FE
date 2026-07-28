@@ -360,7 +360,7 @@ export const Chat = () => {
   const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
   const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
-  const [messageExpiryNow, setMessageExpiryNow] = useState(Date.now());
+  const [, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const [reminderTargetMessage, setReminderTargetMessage] = useState<MessageResponse | null>(null);
   const [suggestedReminderTime, setSuggestedReminderTime] = useState<Date | null>(null);
@@ -1317,8 +1317,8 @@ export const Chat = () => {
 
   useEffect(() => {
     if (!messages.some((message) => Boolean(message.expiresAt))) return;
-    const timer = window.setInterval(() => setMessageExpiryNow(Date.now()), 10000);
-    return () => window.clearTimeout(timer);
+    const timer = window.setInterval(() => setMessageExpiryNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, [messages]);
 
   // Infinite scroll: Observe the sentinel element at the top of the message list
@@ -2334,7 +2334,7 @@ export const Chat = () => {
     ]);
   };
 
-  const handleSendMessage = (e: React.FormEvent, _options?: { silent?: boolean }) => {
+  const handleSendMessage = (e: React.FormEvent, _options?: { silent?: boolean; selfDestructSeconds?: number }) => {
     e.preventDefault();
 
     if (!canSendInActiveConversation) {
@@ -2380,6 +2380,7 @@ export const Chat = () => {
         messageType: messageType as any,
         attachments: optimisticAttachments,
         createdAt: new Date().toISOString(),
+        expiresAt: _options?.selfDestructSeconds ? new Date(Date.now() + _options.selfDestructSeconds * 1000).toISOString() : null,
         metadata: {
           optimistic: true,
           deliveryState: 'sending',
@@ -2465,7 +2466,8 @@ export const Chat = () => {
             replyTo?.id ?? undefined,
             finalAttachments,
             messagePriority || undefined,
-            clientMessageId
+            clientMessageId,
+            _options?.selfDestructSeconds ?? undefined
           );
           if (!published) {
             throw new Error('Mất kết nối máy chủ tin nhắn. Vui lòng thử lại.');
@@ -2525,6 +2527,7 @@ export const Chat = () => {
           messageType: 'TEXT',
           parentId: replyTo?.id ?? null,
           createdAt: new Date().toISOString(),
+          expiresAt: _options?.selfDestructSeconds ? new Date(Date.now() + _options.selfDestructSeconds * 1000).toISOString() : null,
           metadata: { clientMessageId, optimistic: true, deliveryState: 'sending' },
         });
         const published = sendStompMessage(
@@ -2534,6 +2537,7 @@ export const Chat = () => {
           undefined,
           messagePriority || undefined,
           clientMessageId,
+          _options?.selfDestructSeconds ?? undefined,
         );
         if (!published) {
           updateOptimisticMessage(clientMessageId, {
@@ -2940,8 +2944,7 @@ export const Chat = () => {
   const getSelfDestructLabel = (seconds?: number | null) =>
     selfDestructOptions.find((option) => option.value === (seconds ?? 0))?.label ?? 'Tắt';
 
-  const isMessageExpired = (message: MessageResponse) =>
-    Boolean(message.expiresAt && new Date(message.expiresAt).getTime() <= messageExpiryNow);
+
 
 
 
@@ -3401,7 +3404,7 @@ export const Chat = () => {
     : [];
 
   let visibleMessages = [
-    ...messages.filter((message) => !isMessageExpired(message)),
+    ...messages,
     ...activeReminderSystemMessages,
     ...activeAiPendingSystemMessages,
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

@@ -49,7 +49,7 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
     };
   }
 
-  if (message.isRecalled) {
+  if (message.isRecalled || (message.expiresAt && new Date(message.expiresAt).getTime() <= Date.now())) {
     return {
       kind: 'RECALLED',
       label: 'Đã thu hồi',

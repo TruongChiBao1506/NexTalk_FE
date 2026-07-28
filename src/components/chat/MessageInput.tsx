@@ -57,7 +57,6 @@ import { ScheduleSendModal } from './ScheduleSendModal';
 import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
 import { detectSensitiveInfo } from '../../utils/sensitiveInfoUtils';
 import { useStickerStore } from '../../store/stickerStore';
-import { useChatStore } from '../../store/chatStore';
 import { conversationService, type BirthdayContextResponse } from '../../services/conversationService';
 
 const emojiCategories = [
@@ -104,7 +103,7 @@ interface MessageInputProps {
   activeConversationId: string;
   lastMessageId?: string;
   onOpenTaskAssistant: () => void;
-  handleSendMessage: (e: any, _options?: { silent?: boolean }) => void;
+  handleSendMessage: (e: any, _options?: { silent?: boolean; selfDestructSeconds?: number }) => void;
   conversationInfoOffsetClass: string;
   replyTo: any;
   setReplyTo: (reply: any) => void;
@@ -285,11 +284,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const activeUrlRef = React.useRef<string | null>(null);
 
   const [dismissedSensitiveWarning, setDismissedSensitiveWarning] = React.useState(false);
+  const [singleSelfDestruct, setSingleSelfDestruct] = React.useState<number | null>(null);
   const sensitiveWarning = detectSensitiveInfo(currentEditorText);
+
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined });
+    setSingleSelfDestruct(null);
+    setDismissedSensitiveWarning(false);
+  };
 
   React.useEffect(() => {
     if (!currentEditorText.trim()) {
       setDismissedSensitiveWarning(false);
+      setSingleSelfDestruct(null);
     }
   }, [currentEditorText]);
 
@@ -446,7 +454,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   if (activePrivateChatBlocked) {
     return (
-      <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+      <form onSubmit={onFormSubmit} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
         <div className="mb-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
           <div className="font-semibold">
             {activePrivateChatBlockedByMe ? 'Bạn đã chặn người này.' : 'Người này đã chặn bạn.'}
@@ -475,7 +483,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }
 
   return (
-    <form onSubmit={handleSendMessage} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+    <form onSubmit={onFormSubmit} className={`px-4 pb-4 pt-2 shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
       {birthdayContext?.hasBirthday && (
         <div className="relative mb-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-10 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <button
@@ -523,15 +531,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  const response = await conversationService.updateSelfDestruct(activeConversationId, 30);
-                  if (response.success && response.data) {
-                    useChatStore.getState().updateConversation(response.data);
-                  }
-                } catch (e) {
-                  console.error('Failed to update self destruct mode:', e);
-                }
+              onClick={() => {
+                setSingleSelfDestruct(30);
                 setDismissedSensitiveWarning(true);
               }}
               className="inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-amber-700 active:scale-95 transition"
@@ -552,12 +553,30 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {singleSelfDestruct === 30 && (
+        <div className="flex items-center justify-between gap-2 border-b border-orange-100 bg-orange-50 px-3 py-2 dark:border-orange-500/20 dark:bg-orange-500/10">
+          <div className="flex items-center gap-2 text-xs font-semibold text-orange-700 dark:text-orange-300">
+            <Lock className="h-3.5 w-3.5 shrink-0" />
+            <span>🔒 Tin nhắn này sẽ tự hủy sau 30 giây – các tin nhắn tiếp theo sẽ bình thường.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSingleSelfDestruct(null)}
+            className="rounded-lg p-1 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition"
+            title="Hủy tự xóa"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {isLoadingAssist && assistMode === 'reply' && (
         <div className="mb-2 flex items-center gap-2.5 rounded-2xl border border-indigo-100 bg-indigo-50/90 px-4 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 animate-pulse">
           <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400 shrink-0" />
           <span>✨ NexTalk AI đang suy nghĩ 3 gợi ý trả lời...</span>
         </div>
       )}
+
 
       {assistSuggestions.length > 0 && (
         <div className="mb-2 grid gap-2 rounded-2xl border border-indigo-100 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
@@ -1262,7 +1281,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (canSendInActiveConversation) {
-                  handleSendMessage(e);
+                  handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined });
+                  setSingleSelfDestruct(null);
+                  setDismissedSensitiveWarning(false);
                 } else if (activePrivateChatBlocked) {
                   return;
                 } else {
@@ -1440,7 +1461,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       type="button"
                       onClick={(e) => {
                         setIsSendOptionsOpen(false);
-                        handleSendMessage(e, { silent: true });
+                        handleSendMessage(e, { silent: true, selfDestructSeconds: singleSelfDestruct ?? undefined });
+                        setSingleSelfDestruct(null);
+                        setDismissedSensitiveWarning(false);
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-indigo-50 dark:text-zinc-200 dark:hover:bg-zinc-800 transition"
                     >
