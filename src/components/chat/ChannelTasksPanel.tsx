@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, CheckCircle2, Loader2, Plus, RotateCcw, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, List, ChartNoAxesGantt, Columns3, Pin, AlertTriangle, Paperclip, ExternalLink } from 'lucide-react';
+import { Archive, CheckCircle2, Loader2, Plus, RotateCcw, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, List, ChartNoAxesGantt, Columns3, Pin, AlertTriangle, Paperclip, ExternalLink, Bell, Eye, Link2, Repeat2 } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { fileService } from '../../services/fileService';
 import { Skeleton } from '../common/Skeleton';
@@ -16,6 +16,7 @@ import type {
   GroupResponse,
   TaskAttachmentRequest,
   TaskAttachmentResponse,
+  TaskRecurrence,
 } from '../../types/group';
 
 type Props = {
@@ -130,6 +131,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
   const [startAt, setStartAt] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [watcherIds, setWatcherIds] = useState<string[]>([]);
+  const [dependencyTaskIds, setDependencyTaskIds] = useState<string[]>([]);
+  const [reminderAt, setReminderAt] = useState('');
+  const [recurrence, setRecurrence] = useState<TaskRecurrence>('NONE');
+  const [selectedTemplate, setSelectedTemplate] = useState<'feature' | 'bug' | 'meeting' | null>(null);
   const [newSubtasks, setNewSubtasks] = useState<{ title: string }[]>([]);
   const [subtaskInput, setSubtaskInput] = useState('');
   const [newAttachments, setNewAttachments] = useState<TaskAttachmentRequest[]>([]);
@@ -216,6 +222,10 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
         startAt: startAt ? new Date(startAt).toISOString() : undefined,
         dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
         assigneeIds,
+        watcherIds,
+        dependencyTaskIds,
+        reminderAt: reminderAt ? new Date(reminderAt).toISOString() : undefined,
+        recurrence,
         subtasks: newSubtasks.filter(s => s.title.trim()).map(s => ({ title: s.title.trim() })),
         attachments: newAttachments,
         sourceMessageId: sourceMessage?.id,
@@ -227,6 +237,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
       setStartAt('');
       setDueAt('');
       setAssigneeIds([]);
+      setWatcherIds([]);
+      setDependencyTaskIds([]);
+      setReminderAt('');
+      setRecurrence('NONE');
+      setSelectedTemplate(null);
       setNewSubtasks([]);
       setSubtaskInput('');
       setNewAttachments([]);
@@ -441,6 +456,32 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
     setAssigneeIds((current) => current.includes(userId)
       ? current.filter((id) => id !== userId)
       : [...current, userId]);
+  };
+
+  const toggleWatcher = (userId: string) => {
+    setWatcherIds((current) => current.includes(userId)
+      ? current.filter((id) => id !== userId)
+      : [...current, userId]);
+  };
+
+  const toggleDependency = (taskId: string) => {
+    setDependencyTaskIds((current) => current.includes(taskId)
+      ? current.filter((id) => id !== taskId)
+      : [...current, taskId]);
+  };
+
+  const applyTaskTemplate = (template: 'feature' | 'bug' | 'meeting') => {
+    setSelectedTemplate(template);
+    if (template === 'feature') {
+      setPriority('MEDIUM');
+      setNewSubtasks([{ title: 'Phân tích yêu cầu' }, { title: 'Triển khai' }, { title: 'Kiểm thử' }]);
+    } else if (template === 'bug') {
+      setPriority('HIGH');
+      setNewSubtasks([{ title: 'Tái hiện lỗi' }, { title: 'Xác định nguyên nhân' }, { title: 'Kiểm thử hồi quy' }]);
+    } else {
+      setPriority('LOW');
+      setNewSubtasks([{ title: 'Chuẩn bị nội dung' }, { title: 'Ghi nhận quyết định' }, { title: 'Theo dõi hành động' }]);
+    }
   };
 
   const currentUserRole = group.members.find((m) => m.userId === currentUserId)?.role;
@@ -693,6 +734,28 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${priorityClass[task.priority]}`}>{priorityLabels[task.priority]}</span>
                   </div>
                   {task.description && <p className="m-0 mt-1 line-clamp-2 text-xs text-gray-500 dark:text-zinc-400">{task.description}</p>}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {task.recurrence && task.recurrence !== 'NONE' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+                        <Repeat2 className="h-3 w-3" /> {task.recurrence === 'DAILY' ? 'Hằng ngày' : task.recurrence === 'WEEKLY' ? 'Hằng tuần' : 'Hằng tháng'}
+                      </span>
+                    )}
+                    {!!task.watchers?.length && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
+                        <Eye className="h-3 w-3" /> {task.watchers.length} theo dõi
+                      </span>
+                    )}
+                    {!!task.dependencies?.length && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                        <Link2 className="h-3 w-3" /> Chờ {task.dependencies.filter((dependency) => dependency.status !== 'DONE').length}/{task.dependencies.length}
+                      </span>
+                    )}
+                    {task.reminderAt && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                        <Bell className="h-3 w-3" /> {new Date(task.reminderAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Checklist Subtasks Accordion Dropdown (Only when subtasks exist) */}
                   {task.subtasks && task.subtasks.length > 0 && (
@@ -926,7 +989,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl dark:bg-discord-mid">
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl dark:bg-discord-mid">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="m-0 text-base font-black text-gray-950 dark:text-white">Tạo task mới</h3>
               <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800">
@@ -934,6 +997,50 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
               </button>
             </div>
             <div className="space-y-3">
+              <div>
+                <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Mẫu task nhanh</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={selectedTemplate === 'feature'}
+                    onClick={() => applyTaskTemplate('feature')}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      selectedTemplate === 'feature'
+                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200 dark:ring-indigo-500/30'
+                        : 'border-transparent bg-indigo-50 text-indigo-700 hover:border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300'
+                    }`}
+                  >
+                    {selectedTemplate === 'feature' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Tính năng
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={selectedTemplate === 'bug'}
+                    onClick={() => applyTaskTemplate('bug')}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      selectedTemplate === 'bug'
+                        ? 'border-rose-500 bg-rose-600 text-white shadow-sm ring-2 ring-rose-200 dark:ring-rose-500/30'
+                        : 'border-transparent bg-rose-50 text-rose-700 hover:border-rose-200 dark:bg-rose-500/10 dark:text-rose-300'
+                    }`}
+                  >
+                    {selectedTemplate === 'bug' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Sửa lỗi
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={selectedTemplate === 'meeting'}
+                    onClick={() => applyTaskTemplate('meeting')}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      selectedTemplate === 'meeting'
+                        ? 'border-amber-500 bg-amber-500 text-white shadow-sm ring-2 ring-amber-200 dark:ring-amber-500/30'
+                        : 'border-transparent bg-amber-50 text-amber-700 hover:border-amber-200 dark:bg-amber-500/10 dark:text-amber-300'
+                    }`}
+                  >
+                    {selectedTemplate === 'meeting' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Cuộc họp
+                  </button>
+                </div>
+              </div>
               {sourceMessage && (
                 <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-500/30 dark:bg-indigo-500/10">
                   <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-300">
@@ -963,6 +1070,21 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                   <input type="datetime-local" value={dueAt} min={startAt || undefined} onChange={(e) => setDueAt(e.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
                 </label>
               </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
+                  Nhắc việc lúc
+                  <input type="datetime-local" value={reminderAt} max={dueAt || undefined} onChange={(event) => setReminderAt(event.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
+                  Lặp lại
+                  <select value={recurrence} onChange={(event) => setRecurrence(event.target.value as TaskRecurrence)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
+                    <option value="NONE">Không lặp lại</option>
+                    <option value="DAILY">Hằng ngày</option>
+                    <option value="WEEKLY">Hằng tuần</option>
+                    <option value="MONTHLY">Hằng tháng</option>
+                  </select>
+                </label>
+              </div>
               <div>
                 <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Giao cho</p>
                 <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
@@ -978,6 +1100,35 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                   ))}
                 </div>
               </div>
+              <div>
+                <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Người theo dõi</p>
+                <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+                  {group.members.map((member) => (
+                    <button
+                      key={member.userId}
+                      type="button"
+                      onClick={() => toggleWatcher(member.userId)}
+                      className={`rounded-full border px-3 py-1 text-xs font-bold ${watcherIds.includes(member.userId) ? 'border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' : 'border-gray-200 text-gray-600 dark:border-zinc-800 dark:text-zinc-300'}`}
+                    >
+                      {member.username}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {activeTasks.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Phụ thuộc công việc</p>
+                  <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl border border-gray-200 p-2 dark:border-zinc-800">
+                    {activeTasks.map((task) => (
+                      <button key={task.id} type="button" onClick={() => toggleDependency(task.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-zinc-800">
+                        {dependencyTaskIds.includes(task.id) ? <CheckSquare className="h-4 w-4 text-indigo-600" /> : <Square className="h-4 w-4 text-gray-400" />}
+                        <span className="min-w-0 flex-1 truncate font-bold text-gray-700 dark:text-zinc-200">{task.title}</span>
+                        <span className="text-[10px] text-gray-400">{statusLabels[task.status]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="mb-2 text-xs font-black text-gray-600 dark:text-zinc-300">Checklist công việc phụ</p>
                 <div className="flex items-center gap-2 mb-2">

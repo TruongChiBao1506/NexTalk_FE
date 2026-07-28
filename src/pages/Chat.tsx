@@ -79,6 +79,7 @@ import { MyQrModal } from '../components/chat/MyQrModal';
 import { QrScannerModal } from '../components/chat/QrScannerModal';
 import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import { ActionInboxPanel } from '../components/chat/ActionInboxPanel';
+import { MyTasksPanel } from '../components/chat/MyTasksPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import type { NotificationResponse } from '../types/notification';
 import { useChatModals } from '../hooks/useChatModals';
@@ -2999,12 +3000,21 @@ export const Chat = () => {
     if (!item.referenceId) return;
     await selectConversation(item.referenceId);
 
-    if ((item.type === 'TASK_ASSIGNED' || item.type === 'TASK_DUE') && item.secondaryReferenceId) {
+    if ((item.type === 'TASK_ASSIGNED' || item.type === 'TASK_DUE' || item.type === 'TASK_UPDATED') && item.secondaryReferenceId) {
       window.setTimeout(() => {
         setFocusedSharedTaskId(item.secondaryReferenceId ?? null);
         setChannelView('tasks');
       }, 0);
     }
+  }, [selectConversation]);
+
+  const handleOpenMyTask = useCallback(async (task: ChannelTaskResponse) => {
+    if (!task.conversationId) return;
+    await selectConversation(task.conversationId);
+    window.setTimeout(() => {
+      setFocusedSharedTaskId(task.id);
+      setChannelView('tasks');
+    }, 0);
   }, [selectConversation]);
 
   const selfDestructOptions = [
@@ -4509,6 +4519,7 @@ export const Chat = () => {
       <CallOverlay />
 
       <ActionInboxPanel onOpenItem={handleOpenActionItem} />
+      <MyTasksPanel onOpenTask={handleOpenMyTask} />
 
       <QrScannerModal
         isOpen={isQrScannerOpen}

@@ -28,7 +28,7 @@ const tabs: Array<{ status: ActionItemStatus; label: string }> = [
 function ActionIcon({ type }: { type: NotificationResponse['type'] }) {
   const className = 'h-5 w-5';
   if (type === 'MENTION') return <MessageSquareText className={className} />;
-  if (type === 'TASK_ASSIGNED' || type === 'TASK_DUE') return <ClipboardList className={className} />;
+  if (type === 'TASK_ASSIGNED' || type === 'TASK_DUE' || type === 'TASK_UPDATED') return <ClipboardList className={className} />;
   if (type === 'MISSED_CALL') return <PhoneMissed className={className} />;
   if (type === 'FRIEND_REQUEST' || type === 'GROUP_INVITE' || type === 'CHAT_REQUEST') return <UserPlus className={className} />;
   return <BellRing className={className} />;

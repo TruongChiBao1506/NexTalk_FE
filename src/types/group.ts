@@ -4,6 +4,7 @@ export type InvitationStatus = 'PENDING' | 'WAITING_APPROVAL';
 export type ChannelType = 'TEXT' | 'FORUM' | 'VOICE';
 export type ChannelTaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 export type ChannelTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TaskRecurrence = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 export interface ChannelResponse {
   id: string;
@@ -90,7 +91,10 @@ export interface TaskSourceMessageResponse {
 export interface ChannelTaskResponse {
   id: string;
   groupId: string;
+  groupName?: string | null;
   channelId: string;
+  channelName?: string | null;
+  conversationId?: string | null;
   title: string;
   description: string | null;
   status: ChannelTaskStatus;
@@ -98,8 +102,14 @@ export interface ChannelTaskResponse {
   createdById: string;
   createdByUsername: string;
   assignees: ChannelTaskAssigneeResponse[];
+  watchers?: ChannelTaskAssigneeResponse[];
+  dependencies?: Array<{ taskId: string; title: string; status: ChannelTaskStatus }>;
   startAt?: string | null;
   dueAt: string | null;
+  reminderAt?: string | null;
+  recurrence?: TaskRecurrence;
+  recurrenceSourceTaskId?: string | null;
+  nextRecurringTaskId?: string | null;
   completedAt: string | null;
   subtasks?: SubtaskResponse[];
   attachments?: TaskAttachmentResponse[];
@@ -122,6 +132,10 @@ export interface CreateChannelTaskRequest {
   startAt?: string;
   dueAt?: string;
   assigneeIds?: string[];
+  watcherIds?: string[];
+  dependencyTaskIds?: string[];
+  reminderAt?: string;
+  recurrence?: TaskRecurrence;
   subtasks?: SubtaskRequest[];
   attachments?: TaskAttachmentRequest[];
   sourceMessageId?: string;
@@ -135,6 +149,10 @@ export interface UpdateChannelTaskRequest {
   startAt?: string;
   dueAt?: string;
   assigneeIds?: string[];
+  watcherIds?: string[];
+  dependencyTaskIds?: string[];
+  reminderAt?: string;
+  recurrence?: TaskRecurrence;
   subtasks?: SubtaskRequest[];
   attachments?: TaskAttachmentRequest[];
 }

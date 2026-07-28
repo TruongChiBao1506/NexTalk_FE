@@ -90,6 +90,13 @@ export const groupService = {
     return response.data;
   },
 
+  async getMyTasks(archived = false): Promise<ApiResponse<ChannelTaskResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ChannelTaskResponse[]>>('/tasks/mine', {
+      params: { archived },
+    });
+    return response.data;
+  },
+
   async createChannelTask(groupId: string, channelId: string, data: CreateChannelTaskRequest): Promise<ApiResponse<ChannelTaskResponse>> {
     const response = await apiClient.post<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks`, data);
     return response.data;

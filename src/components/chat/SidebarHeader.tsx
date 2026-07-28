@@ -1,6 +1,7 @@
-import { Loader2, Plus, Cloud, Inbox } from 'lucide-react';
+import { Loader2, Plus, Cloud, Inbox, ClipboardList } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useActionInboxStore } from '../../store/actionInboxStore';
+import { useMyTasksStore } from '../../store/myTasksStore';
 import { useEffect, useState } from 'react';
 
 interface SidebarHeaderProps {
@@ -21,6 +22,7 @@ export const SidebarHeader = ({
   const pendingActionCount = useActionInboxStore((state) => state.pendingCount);
   const toggleActionInbox = useActionInboxStore((state) => state.togglePanel);
   const fetchPendingActionCount = useActionInboxStore((state) => state.fetchPendingCount);
+  const toggleMyTasks = useMyTasksStore((state) => state.togglePanel);
 
   useEffect(() => {
     void fetchPendingActionCount();
@@ -51,6 +53,15 @@ export const SidebarHeader = ({
         )}
       </div>
       <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={toggleMyTasks}
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100/80 text-indigo-600 transition-all duration-200 hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500"
+          title="Task của tôi"
+          aria-label="Task của tôi"
+        >
+          <ClipboardList className="h-4 w-4" />
+        </button>
         <button
           type="button"
           onClick={toggleActionInbox}
