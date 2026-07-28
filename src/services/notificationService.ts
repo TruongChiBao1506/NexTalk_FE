@@ -1,6 +1,6 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { NotificationResponse } from '../types/notification';
+import type { ActionItemStatus, NotificationResponse } from '../types/notification';
 
 export const notificationService = {
   async getMyNotifications(): Promise<ApiResponse<NotificationResponse[]>> {
@@ -15,6 +15,30 @@ export const notificationService = {
 
   async getUnreadCount(): Promise<ApiResponse<number>> {
     const response = await apiClient.get<ApiResponse<number>>('/notifications/unread-count');
+    return response.data;
+  },
+
+  async getActionItems(status: ActionItemStatus): Promise<ApiResponse<NotificationResponse[]>> {
+    const response = await apiClient.get<ApiResponse<NotificationResponse[]>>('/notifications/action-items', {
+      params: { status }
+    });
+    return response.data;
+  },
+
+  async updateAction(
+    id: string,
+    status: ActionItemStatus,
+    snoozedUntil?: string | null
+  ): Promise<ApiResponse<NotificationResponse>> {
+    const response = await apiClient.put<ApiResponse<NotificationResponse>>(`/notifications/${id}/action`, {
+      status,
+      snoozedUntil: snoozedUntil ?? null
+    });
+    return response.data;
+  },
+
+  async getPendingActionCount(): Promise<ApiResponse<number>> {
+    const response = await apiClient.get<ApiResponse<number>>('/notifications/action-items/pending-count');
     return response.data;
   }
 };

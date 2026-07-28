@@ -78,7 +78,9 @@ import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
 import { MyQrModal } from '../components/chat/MyQrModal';
 import { QrScannerModal } from '../components/chat/QrScannerModal';
 import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
+import { ActionInboxPanel } from '../components/chat/ActionInboxPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
+import type { NotificationResponse } from '../types/notification';
 import { useChatModals } from '../hooks/useChatModals';
 import { useConversationActions } from '../hooks/useConversationActions';
 import { pickAndZipFolder, supportsDirectoryPicker, zipFolder } from '../utils/folderZip';
@@ -2988,6 +2990,23 @@ export const Chat = () => {
       : `${day}/${month}/${String(date.getFullYear()).slice(-2)}`;
   };
 
+  const handleOpenActionItem = useCallback(async (item: NotificationResponse) => {
+    if (item.type === 'FRIEND_REQUEST' || item.type === 'CHAT_REQUEST') {
+      setConversationTab('requests');
+      return;
+    }
+
+    if (!item.referenceId) return;
+    await selectConversation(item.referenceId);
+
+    if ((item.type === 'TASK_ASSIGNED' || item.type === 'TASK_DUE') && item.secondaryReferenceId) {
+      window.setTimeout(() => {
+        setFocusedSharedTaskId(item.secondaryReferenceId ?? null);
+        setChannelView('tasks');
+      }, 0);
+    }
+  }, [selectConversation]);
+
   const selfDestructOptions = [
     { value: 0, label: 'Tắt' },
     { value: 300, label: '5 phút' },
@@ -4488,6 +4507,8 @@ export const Chat = () => {
       />
 
       <CallOverlay />
+
+      <ActionInboxPanel onOpenItem={handleOpenActionItem} />
 
       <QrScannerModal
         isOpen={isQrScannerOpen}

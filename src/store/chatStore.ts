@@ -7,6 +7,7 @@ import { notificationService } from '../services/notificationService';
 import { encryptedCacheService } from '../services/encryptedCacheService';
 import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
+import { useActionInboxStore } from './actionInboxStore';
 import { useFriendStore } from './friendStore';
 import { useCallStore } from './callStore';
 import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType, TypingIndicatorEvent } from '../types/chat';
@@ -869,6 +870,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           try {
             const body = JSON.parse(message.body);
             const activeConversation = get().activeConversation;
+            useActionInboxStore.getState().addActionItem(body);
             
             if ((body.type === 'NEW_MESSAGE' || body.type === 'MENTION') && activeConversation && body.referenceId === activeConversation.id) {
               const readNotification = { ...body, read: true };
