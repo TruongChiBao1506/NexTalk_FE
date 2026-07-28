@@ -42,6 +42,7 @@ const getBrowserCallDeviceId = () => {
 
 const PRIVATE_CALL_RECONNECT_GRACE_MS = 4_000;
 let privateCallDisconnectTimeout: number | null = null;
+let ignorePrivateUserLeftUntil = 0;
 
 const clearPrivateCallDisconnectTimeout = () => {
   if (privateCallDisconnectTimeout !== null) {
@@ -54,6 +55,7 @@ interface CallStore {
   callState: CallState;
   callType: CallType;
   callId: string | null;
+  connectedAt: number | null;
   isGroupCall: boolean;
   callTitle: string | null;
   callMemberCount: number | null;
@@ -112,7 +114,7 @@ interface CallStore {
   clearIncomingRingTimeout: () => void;
   clearGroupAloneTimeout: () => void;
   scheduleGroupAloneTimeout: () => void;
-  joinAgoraChannel: () => Promise<void>;
+  joinAgoraChannel: (handoffDeviceId?: string) => Promise<void>;
   resumeRemoteAudio: () => Promise<void>;
   
   joinVoiceChannel: (channelId: string, channelName: string, groupId: string) => Promise<void>;
@@ -126,6 +128,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   callState: 'idle',
   callType: 'voice',
   callId: null,
+  connectedAt: null,
   isGroupCall: false,
   callTitle: null,
   callMemberCount: null,
@@ -173,6 +176,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       callState: 'ringing_outgoing',
       callType,
       callId,
+      connectedAt: null,
       isGroupCall,
       callTitle: partner?.username ?? null,
       callMemberCount: partner?.memberCount ?? null,
@@ -264,6 +268,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       callState: 'ringing_incoming',
       callType: signal.type.toLowerCase() === 'video' ? 'video' : 'voice',
       callId: signal.callId ?? null,
+      connectedAt: null,
       isGroupCall: !signal.receiverId,
       callTitle: !signal.receiverId
         ? signal.groupName ?? useChatStore.getState().conversations.find((conversation) => conversation.id === signal.conversationId)?.name ?? 'Group call'
@@ -385,6 +390,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({
       callState: 'idle',
       callId: null,
+      connectedAt: null,
       isGroupCall: false,
       callTitle: null,
       callMemberCount: null,
@@ -436,6 +442,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({
       callState: 'idle',
       callId: null,
+      connectedAt: null,
       isGroupCall: false,
       callTitle: null,
       callMemberCount: null,
@@ -515,6 +522,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({
       callState: 'idle',
       callId: null,
+      connectedAt: null,
       isGroupCall: false,
       callTitle: null,
       callMemberCount: null,
@@ -738,6 +746,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       set({
         callState: 'idle',
         callId: null,
+        connectedAt: null,
         isGroupCall: false,
         callTitle: null,
         callMemberCount: null,
@@ -771,7 +780,9 @@ export const useCallStore = create<CallStore>((set, get) => ({
         resetCall();
         break;
       case 'HANDOFF_REQUEST': {
-        if (!currentUser || signal.sourceDeviceId === getBrowserCallDeviceId() || callState !== 'idle') return;
+        if (!currentUser) return;
+        if (signal.callerId && signal.callerId !== currentUser.id) return;
+        if (signal.sourceDeviceId === getBrowserCallDeviceId() || callState !== 'idle') return;
         const shouldContinue = window.confirm(
           `Tiếp tục cuộc gọi ${signal.type === 'VIDEO' ? 'video' : 'thoại'} trên thiết bị này?`
         );
@@ -781,6 +792,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
           callState: 'connecting',
           callType: isVideo ? 'video' : 'voice',
           callId: signal.callId,
+          connectedAt: typeof signal.connectedAtEpochMs === 'number'
+            ? signal.connectedAtEpochMs
+            : signal.startedAt
+              ? new Date(signal.startedAt).getTime()
+              : Date.now(),
           conversationId: signal.conversationId,
           caller: {
             id: currentUser.id,
@@ -798,7 +814,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
           isSpeakerOn: true,
           handoffPending: false
         });
-        get().joinAgoraChannel()
+        get().joinAgoraChannel(getBrowserCallDeviceId())
           .then(() => {
             const client = useChatStore.getState().stompClient;
             if (!client?.connected) throw new Error('Realtime disconnected');
@@ -819,6 +835,17 @@ export const useCallStore = create<CallStore>((set, get) => ({
         break;
       }
       case 'HANDOFF_ACCEPTED':
+        if (signal.callerId && signal.callerId !== currentUser?.id) {
+          if (
+            isSameConversation &&
+            isSameCall &&
+            (callState === 'connected' || callState === 'connecting')
+          ) {
+            clearPrivateCallDisconnectTimeout();
+            ignorePrivateUserLeftUntil = Date.now() + 10_000;
+          }
+          return;
+        }
         if (signal.handledByDeviceId === getBrowserCallDeviceId()) return;
         if (
           isSameConversation &&
@@ -915,6 +942,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { localAudioTrack, localVideoTrack, screenVideoTrack, agoraClient } = get();
     get().clearGroupAloneTimeout();
     clearPrivateCallDisconnectTimeout();
+    ignorePrivateUserLeftUntil = 0;
 
     if (localAudioTrack) {
       localAudioTrack.stop();
@@ -1003,7 +1031,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     get().addCallNotice('Chỉ còn bạn trong cuộc gọi. Cuộc gọi sẽ tự kết thúc sau 45s nếu không có ai quay lại.');
   },
 
-  joinAgoraChannel: async () => {
+  joinAgoraChannel: async (handoffDeviceId) => {
     const { conversationId, callType } = get();
     if (!conversationId) return;
 
@@ -1081,6 +1109,12 @@ export const useCallStore = create<CallStore>((set, get) => ({
         return;
       }
 
+      if (Date.now() <= ignorePrivateUserLeftUntil) {
+        ignorePrivateUserLeftUntil = 0;
+        clearPrivateCallDisconnectTimeout();
+        return;
+      }
+
       // A handoff briefly removes and re-adds the same Agora UID while the
       // replacement device takes over. Give that device time to appear before
       // treating the transient user-left event as a real hangup.
@@ -1120,7 +1154,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     try {
       // apiClient already prefixes requests with /api.
       const response = await apiClient.get('/calls/token', {
-        params: { conversationId }
+        params: { conversationId, handoffDeviceId }
       });
       ({ token, uid, channelName, appId: agoraAppId } = response.data.data);
 
@@ -1128,6 +1162,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       client.enableAudioVolumeIndicator();
       set((state) => ({
         localAgoraUid: uid,
+        connectedAt: state.connectedAt ?? Date.now(),
         callState: state.callState === 'connecting' ? 'connected' : state.callState,
       }));
     } catch (error) {

@@ -141,6 +141,7 @@ export const CallOverlay = () => {
   const currentUser = useAuthStore((state) => state.user);
   const {
     callState,
+    connectedAt,
     callType,
     isGroupCall,
     callTitle,
@@ -180,28 +181,23 @@ export const CallOverlay = () => {
   const [callDuration, setCallDuration] = useState(0);
   const [pinnedTileId, setPinnedTileId] = useState<string | null>(null);
   const [recentSpeakerTileIds, setRecentSpeakerTileIds] = useState<string[]>([]);
-  const connectedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (callState !== 'connected') {
-      connectedAtRef.current = null;
+    if (callState !== 'connected' || connectedAt === null) {
       setCallDuration(0);
       setPinnedTileId(null);
       setRecentSpeakerTileIds([]);
       return;
     }
 
-    connectedAtRef.current = connectedAtRef.current ?? Date.now();
     const updateDuration = () => {
-      if (connectedAtRef.current) {
-        setCallDuration(Math.floor((Date.now() - connectedAtRef.current) / 1000));
-      }
+      setCallDuration(Math.max(0, Math.floor((Date.now() - connectedAt) / 1000)));
     };
 
     updateDuration();
     const timer = window.setInterval(updateDuration, 1000);
     return () => window.clearInterval(timer);
-  }, [callState]);
+  }, [callState, connectedAt]);
 
   useEffect(() => {
     if (callState !== 'connected' || callType !== 'video' || !isGroupCall || activeSpeakerUids.length === 0) return;
