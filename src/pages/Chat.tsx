@@ -267,7 +267,7 @@ export const Chat = () => {
       const next = new Set(current).add(conversationId);
       try {
         window.localStorage.setItem(strangerWarningStorageKey, JSON.stringify([...next]));
-      } catch {}
+      } catch { }
       return next;
     });
   }, [strangerWarningStorageKey]);
@@ -586,7 +586,7 @@ export const Chat = () => {
       ));
       return next;
     });
-    reminderService.markReminderFired(reminder.id).catch(() => {});
+    reminderService.markReminderFired(reminder.id).catch(() => { });
 
     const title = 'NexTalk nhắc hẹn';
     const body = reminder.note || `${reminder.senderUsername}: ${reminder.messagePreview}`;
@@ -698,7 +698,7 @@ export const Chat = () => {
     ));
 
     aiReminderMessages.forEach((message) => {
-      createReminderFromAiMessage(message).catch(() => {});
+      createReminderFromAiMessage(message).catch(() => { });
     });
   }, [messages, lastMessages, user?.id]);
 
@@ -839,7 +839,7 @@ export const Chat = () => {
 
   const addUploadedFile = async (file: File) => {
     const type = getFileMessageType(file);
-    const maxSizeMB = 50; 
+    const maxSizeMB = 50;
 
     if (file.size > maxSizeMB * 1024 * 1024) {
       showAlertDialog(`Dung lượng ${type === 'IMAGE' ? 'ảnh' : type === 'VIDEO' ? 'video' : 'tệp tin'} "${file.name}" vượt quá giới hạn cho phép là ${maxSizeMB}MB.`, 'Thông báo', 'danger');
@@ -1392,11 +1392,11 @@ export const Chat = () => {
       ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn.'
       : activePrivateChatRequiresFriendship
         ? 'Cần kết bạn để tiếp tục nhắn tin.'
-      : !canSendInActiveConversation
-        ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
-        : activeConversation?.type === 'CLOUD'
-          ? 'Lưu trữ tin nhắn, tệp...'
-          : 'Nhắn tin...';
+        : !canSendInActiveConversation
+          ? 'Nhập lời nhắn để gửi tin nhắn chờ...'
+          : activeConversation?.type === 'CLOUD'
+            ? 'Lưu trữ tin nhắn, tệp...'
+            : 'Nhắn tin...';
 
 
 
@@ -1680,7 +1680,7 @@ export const Chat = () => {
     }
     return () => {
       active = false;
-      try { subscription?.unsubscribe(); } catch {}
+      try { subscription?.unsubscribe(); } catch { }
     };
   }, [taskMentionGroup?.id, taskMentionChannel?.id, taskMentionChannel?.isTaskEnabled, isConnected]);
 
@@ -2361,10 +2361,10 @@ export const Chat = () => {
           : (item.previewUrl || item.url || '');
         if (optimisticUrl.startsWith('blob:')) optimisticPreviewUrls.push(optimisticUrl);
         return {
-        url: optimisticUrl,
-        type: item.type,
-        name: item.name,
-        size: item.size,
+          url: optimisticUrl,
+          type: item.type,
+          name: item.name,
+          size: item.size,
         };
       });
 
@@ -3198,9 +3198,8 @@ export const Chat = () => {
         const compactContent = plainContent.length > 72
           ? `${plainContent.slice(0, 69)}…`
           : plainContent;
-        return `${msg.senderUsername || 'Người dùng'} ${
-          mentionsEveryone ? 'đã nhắc đến mọi người' : 'đã nhắc đến bạn'
-        }: “${compactContent || '[Tin nhắn]'}”`;
+        return `${msg.senderUsername || 'Người dùng'} ${mentionsEveryone ? 'đã nhắc đến mọi người' : 'đã nhắc đến bạn'
+          }: “${compactContent || '[Tin nhắn]'}”`;
       }
     }
 
@@ -3461,7 +3460,7 @@ export const Chat = () => {
   }, [activeGroup?.id, activeChannel?.id, activeChannel?.isTaskEnabled, cachedTaskActivities, fetchCachedTaskActivities]);
 
   return (
-    <div 
+    <div
       className="nextalk-chat-shell relative h-dvh w-screen flex overflow-hidden text-slate-900 dark:text-discord-text transition-colors duration-300"
       style={activeConversation?.themeColor ? { '--theme-color': activeConversation.themeColor } as React.CSSProperties : {}}
       onDragEnter={handleDragEnter}
@@ -3571,7 +3570,7 @@ export const Chat = () => {
       </section>
 
       {/* Column 3: Chat Window */}
-      <main 
+      <main
         className={`${(activeConversation || selectedChatRequest) ? 'flex' : 'hidden md:flex'} flex-1 flex-col overflow-hidden relative`}
       >
         {activeConversation && (activeFriend || isGroupConversation) ? (
@@ -3606,7 +3605,7 @@ export const Chat = () => {
               setTaskUnreadCount={setTaskUnreadCount}
               activeFriendIsFriend={activeFriendIsFriend}
             />
-            
+
             {activeConversation?.type === 'CLOUD' && (
               <MessageFilterBar filter={messageFilter} setFilter={setMessageFilter} />
             )}
@@ -3655,9 +3654,6 @@ export const Chat = () => {
                       <div className="w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
                         <Mic className="w-12 h-12 text-indigo-400 dark:text-indigo-500" />
                       </div>
-                      <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 ring-4 ring-gray-100 dark:ring-discord-dark text-[10px] font-black text-white">
-                        <Sparkles className="w-3 h-3" />
-                      </span>
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -3674,8 +3670,8 @@ export const Chat = () => {
                               console.error('Failed to join voice channel:', error);
                               showAlertDialog(
                                 error?.response?.data?.message
-                                  || error?.message
-                                  || 'Không thể tham gia kênh thoại.',
+                                || error?.message
+                                || 'Không thể tham gia kênh thoại.',
                                 'Không thể tham gia kênh thoại',
                                 'danger',
                               );
@@ -3889,75 +3885,74 @@ export const Chat = () => {
                   const canRecallAll = selectedMsgs.length > 0 && selectedMsgs.every(m => m.senderId === user?.id && !('isRecalled' in m && m.isRecalled));
 
                   return (
-                  <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 p-2 px-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-100 text-indigo-600 text-sm font-bold dark:bg-indigo-500/20 dark:text-indigo-400">
-                        {selectedMessageIds.length}
+                    <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 p-2 px-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-100 text-indigo-600 text-sm font-bold dark:bg-indigo-500/20 dark:text-indigo-400">
+                          {selectedMessageIds.length}
+                        </div>
+                        <span className="font-semibold text-[15px] text-slate-700 dark:text-zinc-300">Đã chọn</span>
                       </div>
-                      <span className="font-semibold text-[15px] text-slate-700 dark:text-zinc-300">Đã chọn</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => {
-                          const text = selectedMsgs.map(m => m.content ? stripHtml(m.content) : '').filter(Boolean).join('\n\n');
-                          if (text) {
-                            navigator.clipboard.writeText(text);
-                            clearSelection();
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[14px] font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300"
-                      >
-                        <Copy className="w-4 h-4" /> Sao chép
-                      </button>
-                      <button 
-                        disabled={!canRecallAll}
-                        onClick={() => {
-                          setConfirmDialog({
-                            title: 'Thu hồi tin nhắn',
-                            description: 'Bạn có chắc chắn muốn thu hồi các tin nhắn đã chọn? Hành động này sẽ xóa tin nhắn ở cả phía bạn và người nhận.',
-                            confirmLabel: 'Thu hồi',
-                            variant: 'danger',
-                            showCancel: true,
-                            onConfirm: async () => {
-                              await batchRecallMessages();
-                              setConfirmDialog(null);
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const text = selectedMsgs.map(m => m.content ? stripHtml(m.content) : '').filter(Boolean).join('\n\n');
+                            if (text) {
+                              navigator.clipboard.writeText(text);
+                              clearSelection();
                             }
-                          });
-                        }}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                          canRecallAll
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[14px] font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300"
+                        >
+                          <Copy className="w-4 h-4" /> Sao chép
+                        </button>
+                        <button
+                          disabled={!canRecallAll}
+                          onClick={() => {
+                            setConfirmDialog({
+                              title: 'Thu hồi tin nhắn',
+                              description: 'Bạn có chắc chắn muốn thu hồi các tin nhắn đã chọn? Hành động này sẽ xóa tin nhắn ở cả phía bạn và người nhận.',
+                              confirmLabel: 'Thu hồi',
+                              variant: 'danger',
+                              showCancel: true,
+                              onConfirm: async () => {
+                                await batchRecallMessages();
+                                setConfirmDialog(null);
+                              }
+                            });
+                          }}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${canRecallAll
                             ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300'
                             : 'bg-slate-50 text-slate-400 cursor-not-allowed dark:bg-zinc-800/40 dark:text-zinc-600'
-                        }`}
-                      >
-                        <Undo2 className="w-4 h-4" /> Thu hồi
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setConfirmDialog({
-                            title: 'Xóa tin nhắn',
-                            description: 'Bạn có chắc chắn muốn xóa các tin nhắn đã chọn? Tin nhắn sẽ chỉ bị xóa ở phía bạn.',
-                            confirmLabel: 'Xóa',
-                            variant: 'danger',
-                            showCancel: true,
-                            onConfirm: async () => {
-                              await batchDeleteMessages();
-                              setConfirmDialog(null);
-                            }
-                          });
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-[14px] font-medium transition-colors dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400"
-                      >
-                        <Trash2 className="w-4 h-4" /> Xóa
-                      </button>
-                      <button 
-                        onClick={clearSelection}
-                        className="px-4 py-2 text-slate-700 hover:text-slate-900 text-[15px] font-semibold transition-colors dark:text-zinc-400 dark:hover:text-zinc-100"
-                      >
-                        Hủy
-                      </button>
+                            }`}
+                        >
+                          <Undo2 className="w-4 h-4" /> Thu hồi
+                        </button>
+                        <button
+                          onClick={() => {
+                            setConfirmDialog({
+                              title: 'Xóa tin nhắn',
+                              description: 'Bạn có chắc chắn muốn xóa các tin nhắn đã chọn? Tin nhắn sẽ chỉ bị xóa ở phía bạn.',
+                              confirmLabel: 'Xóa',
+                              variant: 'danger',
+                              showCancel: true,
+                              onConfirm: async () => {
+                                await batchDeleteMessages();
+                                setConfirmDialog(null);
+                              }
+                            });
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-[14px] font-medium transition-colors dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400"
+                        >
+                          <Trash2 className="w-4 h-4" /> Xóa
+                        </button>
+                        <button
+                          onClick={clearSelection}
+                          className="px-4 py-2 text-slate-700 hover:text-slate-900 text-[15px] font-semibold transition-colors dark:text-zinc-400 dark:hover:text-zinc-100"
+                        >
+                          Hủy
+                        </button>
+                      </div>
                     </div>
-                  </div>
                   );
                 })()}
 
