@@ -26,6 +26,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
 import { useGroupStore } from '../../store/groupStore';
 import type { ILocalVideoTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 interface VideoPlayerProps {
   track: ILocalVideoTrack | IRemoteVideoTrack | null;
@@ -167,6 +168,9 @@ export const CallOverlay = () => {
     toggleSpeaker,
     toggleScreenShare,
     requestHandoff,
+    handoffPrompt,
+    confirmHandoff,
+    dismissHandoffPrompt,
     activeVoiceChannelId
   } = useCallStore();
   const callConversation = useChatStore((state) =>
@@ -240,7 +244,21 @@ export const CallOverlay = () => {
     };
   }), [activeSpeakerUids, caller, currentUser?.id, memberByAgoraUid, receiver, remoteUsers]);
 
-  if (callState === 'idle') return null;
+  const handoffDialog = (
+    <ConfirmDialog
+      isOpen={Boolean(handoffPrompt)}
+      title={`Tiếp tục cuộc gọi ${handoffPrompt?.type === 'VIDEO' ? 'video' : 'thoại'} trên thiết bị này?`}
+      description="Cuộc gọi đang diễn ra trên một thiết bị NexTalk khác của bạn."
+      confirmLabel="Tiếp tục"
+      cancelLabel="Để sau"
+      variant="primary"
+      icon={<Smartphone className="h-5 w-5" />}
+      onConfirm={() => void confirmHandoff()}
+      onCancel={dismissHandoffPrompt}
+    />
+  );
+
+  if (callState === 'idle') return handoffDialog;
 
   const partner =
     callState === 'ringing_incoming'
@@ -251,12 +269,12 @@ export const CallOverlay = () => {
           ? receiver
           : caller ?? receiver;
 
-  if (!partner && !isGroupCall) return null;
+  if (!partner && !isGroupCall) return handoffDialog;
 
   const isVoiceChannel = !!activeVoiceChannelId;
 
   // Kênh Thoại: dùng VoiceConnectedPanel + VoiceChannelGrid thay thế floating modal
-  if (isVoiceChannel) return null;
+  if (isVoiceChannel) return handoffDialog;
   const displayName = isVoiceChannel ? `Kênh Thoại: ${callTitle}` : isGroupCall ? callTitle ?? 'Group call' : partner?.username ?? 'Unknown';
   const subtitle = isVoiceChannel
     ? 'Đã kết nối'
@@ -324,6 +342,7 @@ export const CallOverlay = () => {
   );
 
   return (
+    <>
     <div className="nextalk-call-overlay fixed bottom-4 right-4 z-50 pointer-events-none select-none sm:bottom-6 sm:right-6">
       {(callState !== 'connected' || callType === 'voice') && (
         <div className="nextalk-call-card pointer-events-auto flex w-[min(380px,calc(100vw-2rem))] flex-col items-center rounded-[2rem] border border-slate-200 bg-white/95 px-6 py-6 text-center text-slate-900 shadow-2xl shadow-slate-200/50 backdrop-blur-xl animate-fade-in relative">
@@ -546,6 +565,8 @@ export const CallOverlay = () => {
         </div>
       )}
     </div>
+    {handoffDialog}
+    </>
   );
 };
 
