@@ -781,13 +781,24 @@ export const useCallStore = create<CallStore>((set, get) => ({
         break;
       case 'HANDOFF_REQUEST': {
         if (!currentUser) return;
-        if (signal.callerId && signal.callerId !== currentUser.id) return;
+        if (signal.callerId && signal.callerId !== currentUser.id) {
+          if (
+            isSameConversation &&
+            isSameCall &&
+            (callState === 'connected' || callState === 'connecting')
+          ) {
+            clearPrivateCallDisconnectTimeout();
+            ignorePrivateUserLeftUntil = Date.now() + 60_000;
+          }
+          return;
+        }
         if (signal.sourceDeviceId === getBrowserCallDeviceId() || callState !== 'idle') return;
         const shouldContinue = window.confirm(
           `Tiếp tục cuộc gọi ${signal.type === 'VIDEO' ? 'video' : 'thoại'} trên thiết bị này?`
         );
         if (!shouldContinue) return;
         const isVideo = signal.type === 'VIDEO';
+        ignorePrivateUserLeftUntil = Date.now() + 30_000;
         set({
           callState: 'connecting',
           callType: isVideo ? 'video' : 'voice',
@@ -842,7 +853,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
             (callState === 'connected' || callState === 'connecting')
           ) {
             clearPrivateCallDisconnectTimeout();
-            ignorePrivateUserLeftUntil = Date.now() + 10_000;
+            ignorePrivateUserLeftUntil = Date.now() + 30_000;
           }
           return;
         }
@@ -1110,7 +1121,6 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
 
       if (Date.now() <= ignorePrivateUserLeftUntil) {
-        ignorePrivateUserLeftUntil = 0;
         clearPrivateCallDisconnectTimeout();
         return;
       }
@@ -1132,7 +1142,10 @@ export const useCallStore = create<CallStore>((set, get) => ({
             && (state.callState === 'connected' || state.callState === 'connecting')
             && client.remoteUsers.length === 0
           ) {
-            state.hangupCall();
+            // Agora presence is a media signal, not the authoritative call
+            // lifecycle. An explicit STOMP HANGUP closes the call; a transient
+            // media disconnect must remain recoverable (especially handoff).
+            console.info('[Call] Remote media is offline; waiting for signaling or reconnection.');
           }
         }, PRIVATE_CALL_RECONNECT_GRACE_MS);
       }
