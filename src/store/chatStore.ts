@@ -958,6 +958,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     stopPresenceHeartbeat();
     const userId = useAuthStore.getState().user?.id;
     encryptedCacheService.clear(userId).catch(() => {});
+    try {
+      import('./callStore').then(({ useCallStore }) => {
+        const callState = useCallStore.getState();
+        if (callState.activeVoiceChannelId || callState.callState !== 'idle') {
+          callState.hangupCall();
+        }
+      }).catch(() => undefined);
+    } catch {
+      // Ignore cleanup error
+    }
+
     if (stompClient) {
       stompClient.deactivate();
       Object.values(typingIndicatorTimeouts).forEach(clearTimeout);

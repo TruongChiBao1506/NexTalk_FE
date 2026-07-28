@@ -1152,6 +1152,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       isCameraMuted: true // Initialize camera as muted (off) in Voice Channel
     });
 
+    void get().syncVoiceChannelMembers([channelId]);
+
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
 
