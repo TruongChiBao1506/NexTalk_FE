@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Loader2, Plus, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, List, ChartNoAxesGantt, Columns3, Pin, AlertTriangle, Paperclip, ExternalLink } from 'lucide-react';
+import { Archive, CheckCircle2, Loader2, Plus, RotateCcw, Trash2, X, ChevronDown, ChevronRight, CheckSquare, Square, List, ChartNoAxesGantt, Columns3, Pin, AlertTriangle, Paperclip, ExternalLink } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { fileService } from '../../services/fileService';
 import { Skeleton } from '../common/Skeleton';
@@ -88,17 +88,34 @@ const ChannelTasksSkeleton = () => (
 );
 
 export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessageDraft, onSourceMessageDraftConsumed, onJumpToSourceMessage, focusedTaskId, onFocusedTaskHandled }: Props) {
+  const [taskScope, setTaskScope] = useState<'active' | 'archived'>('active');
   const userRole = group.members.find((m) => m.userId === currentUserId)?.role;
   const isLeader = userRole === 'OWNER' || userRole === 'LEADER' || userRole === 'ADMIN';
-  const canModifyStatus = (task: ChannelTaskResponse) => task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader;
+  const canModifyStatus = (task: ChannelTaskResponse) => taskScope === 'active'
+    && (task.createdById === currentUserId || task.assignees.some((a) => a.userId === currentUserId) || isLeader);
   const canDeleteTask = (task: ChannelTaskResponse) => task.createdById === currentUserId || isLeader;
 
-  const tasks = useChannelTaskStore((state) => state.tasksByChannel[channel.id] ?? EMPTY_TASKS);
-  const hasCachedTasks = useChannelTaskStore((state) => Object.prototype.hasOwnProperty.call(state.tasksByChannel, channel.id));
-  const storeLoading = useChannelTaskStore((state) => state.loadingTasks[channel.id] ?? false);
+  const activeTasks = useChannelTaskStore((state) => state.tasksByChannel[channel.id] ?? EMPTY_TASKS);
+  const archivedTasks = useChannelTaskStore((state) => state.archivedTasksByChannel[channel.id] ?? EMPTY_TASKS);
+  const tasks = taskScope === 'active' ? activeTasks : archivedTasks;
+  const hasCachedTasks = useChannelTaskStore((state) => Object.prototype.hasOwnProperty.call(
+    taskScope === 'active' ? state.tasksByChannel : state.archivedTasksByChannel,
+    channel.id,
+  ));
+  const storeLoading = useChannelTaskStore((state) => (
+    taskScope === 'active'
+      ? state.loadingTasks[channel.id]
+      : state.loadingArchivedTasks[channel.id]
+  ) ?? false);
   const fetchCachedTasks = useChannelTaskStore((state) => state.fetchTasks);
+  const fetchCachedArchivedTasks = useChannelTaskStore((state) => state.fetchArchivedTasks);
   const setCachedTasks = useChannelTaskStore((state) => state.setTasks);
-  const setTasks = (updater: ChannelTaskResponse[] | ((current: ChannelTaskResponse[]) => ChannelTaskResponse[])) => setCachedTasks(channel.id, updater);
+  const setCachedArchivedTasks = useChannelTaskStore((state) => state.setArchivedTasks);
+  const setTasks = (updater: ChannelTaskResponse[] | ((current: ChannelTaskResponse[]) => ChannelTaskResponse[])) => (
+    taskScope === 'active'
+      ? setCachedTasks(channel.id, updater)
+      : setCachedArchivedTasks(channel.id, updater)
+  );
   const [filter, setFilter] = useState<'all' | 'mine' | ChannelTaskStatus>('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'timeline'>('list');
   const isLoading = storeLoading && !hasCachedTasks;
@@ -127,7 +144,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
   const loadTasks = async (force = false) => {
     setError(null);
     try {
-      await fetchCachedTasks(group.id, channel.id, force);
+      if (taskScope === 'active') {
+        await fetchCachedTasks(group.id, channel.id, force);
+      } else {
+        await fetchCachedArchivedTasks(group.id, channel.id, force);
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Không thể tải công việc');
     } finally {}
@@ -135,10 +156,11 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
 
   useEffect(() => {
     void loadTasks();
-  }, [group.id, channel.id]);
+  }, [group.id, channel.id, taskScope]);
 
   useEffect(() => {
     if (!sourceMessageDraft) return;
+    setTaskScope('active');
     const plainText = stripHtml(sourceMessageDraft.content || '').trim();
     const fallback = sourceMessageDraft.attachments?.[0]?.name || 'Công việc từ tin nhắn';
     setTitle((plainText || fallback).slice(0, 100));
@@ -156,6 +178,15 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
 
   useEffect(() => {
     if (!focusedTaskId || isLoading) return;
+    const targetScope = archivedTasks.some((task) => task.id === focusedTaskId)
+      ? 'archived'
+      : activeTasks.some((task) => task.id === focusedTaskId)
+        ? 'active'
+        : taskScope;
+    if (targetScope !== taskScope) {
+      setTaskScope(targetScope);
+      return;
+    }
     setFilter('all');
     setViewMode('list');
     setExpandedTaskIds((current) => current.includes(focusedTaskId) ? current : [...current, focusedTaskId]);
@@ -163,7 +194,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
       document.getElementById(`channel-task-${focusedTaskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       onFocusedTaskHandled?.();
     }, 100);
-  }, [focusedTaskId, isLoading, onFocusedTaskHandled]);
+  }, [activeTasks, archivedTasks, focusedTaskId, isLoading, onFocusedTaskHandled, taskScope]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -307,6 +338,33 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
     }
   };
 
+  const setTaskArchived = async (task: ChannelTaskResponse, archived: boolean) => {
+    const previous = tasks;
+    const setSourceTasks = archived ? setCachedTasks : setCachedArchivedTasks;
+    setSourceTasks(channel.id, (current) => current.filter((item) => item.id !== task.id));
+    try {
+      const response = await groupService.setChannelTaskArchived(group.id, channel.id, task.id, archived);
+      const updatedTask = response.data;
+      if (!updatedTask) throw new Error('Phản hồi lưu trữ không hợp lệ');
+      if (archived) {
+        setCachedArchivedTasks(channel.id, (current) => [
+          updatedTask,
+          ...current.filter((item) => item.id !== updatedTask.id),
+        ]);
+      } else {
+        setCachedTasks(channel.id, (current) => [
+          updatedTask,
+          ...current.filter((item) => item.id !== updatedTask.id),
+        ]);
+      }
+    } catch (err: any) {
+      setSourceTasks(channel.id, previous);
+      setError(err?.response?.data?.message || err?.message || (
+        archived ? 'Không thể lưu trữ công việc' : 'Không thể khôi phục công việc'
+      ));
+    }
+  };
+
   const togglePinTask = async (taskId: string) => {
     // 1. Instant Optimistic UI Update
     setTasks((current) => {
@@ -399,10 +457,47 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
         <div className="min-w-0">
           <h2 className="m-0 text-sm font-black text-gray-950 dark:text-white">Công việc #{channel.name}</h2>
           <p className="m-0 mt-0.5 text-xs font-semibold text-gray-500 dark:text-zinc-400">
-            {tasks.filter((task) => task.status !== 'DONE' && task.status !== 'CANCELLED').length} task đang mở
+            {taskScope === 'active'
+              ? `${tasks.filter((task) => task.status !== 'DONE' && task.status !== 'CANCELLED').length} task đang mở`
+              : `${tasks.length} task đã lưu trữ`}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl bg-gray-100 p-1 dark:bg-zinc-800">
+            <button
+              type="button"
+              onClick={() => {
+                setTaskScope('active');
+                setFilter('all');
+                setViewMode('list');
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                taskScope === 'active'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              <CheckSquare className="h-4 w-4" />
+              Đang hoạt động
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTaskScope('archived');
+                setFilter('all');
+                setViewMode('list');
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                taskScope === 'archived'
+                  ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-900 dark:text-indigo-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+              }`}
+            >
+              <Archive className="h-4 w-4" />
+              Đã lưu trữ
+            </button>
+          </div>
+          {taskScope === 'active' && (
           <div className="flex items-center rounded-xl bg-gray-100 p-1 dark:bg-zinc-800">
             <button
               type="button"
@@ -441,6 +536,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
               Timeline
             </button>
           </div>
+          )}
           <select
             value={filter}
             onChange={(event) => setFilter(event.target.value as typeof filter)}
@@ -453,6 +549,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
             <option value="DONE">Completed</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
+          {taskScope === 'active' && (
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
@@ -461,6 +558,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
             <Plus className="h-4 w-4" />
             New Task
           </button>
+          )}
         </div>
       </div>
 
@@ -493,6 +591,7 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
           canModifyStatus={canModifyStatus}
           canDeleteTask={canDeleteTask}
           onTogglePin={togglePinTask}
+          onArchiveTask={(task) => void setTaskArchived(task, true)}
           onDeleteTask={deleteTask}
           onUploadAttachment={uploadAttachmentToTask}
           uploadingTaskId={uploadingTaskId}
@@ -505,8 +604,14 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
           <div className="flex h-full items-center justify-center text-center">
             <div>
               <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-500" />
-              <p className="m-0 text-sm font-black text-gray-800 dark:text-zinc-100">Chưa có công việc</p>
-              <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">Tạo task đầu tiên cho channel này.</p>
+              <p className="m-0 text-sm font-black text-gray-800 dark:text-zinc-100">
+                {taskScope === 'active' ? 'Chưa có công việc' : 'Kho lưu trữ đang trống'}
+              </p>
+              <p className="m-0 mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                {taskScope === 'active'
+                  ? 'Tạo task đầu tiên cho channel này.'
+                  : 'Các task được lưu trữ sẽ xuất hiện tại đây.'}
+              </p>
             </div>
           </div>
         ) : (
@@ -789,7 +894,24 @@ export function ChannelTasksPanel({ group, channel, currentUserId, sourceMessage
                     </button>
                   )}
                   {canDeleteTask(task) && (
-                    <button type="button" onClick={() => deleteTask(task.id)} className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10">
+                    <button
+                      type="button"
+                      onClick={() => void setTaskArchived(task, taskScope === 'active')}
+                      className="rounded-xl p-2 text-gray-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10"
+                      title={taskScope === 'active' ? 'Lưu trữ công việc' : 'Khôi phục công việc'}
+                    >
+                      {taskScope === 'active'
+                        ? <Archive className="h-4 w-4" />
+                        : <RotateCcw className="h-4 w-4" />}
+                    </button>
+                  )}
+                  {canDeleteTask(task) && (
+                    <button
+                      type="button"
+                      onClick={() => deleteTask(task.id)}
+                      className="rounded-xl p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                      title="Xóa vĩnh viễn"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}

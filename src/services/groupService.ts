@@ -82,8 +82,11 @@ export const groupService = {
     return response.data;
   },
 
-  async getChannelTasks(groupId: string, channelId: string): Promise<ApiResponse<ChannelTaskResponse[]>> {
-    const response = await apiClient.get<ApiResponse<ChannelTaskResponse[]>>(`/groups/${groupId}/channels/${channelId}/tasks`);
+  async getChannelTasks(groupId: string, channelId: string, archived = false): Promise<ApiResponse<ChannelTaskResponse[]>> {
+    const response = await apiClient.get<ApiResponse<ChannelTaskResponse[]>>(
+      `/groups/${groupId}/channels/${channelId}/tasks`,
+      { params: { archived } },
+    );
     return response.data;
   },
 
@@ -104,6 +107,15 @@ export const groupService = {
 
   async togglePinChannelTask(groupId: string, channelId: string, taskId: string): Promise<ApiResponse<ChannelTaskResponse>> {
     const response = await apiClient.patch<ApiResponse<ChannelTaskResponse>>(`/groups/${groupId}/channels/${channelId}/tasks/${taskId}/pin`);
+    return response.data;
+  },
+
+  async setChannelTaskArchived(groupId: string, channelId: string, taskId: string, archived: boolean): Promise<ApiResponse<ChannelTaskResponse>> {
+    const response = await apiClient.patch<ApiResponse<ChannelTaskResponse>>(
+      `/groups/${groupId}/channels/${channelId}/tasks/${taskId}/archive`,
+      undefined,
+      { params: { archived } },
+    );
     return response.data;
   },
 

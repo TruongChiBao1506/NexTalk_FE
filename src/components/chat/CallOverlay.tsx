@@ -540,26 +540,28 @@ export const CallOverlay = () => {
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-xl rounded-full px-4 py-2.5 shadow-xl shadow-black/20">
              <button onClick={toggleMic} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 {isMicMuted ? <MicOff className="w-5 h-5 text-red-500"/> : <Mic className="w-5 h-5"/>}
-                <span className="text-[10px] font-bold text-slate-600">Mute</span>
+                <span className="text-[10px] font-bold text-slate-600">{isMicMuted ? 'Bật tiếng' : 'Tắt tiếng'}</span>
              </button>
              <button onClick={toggleCamera} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 {isCameraMuted ? <VideoOff className="w-5 h-5 text-red-500"/> : <Camera className="w-5 h-5"/>}
-                <span className="text-[10px] font-bold text-slate-600">Camera</span>
+                <span className="text-[10px] font-bold text-slate-600">{isCameraMuted ? 'Bật camera' : 'Tắt camera'}</span>
              </button>
              <button className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 <UserPlus className="w-5 h-5"/>
-                <span className="text-[10px] font-bold text-slate-600">Add</span>
+                <span className="text-[10px] font-bold text-slate-600">Thêm</span>
              </button>
              <button onClick={toggleScreenShare} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 <ScreenShare className={`w-5 h-5 ${isScreenSharing ? 'text-blue-500' : ''}`} />
-                <span className={`text-[10px] font-bold ${isScreenSharing ? 'text-blue-600' : 'text-slate-600'}`}>Share</span>
+                <span className={`text-[10px] font-bold ${isScreenSharing ? 'text-blue-600' : 'text-slate-600'}`}>
+                  {isScreenSharing ? 'Dừng chia sẻ' : 'Chia sẻ'}
+                </span>
              </button>
              <button onClick={requestHandoff} className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-full text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
                 <Smartphone className="w-5 h-5" />
-                <span className="text-[10px] font-bold text-slate-600">Handoff</span>
+                <span className="text-[10px] font-bold text-slate-600">Chuyển máy</span>
              </button>
              <button onClick={() => hangupCall()} className="flex items-center justify-center w-14 h-14 rounded-full bg-red-600 text-white hover:bg-red-500 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30 ml-2 cursor-pointer">
-                <span className="text-[11px] font-bold">End</span>
+                <span className="text-[11px] font-bold">Kết thúc</span>
              </button>
           </div>
         </div>

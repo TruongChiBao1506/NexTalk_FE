@@ -36,6 +36,8 @@ export type TaskActivityType =
   | 'STATUS_CHANGED'
   | 'SUBTASK_COMPLETED'
   | 'ASSIGNEE_UPDATED'
+  | 'TASK_ARCHIVED'
+  | 'TASK_RESTORED'
   | 'DUE_APPROACHING'
   | 'TASK_OVERDUE';
 
@@ -104,6 +106,10 @@ export interface ChannelTaskResponse {
   sourceMessage?: TaskSourceMessageResponse | null;
   isPinned?: boolean;
   pinnedAt?: string | null;
+  isArchived?: boolean;
+  archivedAt?: string | null;
+  archivedById?: string | null;
+  archivedByUsername?: string | null;
   createdAt: string;
   updatedAt: string;
 }

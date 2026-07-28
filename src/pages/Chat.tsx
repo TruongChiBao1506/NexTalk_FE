@@ -1638,8 +1638,11 @@ export const Chat = () => {
     : undefined;
   const taskMentionChannel = taskMentionGroup?.channels?.find((channel) => channel.conversationId === activeConversation?.id);
   const sharedTaskCards = useChannelTaskStore((state) => taskMentionChannel ? (state.tasksByChannel[taskMentionChannel.id] ?? EMPTY_CHANNEL_TASKS) : EMPTY_CHANNEL_TASKS);
+  const archivedSharedTaskCards = useChannelTaskStore((state) => taskMentionChannel ? (state.archivedTasksByChannel[taskMentionChannel.id] ?? EMPTY_CHANNEL_TASKS) : EMPTY_CHANNEL_TASKS);
   const taskCacheForPreviews = useChannelTaskStore((state) => state.tasksByChannel);
+  const archivedTaskCacheForPreviews = useChannelTaskStore((state) => state.archivedTasksByChannel);
   const fetchSharedTaskCards = useChannelTaskStore((state) => state.fetchTasks);
+  const fetchArchivedTaskCards = useChannelTaskStore((state) => state.fetchArchivedTasks);
 
   useEffect(() => {
     sharedTaskCardsRef.current = sharedTaskCards;
@@ -1650,9 +1653,14 @@ export const Chat = () => {
       if (!message?.content || !/(?:<#task:|&lt;#task:)/.test(message.content)) return;
       const group = groups.find((item) => item.channels?.some((channel) => channel.conversationId === conversationId));
       const channel = group?.channels?.find((item) => item.conversationId === conversationId);
-      if (group && channel?.isTaskEnabled) void fetchSharedTaskCards(group.id, channel.id);
+      if (group && channel?.isTaskEnabled) {
+        void Promise.all([
+          fetchSharedTaskCards(group.id, channel.id),
+          fetchArchivedTaskCards(group.id, channel.id),
+        ]);
+      }
     });
-  }, [fetchSharedTaskCards, groups, lastMessages]);
+  }, [fetchArchivedTaskCards, fetchSharedTaskCards, groups, lastMessages]);
 
   useEffect(() => {
     if (!taskMentionGroup || !taskMentionChannel?.isTaskEnabled || taskMentionChannel.type === 'VOICE') {
@@ -1663,7 +1671,10 @@ export const Chat = () => {
     let active = true;
     const loadTasks = async () => {
       try {
-        await fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, false);
+        await Promise.all([
+          fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, false),
+          fetchArchivedTaskCards(taskMentionGroup.id, taskMentionChannel.id, false),
+        ]);
       } catch {
         if (active) {
           sharedTaskCardsRef.current = [];
@@ -1675,13 +1686,18 @@ export const Chat = () => {
     const stompClient = (useChatStore.getState() as any).stompClient;
     let subscription: any;
     if (stompClient?.connected) {
-      subscription = stompClient.subscribe(`/topic/channel.${taskMentionChannel.id}.task-activities`, () => void fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, true));
+      subscription = stompClient.subscribe(`/topic/channel.${taskMentionChannel.id}.task-activities`, () => {
+        void Promise.all([
+          fetchSharedTaskCards(taskMentionGroup.id, taskMentionChannel.id, true),
+          fetchArchivedTaskCards(taskMentionGroup.id, taskMentionChannel.id, true),
+        ]);
+      });
     }
     return () => {
       active = false;
       try { subscription?.unsubscribe(); } catch { }
     };
-  }, [taskMentionGroup?.id, taskMentionChannel?.id, taskMentionChannel?.isTaskEnabled, isConnected]);
+  }, [taskMentionGroup?.id, taskMentionChannel?.id, taskMentionChannel?.isTaskEnabled, isConnected, fetchArchivedTaskCards, fetchSharedTaskCards]);
 
   const mentionSource = useCallback((searchTerm: string, renderList: (list: any[], term: string) => void) => {
     const currentConversation = useChatStore.getState().activeConversation;
@@ -2110,7 +2126,7 @@ export const Chat = () => {
           if (before) nodes.push(<div key={`text-${cursor}`}>{renderFormattedMessage(before)}</div>);
         }
         const taskId = match[1] || match[2];
-        const task = sharedTaskCards.find((item) => item.id === taskId);
+        const task = [...sharedTaskCards, ...archivedSharedTaskCards].find((item) => item.id === taskId);
         const statusLabel = task?.status === 'TODO' ? 'To Do'
           : task?.status === 'IN_PROGRESS' ? 'In Progress'
             : task?.status === 'DONE' ? 'Done'
@@ -2857,7 +2873,10 @@ export const Chat = () => {
 
   const stripMessageMarkup = (value: string) => {
     const taskNames: string[] = [];
-    const allCachedTasks = Object.values(taskCacheForPreviews).flat();
+    const allCachedTasks = [
+      ...Object.values(taskCacheForPreviews).flat(),
+      ...Object.values(archivedTaskCacheForPreviews).flat(),
+    ];
     let result = value.replace(/(?:<#task:([^>]+)>|&lt;#task:([^&]+)&gt;)/g, (_match, rawId, encodedId) => {
       const taskId = rawId || encodedId;
       const task = allCachedTasks.find((item) => item.id === taskId);

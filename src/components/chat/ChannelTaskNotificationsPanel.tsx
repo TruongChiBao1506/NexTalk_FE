@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, AlertTriangle, PlusCircle, RefreshCw, CheckCircle2, CheckCheck, Info } from 'lucide-react';
+import { Archive, BellRing, AlertTriangle, PlusCircle, RefreshCw, CheckCircle2, CheckCheck, Info, RotateCcw } from 'lucide-react';
 import { groupService } from '../../services/groupService';
 import { useChatStore } from '../../store/chatStore';
 import { Skeleton } from '../common/Skeleton';
@@ -20,6 +20,8 @@ const activityIcons: Record<TaskActivityType, any> = {
   STATUS_CHANGED: RefreshCw,
   SUBTASK_COMPLETED: CheckCircle2,
   ASSIGNEE_UPDATED: Info,
+  TASK_ARCHIVED: Archive,
+  TASK_RESTORED: RotateCcw,
   DUE_APPROACHING: BellRing,
   TASK_OVERDUE: AlertTriangle,
 };
@@ -29,6 +31,8 @@ const activityIconColors: Record<TaskActivityType, string> = {
   STATUS_CHANGED: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400',
   SUBTASK_COMPLETED: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400',
   ASSIGNEE_UPDATED: 'text-purple-600 bg-purple-50 dark:bg-purple-500/10 dark:text-purple-400',
+  TASK_ARCHIVED: 'text-slate-600 bg-slate-100 dark:bg-zinc-800 dark:text-zinc-300',
+  TASK_RESTORED: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 dark:text-indigo-300',
   DUE_APPROACHING: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400',
   TASK_OVERDUE: 'text-rose-600 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400',
 };

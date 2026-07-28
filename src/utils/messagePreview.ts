@@ -18,7 +18,11 @@ export interface MessagePreviewData {
 export const stripMessageHtml = (content?: string | null) => {
   if (!content) return '';
   const taskNames: string[] = [];
-  const cachedTasks = Object.values(useChannelTaskStore.getState().tasksByChannel).flat();
+  const taskStore = useChannelTaskStore.getState();
+  const cachedTasks = [
+    ...Object.values(taskStore.tasksByChannel).flat(),
+    ...Object.values(taskStore.archivedTasksByChannel).flat(),
+  ];
   const withoutTaskTags = content.replace(/(?:<#task:([^>]+)>|&lt;#task:([^&]+)&gt;)/g, (_match, rawId, encodedId) => {
     const task = cachedTasks.find((item) => item.id === (rawId || encodedId));
     taskNames.push(task?.title || 'Công việc không khả dụng');

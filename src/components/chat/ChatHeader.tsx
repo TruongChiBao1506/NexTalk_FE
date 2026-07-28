@@ -10,7 +10,7 @@ import {
   Pin,
   Info,
   Users,
-  CheckCircle2,
+  ClipboardList,
   Bell,
   MessageSquare,
   Cloud
@@ -171,12 +171,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 setIsPinnedPanelOpen(false);
                 setIsConversationInfoOpen(false);
               }}
-              title="Tasks"
+              title={channelView === 'tasks' ? 'Quay lại trò chuyện' : 'Quản lý công việc'}
               className={`nextalk-icon-button relative shrink-0 p-2 rounded-xl transition cursor-pointer ${
                 channelView === 'tasks' ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/20' : ''
               }`}
             >
-              {channelView === 'tasks' ? <MessageSquare className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+              {channelView === 'tasks' ? <MessageSquare className="h-5 w-5" /> : <ClipboardList className="h-5 w-5" />}
             </button>
             <button
               onClick={() => {

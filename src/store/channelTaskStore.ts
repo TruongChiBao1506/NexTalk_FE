@@ -9,14 +9,19 @@ type Updater<T> = T | ((current: T) => T);
 
 type ChannelTaskState = {
   tasksByChannel: Record<string, ChannelTaskResponse[]>;
+  archivedTasksByChannel: Record<string, ChannelTaskResponse[]>;
   activitiesByChannel: Record<string, TaskActivityResponse[]>;
   tasksFetchedAt: Record<string, number>;
+  archivedTasksFetchedAt: Record<string, number>;
   activitiesFetchedAt: Record<string, number>;
   loadingTasks: Record<string, boolean>;
+  loadingArchivedTasks: Record<string, boolean>;
   loadingActivities: Record<string, boolean>;
   fetchTasks: (groupId: string, channelId: string, force?: boolean) => Promise<ChannelTaskResponse[]>;
+  fetchArchivedTasks: (groupId: string, channelId: string, force?: boolean) => Promise<ChannelTaskResponse[]>;
   fetchActivities: (groupId: string, channelId: string, force?: boolean) => Promise<TaskActivityResponse[]>;
   setTasks: (channelId: string, updater: Updater<ChannelTaskResponse[]>) => void;
+  setArchivedTasks: (channelId: string, updater: Updater<ChannelTaskResponse[]>) => void;
   setActivities: (channelId: string, updater: Updater<TaskActivityResponse[]>) => void;
   prependActivity: (channelId: string, activity: TaskActivityResponse) => void;
   markActivitiesRead: (channelId: string) => void;
@@ -26,10 +31,13 @@ type ChannelTaskState = {
 
 export const useChannelTaskStore = create<ChannelTaskState>((set, get) => ({
   tasksByChannel: {},
+  archivedTasksByChannel: {},
   activitiesByChannel: {},
   tasksFetchedAt: {},
+  archivedTasksFetchedAt: {},
   activitiesFetchedAt: {},
   loadingTasks: {},
+  loadingArchivedTasks: {},
   loadingActivities: {},
 
   fetchTasks: async (groupId, channelId, force = false) => {
@@ -48,6 +56,25 @@ export const useChannelTaskStore = create<ChannelTaskState>((set, get) => ({
       return tasks;
     } finally {
       set((current) => ({ loadingTasks: { ...current.loadingTasks, [channelId]: false } }));
+    }
+  },
+
+  fetchArchivedTasks: async (groupId, channelId, force = false) => {
+    const state = get();
+    const cached = state.archivedTasksByChannel[channelId];
+    if (!force && cached && Date.now() - (state.archivedTasksFetchedAt[channelId] || 0) < TASK_TTL) return cached;
+    if (state.loadingArchivedTasks[channelId]) return cached ?? [];
+    set((current) => ({ loadingArchivedTasks: { ...current.loadingArchivedTasks, [channelId]: true } }));
+    try {
+      const response = await groupService.getChannelTasks(groupId, channelId, true);
+      const tasks = response.data ?? [];
+      set((current) => ({
+        archivedTasksByChannel: { ...current.archivedTasksByChannel, [channelId]: tasks },
+        archivedTasksFetchedAt: { ...current.archivedTasksFetchedAt, [channelId]: Date.now() },
+      }));
+      return tasks;
+    } finally {
+      set((current) => ({ loadingArchivedTasks: { ...current.loadingArchivedTasks, [channelId]: false } }));
     }
   },
 
@@ -75,6 +102,11 @@ export const useChannelTaskStore = create<ChannelTaskState>((set, get) => ({
     const next = typeof updater === 'function' ? updater(current) : updater;
     return { tasksByChannel: { ...state.tasksByChannel, [channelId]: next } };
   }),
+  setArchivedTasks: (channelId, updater) => set((state) => {
+    const current = state.archivedTasksByChannel[channelId] ?? [];
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    return { archivedTasksByChannel: { ...state.archivedTasksByChannel, [channelId]: next } };
+  }),
   setActivities: (channelId, updater) => set((state) => {
     const current = state.activitiesByChannel[channelId] ?? [];
     const next = typeof updater === 'function' ? updater(current) : updater;
@@ -82,6 +114,19 @@ export const useChannelTaskStore = create<ChannelTaskState>((set, get) => ({
   }),
   prependActivity: (channelId, activity) => get().setActivities(channelId, (items) => [activity, ...items.filter((item) => item.id !== activity.id)]),
   markActivitiesRead: (channelId) => get().setActivities(channelId, (items) => items.map((item) => ({ ...item, isRead: true }))),
-  invalidateTasks: (channelId) => set((state) => ({ tasksFetchedAt: { ...state.tasksFetchedAt, [channelId]: 0 } })),
-  clear: () => set({ tasksByChannel: {}, activitiesByChannel: {}, tasksFetchedAt: {}, activitiesFetchedAt: {}, loadingTasks: {}, loadingActivities: {} }),
+  invalidateTasks: (channelId) => set((state) => ({
+    tasksFetchedAt: { ...state.tasksFetchedAt, [channelId]: 0 },
+    archivedTasksFetchedAt: { ...state.archivedTasksFetchedAt, [channelId]: 0 },
+  })),
+  clear: () => set({
+    tasksByChannel: {},
+    archivedTasksByChannel: {},
+    activitiesByChannel: {},
+    tasksFetchedAt: {},
+    archivedTasksFetchedAt: {},
+    activitiesFetchedAt: {},
+    loadingTasks: {},
+    loadingArchivedTasks: {},
+    loadingActivities: {},
+  }),
 }));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pin, AlertTriangle, Trash2, Paperclip, ExternalLink, Loader2, CheckSquare, Square } from 'lucide-react';
+import { Archive, Pin, AlertTriangle, Trash2, Paperclip, ExternalLink, Loader2, CheckSquare, Square } from 'lucide-react';
 import type { ChannelTaskPriority, ChannelTaskResponse, ChannelTaskStatus } from '../../types/group';
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   canModifyStatus: (task: ChannelTaskResponse) => boolean;
   canDeleteTask: (task: ChannelTaskResponse) => boolean;
   onTogglePin: (taskId: string) => void;
+  onArchiveTask: (task: ChannelTaskResponse) => void;
   onDeleteTask: (taskId: string) => void;
   onUploadAttachment?: (task: ChannelTaskResponse, file: File) => void;
   uploadingTaskId?: string | null;
@@ -46,7 +47,7 @@ const isTaskOverdue = (task: ChannelTaskResponse) => {
   return Boolean(task.dueAt && task.status !== 'DONE' && task.status !== 'CANCELLED' && new Date(task.dueAt).getTime() < Date.now());
 };
 
-export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onDeleteTask, onUploadAttachment, uploadingTaskId, onJumpToSourceMessage, onToggleSubtask }: Props) {
+export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, canDeleteTask, onTogglePin, onArchiveTask, onDeleteTask, onUploadAttachment, uploadingTaskId, onJumpToSourceMessage, onToggleSubtask }: Props) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   return (
@@ -206,6 +207,16 @@ export function ChannelTasksKanban({ tasks, onStatusChange, canModifyStatus, can
                               title={task.isPinned ? 'Bỏ ghim' : 'Ghim task'}
                             >
                               <Pin className={`h-3.5 w-3.5 ${task.isPinned ? 'fill-amber-600' : ''}`} />
+                            </button>
+                          )}
+                          {canDeleteTask(task) && (
+                            <button
+                              type="button"
+                              onClick={() => onArchiveTask(task)}
+                              className="rounded-lg p-1 text-gray-400 hover:text-indigo-600"
+                              title="Lưu trữ công việc"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {canDeleteTask(task) && (
