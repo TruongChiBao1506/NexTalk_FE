@@ -775,6 +775,11 @@ export const MessageList: React.FC<MessageListProps> = ({
             && !msg.metadata?.linkPreview
             && !timeSuggestion
             && editingMessageId !== msg.id;
+          const hasAttachmentCaption = Boolean(
+            msg.attachments?.length > 0
+            && typeof msg.content === 'string'
+            && msg.content.trim(),
+          );
 
           const isUnreadMarkerTarget = unreadMarker?.messageId === msg.id;
 
@@ -1293,10 +1298,13 @@ export const MessageList: React.FC<MessageListProps> = ({
                               <span>Tin nhắn đã bị thu hồi</span>
                             </div>
                           ) : msg.attachments && msg.attachments.length > 0 ? (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-2 rounded-2xl text-sm shadow-sm ${isMe
-                                ? 'nextalk-themed-bubble rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid text-gray-905 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
-                              }`}>
+                            <div className={`w-fit max-w-[min(80vw,28rem)] text-sm ${
+                              hasAttachmentCaption
+                                ? `overflow-hidden rounded-2xl p-2 shadow-sm ${isMe
+                                  ? 'nextalk-themed-bubble rounded-tr-none'
+                                  : 'rounded-tl-none border border-indigo-100/80 bg-white text-gray-905 dark:border-zinc-850/60 dark:bg-discord-mid dark:text-discord-text'}`
+                                : ''
+                            }`}>
                               {renderPriorityBadge()}
                               {(() => {
                                 const mediaAttachments = msg.attachments.filter((a: any) => a.type === 'IMAGE' || a.type === 'VIDEO');
@@ -1384,10 +1392,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                       const fileName = attachment.name || getFileName(attachment.url);
                                       if (attachment.type === 'AUDIO' || isAudioFileName(fileName) || isAudioFileName(fileUrl)) {
                                         return (
-                                          <div key={`${attachment.url}-${idx}`} className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
-                                              ? 'nextalk-themed-bubble rounded-tr-none'
-                                              : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
-                                            }`}>
+                                          <div key={`${attachment.url}-${idx}`} className="w-[min(78vw,330px)]">
                                             <div className="hidden">
                                               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMe ? 'bg-white/15 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
                                                 }`}>
@@ -1471,7 +1476,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               />
                             </div>
                           ) : msg.messageType === 'IMAGE' ? (
-                            <div className="relative rounded-2xl overflow-hidden border border-gray-300 dark:border-zinc-800 shadow-sm max-w-[280px] sm:max-w-[360px] bg-black/5 dark:bg-black/25">
+                            <div className="relative max-w-[280px] overflow-hidden rounded-2xl sm:max-w-[360px]">
                               <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
                                 {renderPriorityBadge()}
                               </div>
@@ -1488,10 +1493,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </button>
                             </div>
                           ) : msg.messageType === 'VIDEO' ? (
-                            <div className={`relative flex flex-col w-full max-w-sm rounded-2xl border overflow-hidden shadow-sm ${isMe
-                                ? 'border-indigo-505/50 dark:border-discord-blurple/50 rounded-tr-none'
-                                : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
-                              }`}>
+                            <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl">
                               <div className="absolute top-2 left-2 z-10 pointer-events-none drop-shadow-md">
                                 {renderPriorityBadge()}
                               </div>
@@ -1512,10 +1514,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               )}
                             </div>
                           ) : isAudioMessage(msg) ? (
-                            <div className={`w-[min(78vw,330px)] rounded-2xl p-2 shadow-sm ${isMe
-                                ? 'nextalk-themed-bubble rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid rounded-tl-none border border-indigo-100/80 dark:border-zinc-800'
-                              }`}>
+                            <div className="w-[min(78vw,330px)]">
                               {renderPriorityBadge()}
                               {(() => {
                                 const attachment = msg.attachments?.[0];
@@ -1551,11 +1550,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                                       src={audioUrl}
                                       className="block h-9 w-full"
                                     />
-                                    {msg.content && (
-                                      <div className="px-1 text-sm">
-                                        {renderFormattedMessage(msg.content)}
-                                      </div>
-                                    )}
                                   </>
                                 );
                               })()}
@@ -1659,7 +1653,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
+                            <div className={`w-fit max-w-[min(80vw,24rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
                                 ? msg.parentId
                                   ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
                                   : 'nextalk-themed-bubble rounded-tr-none'
@@ -1676,10 +1670,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                   </span>
                                 )}
                                 {showTimestampInsideBubble && (
-                                  <span className={`mt-1 inline-flex items-center gap-1 whitespace-nowrap text-[9px] leading-none ${
+                                  <span className={`ml-2 inline-flex items-center gap-1 whitespace-nowrap align-baseline text-[9px] leading-none ${
                                     isMe
-                                      ? 'float-right ml-2 text-slate-500 dark:text-white/70'
-                                      : 'float-left mr-2 text-slate-400 dark:text-zinc-500'
+                                      ? 'text-slate-500 dark:text-white/70'
+                                      : 'text-slate-400 dark:text-zinc-500'
                                   }`}>
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
                                     <span>{formatMessageTime(msg.createdAt)}</span>

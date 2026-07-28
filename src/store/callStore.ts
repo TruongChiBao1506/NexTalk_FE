@@ -40,6 +40,16 @@ const getBrowserCallDeviceId = () => {
   return created;
 };
 
+const PRIVATE_CALL_RECONNECT_GRACE_MS = 4_000;
+let privateCallDisconnectTimeout: number | null = null;
+
+const clearPrivateCallDisconnectTimeout = () => {
+  if (privateCallDisconnectTimeout !== null) {
+    window.clearTimeout(privateCallDisconnectTimeout);
+    privateCallDisconnectTimeout = null;
+  }
+};
+
 interface CallStore {
   callState: CallState;
   callType: CallType;
@@ -904,6 +914,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   clearTracks: () => {
     const { localAudioTrack, localVideoTrack, screenVideoTrack, agoraClient } = get();
     get().clearGroupAloneTimeout();
+    clearPrivateCallDisconnectTimeout();
 
     if (localAudioTrack) {
       localAudioTrack.stop();
@@ -1026,6 +1037,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     client.on('user-published', (user, mediaType) => {
       if (get().agoraClient !== client) return;
       if (mediaType !== 'audio' && mediaType !== 'video') return;
+      clearPrivateCallDisconnectTimeout();
       get().clearGroupAloneTimeout();
       subscribeRemoteUser(user, mediaType).catch((error) => {
         console.error(`Failed to subscribe remote ${mediaType} track:`, error);
@@ -1038,6 +1050,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     });
 
     client.on('user-joined', () => {
+      clearPrivateCallDisconnectTimeout();
       if (get().isChannelSoundEnabled) {
         audioSynth.playUserJoin();
       }
@@ -1068,9 +1081,26 @@ export const useCallStore = create<CallStore>((set, get) => ({
         return;
       }
 
-      // If no remote users are left in a 1-1 call, end the call immediately.
-      if (client.remoteUsers.length === 0 && !get().handoffPending) {
-        get().hangupCall();
+      // A handoff briefly removes and re-adds the same Agora UID while the
+      // replacement device takes over. Give that device time to appear before
+      // treating the transient user-left event as a real hangup.
+      if (
+        client.remoteUsers.length === 0
+        && !get().handoffPending
+        && privateCallDisconnectTimeout === null
+      ) {
+        privateCallDisconnectTimeout = window.setTimeout(() => {
+          privateCallDisconnectTimeout = null;
+          const state = get();
+          if (
+            state.agoraClient === client
+            && !state.isGroupCall
+            && (state.callState === 'connected' || state.callState === 'connecting')
+            && client.remoteUsers.length === 0
+          ) {
+            state.hangupCall();
+          }
+        }, PRIVATE_CALL_RECONNECT_GRACE_MS);
       }
     });
 

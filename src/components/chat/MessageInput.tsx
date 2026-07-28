@@ -501,7 +501,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               onClick={() => void loadSuggestions('birthday')}
               className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
             >
-              ✨ Gợi ý lời chúc
+              Gợi ý lời chúc
             </button>
             <button
               type="button"
@@ -509,7 +509,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               onClick={() => void loadSuggestions('birthday', true)}
               className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-              {isLoadingAssist && assistMode === 'birthday' ? 'Đang tạo...' : '✨ Cá nhân hóa bằng AI'}
+              {isLoadingAssist && assistMode === 'birthday' ? 'Đang tạo...' : '✨ Gợi ý lời chúc bằng AI'}
             </button>
           </div>
         </div>
@@ -665,9 +665,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Attachment Preview Panel */}
       {pendingAttachments.length > 0 && (
-        <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 p-3 border-b-0 animate-fadeIn shadow-sm ${
-          replyTo ? 'border-t-0' : 'rounded-t-2xl'
-        }`}>
+        <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 p-3 border-b-0 animate-fadeIn shadow-sm ${replyTo ? 'border-t-0' : 'rounded-t-2xl'
+          }`}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-bold text-gray-800 dark:text-white">
               {pendingAttachments.filter((attachment) => attachment.type === 'IMAGE').length > 0
@@ -787,230 +786,224 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {/* Toolbar & Input Box Container */}
-      <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 flex flex-col shadow-[0_18px_42px_rgba(78,91,151,0.13)] dark:shadow-black/20 ${
-        (pendingAttachments.length > 0 || replyTo) ? 'rounded-b-[24px] border-t-0' : 'rounded-[24px]'
-      } focus-within:border-indigo-500 dark:focus-within:border-discord-blurple focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-discord-blurple/30 transition-all`}>
-        
+      <div className={`bg-white dark:bg-discord-mid border border-indigo-100 dark:border-zinc-900/60 flex flex-col shadow-[0_18px_42px_rgba(78,91,151,0.13)] dark:shadow-black/20 ${(pendingAttachments.length > 0 || replyTo) ? 'rounded-b-[24px] border-t-0' : 'rounded-[24px]'
+        } focus-within:border-indigo-500 dark:focus-within:border-discord-blurple focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-discord-blurple/30 transition-all`}>
+
         {/* Top Toolbar Row */}
         {showToolbar && (
-          <div className={`flex items-center justify-between px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/10 ${
-            (pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[23px]'
-          }`}>
-          <div className="flex items-center gap-0.5">
-            {/* Sticker/Smile */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation}
-              onClick={() => {
-                setEmojiStickerTab('sticker');
-                setIsEmojiStickerOpen((open) => !open);
-              }}
-              className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                isEmojiStickerOpen && emojiStickerTab === 'sticker'
-                  ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-              }`}
-              title="Sticker"
-            >
-              <Smile className="w-4 h-4" />
-            </button>
-
-            {/* Image attachment */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation}
-              onClick={() => {
-                if (!canSendInActiveConversation) return;
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = "image/*,video/*";
-                  fileInputRef.current.click();
-                }
-              }}
-              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-              title="Send Images or Videos"
-            >
-              <Image className="w-4 h-4" />
-            </button>
-
-            {/* File attachment */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation}
-              onClick={() => {
-                if (!canSendInActiveConversation) return;
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = ".pdf,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
-                  fileInputRef.current.click();
-                }
-              }}
-              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-              title="Send Files"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-
-            {/* Folder attachment (compressed to ZIP in the browser) */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation || isZippingFolder}
-              onClick={() => {
-                if (!canSendInActiveConversation || isZippingFolder) return;
-                handleSelectFolder();
-              }}
-              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-              title={isZippingFolder ? 'Đang nén thư mục...' : 'Gửi thư mục dưới dạng ZIP'}
-            >
-              {isZippingFolder ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FolderArchive className="w-4 h-4" />
-              )}
-            </button>
-
-            {/* Contact card */}
-            <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Contact Card">
-              <User className="w-4 h-4" />
-            </button>
-
-            {/* Screenshot */}
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation || isTakingScreenshot}
-              onClick={handleTakeScreenshot}
-              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-              title="Chụp màn hình"
-            >
-              {isTakingScreenshot ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Crop className="w-4 h-4" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation}
-              onClick={handleToggleSpeechInput}
-              className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                isSpeechListening
-                  ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300'
-                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-              }`}
-              title={isSpeechListening ? 'Dừng nhập bằng giọng nói' : 'Nhập bằng giọng nói'}
-            >
-              {isSpeechListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-
-            {/* Formatting */}
-            <button
-              type="button"
-              onClick={() => setIsFormattingOpen((open) => !open)}
-              className={`p-1.5 rounded transition ${
-                isFormattingOpen
-                  ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
-                  : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-              }`}
-              title="Text Formatting"
-            >
-              <Type className="w-4 h-4" />
-            </button>
-
-            {/* Quick message */}
-            <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Quick Message Templates">
-              <Zap className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              disabled={!canSendInActiveConversation || !isGroupConversation || !canCreatePoll}
-              onClick={() => setIsCreatePollOpen(true)}
-              className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
-              title={isGroupConversation ? 'Tạo bình chọn' : 'Bình chọn chỉ dùng trong nhóm'}
-            >
-              <ListChecks className="w-4 h-4" />
-            </button>
-
-            {/* Credit card */}
-            <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Gift/Card">
-              <CreditCard className="w-4 h-4" />
-            </button>
-
-            {/* More */}
-            <div className="relative" ref={moreMenuRef}>
-              <button 
-                type="button" 
-                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-                className={`p-1.5 rounded transition ${isMoreMenuOpen ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'}`} 
-                title="More Options"
+          <div className={`flex items-center justify-between px-3 py-1.5 border-b border-indigo-50 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/10 ${(pendingAttachments.length > 0 || replyTo) ? '' : 'rounded-t-[23px]'
+            }`}>
+            <div className="flex items-center gap-0.5">
+              {/* Sticker/Smile */}
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={() => {
+                  setEmojiStickerTab('sticker');
+                  setIsEmojiStickerOpen((open) => !open);
+                }}
+                className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${isEmojiStickerOpen && emojiStickerTab === 'sticker'
+                    ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                  }`}
+                title="Sticker"
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <Smile className="w-4 h-4" />
               </button>
 
-              {isMoreMenuOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 dark:text-zinc-500 cursor-not-allowed"
-                    title="Chọn một tin nhắn rồi bấm biểu tượng chuông để tạo nhắc hẹn"
-                  >
-                    <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span>Tạo nhắc hẹn</span>
-                  </button>
-                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setIsScheduledMessagesOpen(true);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CalendarDays className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                      <span>Tin nhắn đã hẹn giờ</span>
-                    </div>
-                  </button>
-                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setMessagePriority('IMPORTANT');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <AlertCircle className="w-4 h-4 text-rose-500" />
-                      <span>Đánh dấu tin quan trọng</span>
-                    </div>
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setMessagePriority('URGENT');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <BellRing className="w-4 h-4 text-amber-500" />
-                      <span>Đánh dấu tin khẩn cấp</span>
-                    </div>
-                  </button>
-                </div>
-              )}
+              {/* Image attachment */}
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={() => {
+                  if (!canSendInActiveConversation) return;
+                  if (fileInputRef.current) {
+                    fileInputRef.current.accept = "image/*,video/*";
+                    fileInputRef.current.click();
+                  }
+                }}
+                className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                title="Send Images or Videos"
+              >
+                <Image className="w-4 h-4" />
+              </button>
+
+              {/* File attachment */}
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={() => {
+                  if (!canSendInActiveConversation) return;
+                  if (fileInputRef.current) {
+                    fileInputRef.current.accept = ".pdf,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
+                    fileInputRef.current.click();
+                  }
+                }}
+                className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                title="Send Files"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              {/* Folder attachment (compressed to ZIP in the browser) */}
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation || isZippingFolder}
+                onClick={() => {
+                  if (!canSendInActiveConversation || isZippingFolder) return;
+                  handleSelectFolder();
+                }}
+                className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                title={isZippingFolder ? 'Đang nén thư mục...' : 'Gửi thư mục dưới dạng ZIP'}
+              >
+                {isZippingFolder ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FolderArchive className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* Contact card */}
+              <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Contact Card">
+                <User className="w-4 h-4" />
+              </button>
+
+              {/* Screenshot */}
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation || isTakingScreenshot}
+                onClick={handleTakeScreenshot}
+                className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                title="Chụp màn hình"
+              >
+                {isTakingScreenshot ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Crop className="w-4 h-4" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={handleToggleSpeechInput}
+                className={`p-1.5 rounded transition disabled:opacity-45 disabled:hover:bg-transparent ${isSpeechListening
+                    ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300'
+                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                  }`}
+                title={isSpeechListening ? 'Dừng nhập bằng giọng nói' : 'Nhập bằng giọng nói'}
+              >
+                {isSpeechListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+
+              {/* Formatting */}
+              <button
+                type="button"
+                onClick={() => setIsFormattingOpen((open) => !open)}
+                className={`p-1.5 rounded transition ${isFormattingOpen
+                    ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
+                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                  }`}
+                title="Text Formatting"
+              >
+                <Type className="w-4 h-4" />
+              </button>
+
+              {/* Quick message */}
+              <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Quick Message Templates">
+                <Zap className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation || !isGroupConversation || !canCreatePoll}
+                onClick={() => setIsCreatePollOpen(true)}
+                className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 disabled:opacity-45 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition"
+                title={isGroupConversation ? 'Tạo bình chọn' : 'Bình chọn chỉ dùng trong nhóm'}
+              >
+                <ListChecks className="w-4 h-4" />
+              </button>
+
+              {/* Credit card */}
+              <button type="button" className="p-1.5 text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white rounded hover:bg-gray-200/60 dark:hover:bg-zinc-800/60 transition" title="Send Gift/Card">
+                <CreditCard className="w-4 h-4" />
+              </button>
+
+              {/* More */}
+              <div className="relative" ref={moreMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                  className={`p-1.5 rounded transition ${isMoreMenuOpen ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white' : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'}`}
+                  title="More Options"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+
+                {isMoreMenuOpen && (
+                  <div className="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 dark:text-zinc-500 cursor-not-allowed"
+                      title="Chọn một tin nhắn rồi bấm biểu tượng chuông để tạo nhắc hẹn"
+                    >
+                      <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span>Tạo nhắc hẹn</span>
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsScheduledMessagesOpen(true);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CalendarDays className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                        <span>Tin nhắn đã hẹn giờ</span>
+                      </div>
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1 mx-4" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessagePriority('IMPORTANT');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="w-4 h-4 text-rose-500" />
+                        <span>Đánh dấu tin quan trọng</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessagePriority('URGENT');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <BellRing className="w-4 h-4 text-amber-500" />
+                        <span>Đánh dấu tin khẩn cấp</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         )}
 
         {(isSpeechListening || speechInputError) && (
-          <div className={`flex items-center gap-2 border-b px-3 py-2 text-xs font-semibold ${
-            isSpeechListening
+          <div className={`flex items-center gap-2 border-b px-3 py-2 text-xs font-semibold ${isSpeechListening
               ? 'border-rose-100 bg-rose-50 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
               : 'border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200'
-          }`}>
+            }`}>
             {isSpeechListening ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
@@ -1115,22 +1108,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => setEmojiStickerTab('emoji')}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                  emojiStickerTab === 'emoji'
+                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'emoji'
                     ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
                     : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 Emoji
               </button>
               <button
                 type="button"
                 onClick={() => setEmojiStickerTab('sticker')}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                  emojiStickerTab === 'sticker'
+                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'sticker'
                     ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
                     : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 Sticker
               </button>
@@ -1168,11 +1159,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       key={pack.id}
                       type="button"
                       onClick={() => setActivePackId(pack.id)}
-                      className={`w-10 h-10 shrink-0 rounded-lg overflow-hidden transition-all border-2 ${
-                        activePackId === pack.id
+                      className={`w-10 h-10 shrink-0 rounded-lg overflow-hidden transition-all border-2 ${activePackId === pack.id
                           ? 'border-indigo-500 opacity-100 scale-105'
                           : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
+                        }`}
                       title={pack.name}
                     >
                       <img src={pack.coverUrl} alt={pack.name} className="w-full h-full object-cover bg-white" />
@@ -1199,9 +1189,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                           onClick={() => handleSendSticker(sticker.stickerUrl)}
                           className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl p-1.5 transition hover:bg-gray-100 dark:hover:bg-zinc-800 flex items-center justify-center active:scale-95 shrink-0"
                         >
-                          <img 
-                            src={sticker.stickerUrl} 
-                            alt="Sticker" 
+                          <img
+                            src={sticker.stickerUrl}
+                            alt="Sticker"
                             className="max-w-full max-h-full object-contain pointer-events-none"
                             loading="lazy"
                           />
@@ -1241,11 +1231,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 setEmojiStickerTab('emoji');
                 setIsEmojiStickerOpen((open) => !open);
               }}
-              className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                isEmojiStickerOpen && emojiStickerTab === 'emoji'
+              className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${isEmojiStickerOpen && emojiStickerTab === 'emoji'
                   ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/20 dark:text-white'
                   : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-              }`}
+                }`}
               title="Emoji & Sticker"
             >
               <Smile className="w-5 h-5" />
@@ -1285,8 +1274,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${messagePriority === 'IMPORTANT' ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'}`}>
                   {messagePriority === 'IMPORTANT' ? <AlertCircle className="w-3.5 h-3.5" /> : <BellRing className="w-3.5 h-3.5" />}
                   {messagePriority === 'IMPORTANT' ? 'Quan trọng' : 'Khẩn cấp'}
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setMessagePriority(null)}
                     className="ml-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full p-0.5"
                   >
@@ -1301,11 +1290,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   type="button"
                   disabled={!canSendInActiveConversation}
                   onClick={() => setIsAiMenuOpen((open) => !open)}
-                  className={`p-1.5 rounded-xl transition disabled:opacity-45 ${
-                    isAiMenuOpen
+                  className={`p-1.5 rounded-xl transition disabled:opacity-45 ${isAiMenuOpen
                       ? 'bg-indigo-100 text-indigo-650 dark:bg-discord-blurple/30 dark:text-indigo-300'
                       : 'text-indigo-600 hover:bg-indigo-100/70 dark:text-indigo-400 dark:hover:bg-zinc-700/60'
-                  }`}
+                    }`}
                   title="NexTalk AI (Gợi ý & Trợ lý)"
                   aria-label="NexTalk AI"
                 >

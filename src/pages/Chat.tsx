@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { useEditor } from '@tiptap/react';
@@ -2165,9 +2165,26 @@ export const Chat = () => {
       text = alignMatch[2];
     }
 
+    const plainLines = text.split('\n');
+    const hasBlockFormatting = plainLines.some((line) =>
+      /^>\s?/.test(line) || /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)
+    );
+    if (alignClass === 'text-left' && !hasBlockFormatting) {
+      return (
+        <span className="whitespace-pre-wrap break-words [text-wrap:pretty]">
+          {plainLines.map((line, index) => (
+            <Fragment key={`${index}-${line}`}>
+              {index > 0 && <br />}
+              {renderInlineFormatting(line)}
+            </Fragment>
+          ))}
+        </span>
+      );
+    }
+
     return (
       <div className={`m-0 whitespace-pre-wrap break-words ${alignClass}`}>
-        {text.split('\n').map((line, index) => {
+        {plainLines.map((line, index) => {
           const key = `${index}-${line}`;
           const quoteMatch = line.match(/^>\s?(.*)$/);
           const bulletMatch = line.match(/^[-*]\s+(.*)$/);
