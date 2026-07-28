@@ -136,8 +136,6 @@ interface MessageInputProps {
   handleFolderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSelectFolder: () => void;
   isZippingFolder: boolean;
-  groupAvatarInputRef: React.RefObject<HTMLInputElement | null>;
-  handleGroupAvatarSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleInputPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   handleSendBlockedChatRequest: () => void;
   editor: Editor | null;
@@ -233,8 +231,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   handleFolderChange,
   handleSelectFolder,
   isZippingFolder,
-  groupAvatarInputRef,
-  handleGroupAvatarSelected,
   handleInputPaste,
   handleSendBlockedChatRequest,
   editor,
@@ -1236,14 +1232,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             className="hidden"
             {...({ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
           />
-          <input
-            type="file"
-            ref={groupAvatarInputRef}
-            onChange={handleGroupAvatarSelected}
-            accept="image/*"
-            className="hidden"
-          />
-
           <div className="flex items-center shrink-0">
             {/* Emoji smile face */}
             <button

@@ -92,6 +92,7 @@ interface CallStore {
   startVideo: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
   requestHandoff: () => void;
+  syncActiveCalls: () => Promise<void>;
   stopScreenShare: () => Promise<void>;
   handleIncomingSignal: (signal: any) => void;
   clearTracks: () => void;
@@ -215,6 +216,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
   receiveCall: (signal) => {
     const currentCallState = get().callState;
     const stompClient = useChatStore.getState().stompClient;
+    const expiresAt = signal.expiresAt ? new Date(signal.expiresAt).getTime() : null;
+    if (expiresAt && expiresAt <= Date.now()) return;
 
     if (currentCallState !== 'idle') {
       const { callId, conversationId, caller } = get();
@@ -278,12 +281,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     audioSynth.playIncomingRing();
 
+    const remainingRingMs = expiresAt
+      ? Math.max(1_000, Math.min(60_000, expiresAt - Date.now()))
+      : 60_000;
     const ringTimeoutId = window.setTimeout(() => {
       const state = get();
       if (state.callState === 'ringing_incoming' && state.callId === signal.callId) {
         state.rejectCall('missed');
       }
-    }, 60000);
+    }, remainingRingMs);
     set({ incomingRingTimeoutId: ringTimeoutId });
   },
 
@@ -690,6 +696,22 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({ handoffPending: true });
   },
 
+  syncActiveCalls: async () => {
+    if (get().callState !== 'idle') return;
+    try {
+      const response = await apiClient.get('/calls/active');
+      const signals = Array.isArray(response.data?.data) ? response.data.data : [];
+      const incoming = signals.find((signal: any) => signal.callState === 'RINGING_INCOMING');
+      const connected = signals.find((signal: any) => signal.callState === 'CONNECTED');
+      const signal = incoming ?? connected;
+      if (signal && get().callState === 'idle') {
+        get().handleIncomingSignal(signal);
+      }
+    } catch (error) {
+      console.warn('[Call] Failed to recover active call:', error);
+    }
+  },
+
   handleIncomingSignal: (signal) => {
     const signalType = signal.signalType;
     console.info('[STOMP Call Signal]:', signalType, signal);
@@ -788,7 +810,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
       }
       case 'HANDOFF_ACCEPTED':
         if (signal.handledByDeviceId === getBrowserCallDeviceId()) return;
-        if (get().handoffPending && isSameConversation && isSameCall) {
+        if (
+          isSameConversation &&
+          isSameCall &&
+          (get().handoffPending || callState === 'connected' || callState === 'connecting')
+        ) {
           get().clearTracks();
           resetCall();
         }

@@ -161,6 +161,8 @@ export const ConversationList = ({
   const voiceChannelMembers = useCallStore((state) => state.voiceChannelMembers);
   const activeVoiceChannelId = useCallStore((state) => state.activeVoiceChannelId);
   const remoteVoiceUsers = useCallStore((state) => state.remoteUsers);
+  const activeCallState = useCallStore((state) => state.callState);
+  const activeCallConversationId = useCallStore((state) => state.conversationId);
 
   const getDraftPreview = useCallback((conversationId?: string | null) => {
     if (!conversationId) return '';
@@ -589,6 +591,7 @@ export const ConversationList = ({
                 isSelected={isSelected}
                 unreadCount={unreadCount}
                 hasUnread={hasUnread}
+                activeCallState={activeCallConversationId === c.id ? activeCallState : null}
                 openConversationMenuId={openConversationMenuId}
                 conversationActionId={conversationActionId}
                 formatConversationTime={formatConversationTime}
@@ -611,7 +614,11 @@ export const ConversationList = ({
           const g = item.group;
           const groupConversationId = getGroupConversationId(g);
           const isGroupExpanded = expandedGroups.has(g.id);
-          const isSelected = activeConversation?.id === groupConversationId;
+          const isSelected =
+            activeConversation?.id === groupConversationId ||
+            g.channels?.some(
+              (channel) => channel.conversationId === activeConversation?.id,
+            );
           const groupConversation = groupConversationId
             ? conversations.find(
                 (conversation) => conversation.id === groupConversationId,
@@ -699,7 +706,16 @@ export const ConversationList = ({
                           : "text-gray-400 dark:text-zinc-500"
                       }`}
                     >
-                      {draftPreview ? (
+                      {activeCallConversationId && groupConversationIds.has(activeCallConversationId) ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Phone className="h-3.5 w-3.5" />
+                          {activeCallState === 'ringing_incoming'
+                            ? 'Cuộc gọi đến · Nhấn để trả lời'
+                            : activeCallState === 'ringing_outgoing'
+                              ? 'Đang gọi…'
+                              : 'Cuộc gọi đang diễn ra'}
+                        </span>
+                      ) : draftPreview ? (
                         <>
                           <span className="font-bold text-rose-500 dark:text-rose-400">Bản nháp: </span>
                           <span className="text-gray-600 dark:text-zinc-300">{draftPreview}</span>

@@ -24,7 +24,7 @@ import { groupService } from '../services/groupService';
 import { conversationService } from '../services/conversationService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
-  MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus, Sparkles,
+  MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus,
   Shield, Lock, Headphones, Mic, BellRing, Copy, Trash2, Undo2, UploadCloud
 } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -403,7 +403,6 @@ export const Chat = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const voiceRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceRecorderStreamRef = useRef<MediaStream | null>(null);
@@ -2888,8 +2887,11 @@ export const Chat = () => {
   };
 
   // Active conversation: find matching group for header enrichment
-  const activeGroup = activeConversation?.type === 'GROUP'
-    ? groups.find(g => getGroupConversationId(g) === activeConversation.id || g.channels?.some(ch => ch.conversationId === activeConversation.id)) || null
+  const activeGroup = activeConversation
+    ? groups.find(g =>
+        getGroupConversationId(g) === activeConversation.id
+        || g.channels?.some(ch => ch.conversationId === activeConversation.id)
+      ) || null
     : null;
   const activeChannel = activeGroup?.channels?.find(ch => ch.conversationId === activeConversation?.id) || null;
   const cachedTaskActivities = useChannelTaskStore((state) => activeChannel ? (state.activitiesByChannel[activeChannel.id] ?? EMPTY_TASK_ACTIVITIES) : EMPTY_TASK_ACTIVITIES);
@@ -2922,16 +2924,32 @@ export const Chat = () => {
   const formatConversationTime = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    if (isNaN(date.getTime()) || date.getTime() === 0) return '';
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) {
-      return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Hôm qua';
+    if (Number.isNaN(date.getTime()) || date.getTime() === 0) return '';
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const calendarDayDifference = Math.round(
+      (todayStart.getTime() - dateStart.getTime()) / 86_400_000
+    );
+
+    if (calendarDayDifference === 0) {
+      return date.toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
     }
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (calendarDayDifference === 1) return 'Hôm qua';
+    if (calendarDayDifference > 1 && calendarDayDifference < 7) {
+      return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()];
+    }
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return date.getFullYear() === now.getFullYear()
+      ? `${day}/${month}`
+      : `${day}/${month}/${String(date.getFullYear()).slice(-2)}`;
   };
 
   const selfDestructOptions = [
@@ -3435,7 +3453,7 @@ export const Chat = () => {
     const member = activeConversation.members.find(m => m.id === msg.senderId);
     return activeConversation.nicknames?.[msg.senderId] || member?.username || msg.senderUsername || 'Unknown';
   };
-  const isGroupConversation = activeConversation?.type === 'GROUP';
+  const isGroupConversation = Boolean(activeGroup) || activeConversation?.type === 'GROUP';
   const activeFriend = activeConversation && !isGroupConversation ? getFriendInfo(activeConversation) : null;
   const activeFriendForDisplay = activeFriend?.id && activeConversation?.nicknames?.[activeFriend.id]
     ? { ...activeFriend, username: activeConversation.nicknames[activeFriend.id] }
@@ -3994,8 +4012,6 @@ export const Chat = () => {
                   handleFolderChange={handleFolderChange}
                   handleSelectFolder={handleSelectFolder}
                   isZippingFolder={isZippingFolder}
-                  groupAvatarInputRef={groupAvatarInputRef as any}
-                  handleGroupAvatarSelected={handleGroupAvatarSelected}
                   handleInputPaste={handleInputPaste}
                   handleSendBlockedChatRequest={handleSendBlockedChatRequest}
                   editor={editor}
@@ -4067,6 +4083,8 @@ export const Chat = () => {
               activeFriendIsFriend={activeFriendIsFriend}
               handleProfileFriendAction={handleProfileFriendAction}
               currentUserIsGroupOwner={currentUserIsGroupOwner}
+              isUpdatingGroupAvatar={isUpdatingGroupAvatar}
+              onGroupAvatarSelected={handleGroupAvatarSelected}
               handleToggleBlockUser={handleToggleBlockUser}
               blockActionLoading={blockActionLoading}
               activePrivateChatBlockedByMe={activePrivateChatBlockedByMe}

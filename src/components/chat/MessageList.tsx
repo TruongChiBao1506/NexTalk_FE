@@ -43,7 +43,7 @@ import {
   Sticker,
   MessageSquare,
   ExternalLink,
-  SignalHigh,
+  Volume2,
   MessageSquareShare,
   X
 } from 'lucide-react';
@@ -59,6 +59,8 @@ import { useChatStore } from '../../store/chatStore';
 import { useCallStore } from '../../store/callStore';
 import { useGroupStore } from '../../store/groupStore';
 import { detectVietnameseTime } from '../../utils/vietnameseTime';
+
+const MESSAGE_CLUSTER_WINDOW_MS = 5 * 60 * 1000;
 
 const parseVoiceInvite = (content?: string) => {
   const match = content?.match(/nextalk:\/\/voice\/([^?\s]+)\?groupId=([^&\s]*)&channelName=([^\s]+)/);
@@ -222,27 +224,68 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [stickyDate, setStickyDate] = useState<string | null>(null);
   const joinVoiceChannel = useCallStore((state) => state.joinVoiceChannel);
   const groups = useGroupStore((state) => state.groups);
-
-  const updateStickyDate = React.useCallback((container: HTMLDivElement | null) => {
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const visibleItems = Array.from(container.querySelectorAll<HTMLElement>('[data-message-date]'))
-      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
-      .filter(({ rect }) => rect.bottom > containerRect.top && rect.top < containerRect.bottom)
-      .sort((left, right) => left.rect.top - right.rect.top);
-    const topMessageDate = visibleItems[0]?.element.dataset.messageDate ?? null;
-    setStickyDate((current) => current === topMessageDate ? current : topMessageDate);
-  }, []);
+  const messagesById = React.useMemo(
+    () => new Map(visibleMessages.map((message: any) => [message.id, message])),
+    [visibleMessages]
+  );
 
   const handleScrollWithStickyDate = (event: React.UIEvent<HTMLDivElement>) => {
     handleMessagesScroll(event);
-    updateStickyDate(event.currentTarget);
   };
 
   React.useEffect(() => {
-    const frame = window.requestAnimationFrame(() => updateStickyDate(messagesContainerRef.current));
-    return () => window.cancelAnimationFrame(frame);
-  }, [messagesContainerRef, updateStickyDate, visibleMessages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const messageElements = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-message-date]')
+    );
+    if (messageElements.length === 0) {
+      setStickyDate(null);
+      return;
+    }
+
+    const visibleElements = new Set<HTMLElement>();
+    const updateDateFromVisibleMessages = () => {
+      const containerRect = container.getBoundingClientRect();
+      let topElement: HTMLElement | null = null;
+      let topPosition = Number.POSITIVE_INFINITY;
+
+      visibleElements.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+        if (rect.bottom <= containerRect.top || rect.top >= containerRect.bottom) return;
+        if (rect.top < topPosition) {
+          topPosition = rect.top;
+          topElement = element;
+        }
+      });
+
+      const topMessageDate = topElement?.dataset.messageDate ?? null;
+      setStickyDate((current) => current === topMessageDate ? current : topMessageDate);
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const element = entry.target as HTMLElement;
+        if (entry.isIntersecting) {
+          visibleElements.add(element);
+        } else {
+          visibleElements.delete(element);
+        }
+      });
+      updateDateFromVisibleMessages();
+    }, {
+      root: container,
+      threshold: 0,
+    });
+
+    messageElements.forEach((element) => observer.observe(element));
+
+    return () => {
+      observer.disconnect();
+      visibleElements.clear();
+    };
+  }, [messagesContainerRef, visibleMessages]);
   const getMessageStatusLabel = (msg: any) => {
     if (msg.metadata?.deliveryState === 'failed') return 'Gửi thất bại';
     if (msg.metadata?.optimistic) return 'Đang gửi';
@@ -646,7 +689,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScrollWithStickyDate}
-        className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse"
+        className="flex flex-1 flex-col-reverse overflow-y-auto p-4"
       >
         <div ref={messagesEndRef} />
 
@@ -695,12 +738,26 @@ export const MessageList: React.FC<MessageListProps> = ({
             );
           };
 
-          // In group chat, show sender names above non-self messages
-          const prevMsg = visibleMessages[index - 1];
-          const showSenderName = isGroupConversation && !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
+          // The list is rendered in a flex-col-reverse container, so index + 1 is
+          // the message that appears immediately before this one chronologically.
+          const previousChronologicalMessage = visibleMessages[index + 1];
+          const currentMessageTime = new Date(msg.createdAt).getTime();
+          const previousMessageTime = previousChronologicalMessage
+            ? new Date(previousChronologicalMessage.createdAt).getTime()
+            : Number.NaN;
+          const isSameSenderCluster = Boolean(
+            previousChronologicalMessage
+            && previousChronologicalMessage.senderId === msg.senderId
+            && Number.isFinite(currentMessageTime)
+            && Number.isFinite(previousMessageTime)
+            && new Date(msg.createdAt).toDateString() === new Date(previousChronologicalMessage.createdAt).toDateString()
+            && Math.abs(currentMessageTime - previousMessageTime) <= MESSAGE_CLUSTER_WINDOW_MS
+          );
+          const showSenderName = isGroupConversation && !isMe && !isSameSenderCluster;
+          const showSenderAvatar = !isGroupConversation || showSenderName;
 
           // Find parent message if replied to
-          const parentMessage = msg.parentId ? visibleMessages.find((m) => m.id === msg.parentId) : null;
+          const parentMessage = msg.parentId ? messagesById.get(msg.parentId) : null;
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
           const isRecalledMessage = Boolean(msg.isRecalled || (msg.expiresAt && new Date(msg.expiresAt).getTime() <= Date.now()));
@@ -711,6 +768,13 @@ export const MessageList: React.FC<MessageListProps> = ({
             && msg.content
             ? detectVietnameseTime(stripMessageMarkup(msg.content), msg.createdAt)
             : null;
+          const showTimestampInsideBubble = msg.messageType === 'TEXT'
+            && !isRecalledMessage
+            && !voiceInvite
+            && !(msg.attachments?.length > 0)
+            && !msg.metadata?.linkPreview
+            && !timeSuggestion
+            && editingMessageId !== msg.id;
 
           const isUnreadMarkerTarget = unreadMarker?.messageId === msg.id;
 
@@ -721,7 +785,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 data-message-date={msg.createdAt}
                 onMouseEnter={() => setHoveredMessageId(msg.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
-                className={`relative group flex flex-col space-y-1 py-1.5 px-3 rounded-xl transition-colors ${isMentionedCurrentUser
+                className={`relative group flex flex-col space-y-1 px-3 py-0.5 rounded-xl transition-colors ${isSameSenderCluster ? 'mt-0.5' : 'mt-4'} ${isMentionedCurrentUser
                     ? 'border-l-2 border-amber-400 pl-2 dark:border-amber-500 hover:bg-white/35 dark:hover:bg-zinc-800/10'
                     : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
                   } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-bottom' : 'animate-slide-in-left') : ''}`}
@@ -737,19 +801,54 @@ export const MessageList: React.FC<MessageListProps> = ({
                 )}
 
                 {voiceInvite ? (
-                  <div className={`flex max-w-[min(80vw,32rem)] gap-3 py-1.5 ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
-                    {!isMe && <div className="mt-0.5 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-emerald-100">{getSenderAvatar(msg) ? <img src={getSenderAvatar(msg)!} alt={getSenderUsername(msg)} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-sm font-bold text-emerald-700">{getSenderUsername(msg).charAt(0).toUpperCase()}</div>}</div>}
+                  <div className={`flex max-w-[min(88vw,34rem)] gap-3 py-1.5 ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}>
+                    {!isMe && (
+                      <div className="mt-0.5 h-9 w-9 shrink-0">
+                        {showSenderAvatar && (
+                          <div className="h-9 w-9 overflow-hidden rounded-full bg-emerald-100">
+                            {getSenderAvatar(msg)
+                              ? <img src={getSenderAvatar(msg)!} alt={getSenderUsername(msg)} className="h-full w-full object-cover" />
+                              : <div className="flex h-full w-full items-center justify-center text-sm font-bold text-emerald-700">{getSenderUsername(msg).charAt(0).toUpperCase()}</div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className={`flex min-w-0 flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                      {!isMe && isGroupConversation && <div className="mb-1 text-xs font-bold text-indigo-600 dark:text-indigo-300">{getSenderUsername(msg)}</div>}
-                      <div className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30">
-                        <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-200"><SignalHigh className="h-5 w-5" /> Lời mời kênh thoại</div>
-                        <div className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">{isMe ? `Bạn đã mời mọi người tham gia “${voiceInvite.channelName}”.` : `${getSenderUsername(msg)} mời bạn tham gia “${voiceInvite.channelName}”.`}</div>
-                        <button type="button" onClick={() => {
-                          const group = groups.find((item) => item.id === voiceInvite.groupId);
-                          const channel = group?.channels.find((item) => item.id === voiceInvite.channelId);
-                          if (!group || !channel) return alert('Bạn không có quyền truy cập kênh thoại này.');
-                          void joinVoiceChannel(channel.id, channel.name, group.id);
-                        }} className="mt-3 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">Tham gia kênh thoại</button>
+                      {showSenderName && <div className="mb-1 text-xs font-bold text-indigo-600 dark:text-indigo-300">{getSenderUsername(msg)}</div>}
+                      <div className="w-[min(76vw,19rem)] overflow-hidden rounded-[20px] border border-slate-200/90 bg-gradient-to-br from-white via-white to-emerald-50/70 text-left shadow-[0_8px_24px_rgba(15,23,42,0.07)] dark:border-emerald-500/20 dark:from-zinc-900 dark:via-zinc-900 dark:to-emerald-950/40">
+                        <div className="p-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/20">
+                              <Volume2 className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">Kênh thoại</div>
+                              <div className="text-sm font-extrabold text-slate-900 dark:text-white">Lời mời tham gia</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-2.5 rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2 dark:border-zinc-700/80 dark:bg-zinc-800/70">
+                            <div className="flex items-center gap-2">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-600 shadow-sm dark:bg-zinc-900 dark:text-emerald-400">
+                                <Mic className="h-3.5 w-3.5" />
+                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate text-[13px] font-extrabold text-slate-800 dark:text-zinc-100">{voiceInvite.channelName}</div>
+                                <div className="text-[10px] text-slate-500 dark:text-zinc-400">Trò chuyện trực tiếp cùng mọi người</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button type="button" onClick={() => {
+                            const group = groups.find((item) => item.id === voiceInvite.groupId);
+                            const channel = group?.channels.find((item) => item.id === voiceInvite.channelId);
+                            if (!group || !channel) return alert('Bạn không có quyền truy cập kênh thoại này.');
+                            void joinVoiceChannel(channel.id, channel.name, group.id);
+                          }} className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-xs font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0">
+                            <Mic className="h-3.5 w-3.5" />
+                            Tham gia ngay
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-1 text-[10px] text-gray-400">{formatMessageTime(msg.createdAt)}{isMe ? ` · ${getMessageStatus(msg)}` : ''}</div>
                     </div>
@@ -1108,26 +1207,26 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                       {/* Avatar */}
                       {!isMe && !isSelectionMode && (
-                        <div className="shrink-0 mt-0.5">
-                          {(() => {
-                            const avatarUrl = isGroupConversation
-                              ? getSenderAvatar(msg)
-                              : activeFriend.avatarUrl;
-                            const senderName = isGroupConversation
-                              ? getSenderUsername(msg)
-                              : activeFriend.username;
-                            return avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={senderName}
-                                className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                                {senderName.charAt(0).toUpperCase()}
-                              </div>
-                            );
-                          })()}
+                        <div className="w-8 shrink-0 mt-0.5">
+                          {showSenderAvatar && (() => {
+                              const avatarUrl = isGroupConversation
+                                ? getSenderAvatar(msg)
+                                : activeFriend.avatarUrl;
+                              const senderName = isGroupConversation
+                                ? getSenderUsername(msg)
+                                : activeFriend.username;
+                              return avatarUrl ? (
+                                <img
+                                  src={avatarUrl}
+                                  alt={senderName}
+                                  className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                                  {senderName.charAt(0).toUpperCase()}
+                                </div>
+                              );
+                            })()}
                         </div>
                       )}
 
@@ -1576,6 +1675,27 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     (đã chỉnh sửa)
                                   </span>
                                 )}
+                                {showTimestampInsideBubble && (
+                                  <span className={`mt-1 inline-flex items-center gap-1 whitespace-nowrap text-[9px] leading-none ${
+                                    isMe
+                                      ? 'float-right ml-2 text-slate-500 dark:text-white/70'
+                                      : 'float-left mr-2 text-slate-400 dark:text-zinc-500'
+                                  }`}>
+                                    {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
+                                    <span>{formatMessageTime(msg.createdAt)}</span>
+                                    {isMe && (
+                                      <span title={getMessageStatusLabel(msg)} className={getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-300' : 'text-current'}>
+                                        {getMessageStatus(msg) === 'SEEN' || getMessageStatus(msg) === 'DELIVERED'
+                                          ? <CheckCheck className="h-3 w-3" />
+                                          : msg.metadata?.deliveryState === 'failed'
+                                            ? <AlertTriangle className="h-3 w-3 text-rose-500" />
+                                            : msg.metadata?.optimistic
+                                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                                              : <Check className="h-3 w-3" />}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
                               </div>
                               {timeSuggestion && !isSelectionMode && (
                                 <button
@@ -1625,30 +1745,32 @@ export const MessageList: React.FC<MessageListProps> = ({
                         </div>
 
                         {/* Status block */}
-                        <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          {msg.isPinned && (
-                            <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
-                          )}
-                          <span>{formatMessageTime(msg.createdAt)}</span>
-                          {isMe && (
-                            <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
-                              {getMessageStatus(msg) === 'SEEN' && (
-                                <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
-                              )}
-                              {getMessageStatus(msg) === 'DELIVERED' && (
-                                <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
-                              )}
-                              {getMessageStatus(msg) === 'SENT' && (
-                                msg.metadata?.deliveryState === 'failed'
-                                  ? <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                                  : msg.metadata?.optimistic
-                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
-                                    : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
-                              )}
-                              <span>{getMessageStatusLabel(msg)}</span>
-                            </span>
-                          )}
-                        </span>
+                        {!showTimestampInsideBubble && (
+                          <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            {msg.isPinned && (
+                              <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
+                            )}
+                            <span>{formatMessageTime(msg.createdAt)}</span>
+                            {isMe && (
+                              <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
+                                {getMessageStatus(msg) === 'SEEN' && (
+                                  <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
+                                )}
+                                {getMessageStatus(msg) === 'DELIVERED' && (
+                                  <CheckCheck className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-505" />
+                                )}
+                                {getMessageStatus(msg) === 'SENT' && (
+                                  msg.metadata?.deliveryState === 'failed'
+                                    ? <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                    : msg.metadata?.optimistic
+                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                                      : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                                )}
+                                <span>{getMessageStatusLabel(msg)}</span>
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </div>
                       {isSelectionMode && (
                         <div className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-indigo-600 bg-white dark:bg-zinc-900 transition-colors" style={{ backgroundColor: selectedMessageIds.includes(msg.id) ? '#4f46e5' : undefined }}>

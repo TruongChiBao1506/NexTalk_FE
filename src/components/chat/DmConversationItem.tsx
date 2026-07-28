@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { memo } from 'react';
 import {
-  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud,
+  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud, Phone,
 } from 'lucide-react';
 import type { ConversationResponse, MessageResponse } from '../../types/chat';
 
@@ -14,6 +14,7 @@ interface DmConversationItemProps {
   isSelected: boolean;
   unreadCount: number;
   hasUnread: boolean;
+  activeCallState?: 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected' | null;
   openConversationMenuId: string | null;
   conversationActionId: string | null;
   formatConversationTime: (date: string) => string;
@@ -34,6 +35,7 @@ export const DmConversationItem = memo(({
   isSelected,
   unreadCount,
   hasUnread,
+  activeCallState,
   openConversationMenuId,
   conversationActionId,
   formatConversationTime,
@@ -116,7 +118,16 @@ export const DmConversationItem = memo(({
                 : 'text-gray-400 dark:text-zinc-500'
             }`}
           >
-            {draftPreview ? (
+            {activeCallState ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                <Phone className="h-3.5 w-3.5" />
+                {activeCallState === 'ringing_incoming'
+                  ? 'Cuộc gọi đến · Nhấn để trả lời'
+                  : activeCallState === 'ringing_outgoing'
+                    ? 'Đang gọi…'
+                    : 'Cuộc gọi đang diễn ra'}
+              </span>
+            ) : draftPreview ? (
               <>
                 <span className="font-bold text-rose-500 dark:text-rose-400">Bản nháp: </span>
                 <span className="text-gray-600 dark:text-zinc-300">{draftPreview}</span>

@@ -896,6 +896,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             console.error('[STOMP] Failed to process call signal:', e);
           }
         });
+        void useCallStore.getState().syncActiveCalls();
 
         import('./groupStore').then(({ useGroupStore }) => {
           const groups = useGroupStore.getState().groups;

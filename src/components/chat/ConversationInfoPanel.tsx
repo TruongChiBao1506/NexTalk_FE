@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import {
   X,
   Search,
@@ -20,10 +21,16 @@ import {
   LogOut,
   Palette,
   Pencil,
-  UserMinus
+  UserMinus,
+  Camera,
+  Crown,
+  UserCog,
+  User,
+  Users,
+  ChevronDown
 } from 'lucide-react';
 import type { ConversationNotificationMode, ConversationResponse } from '../../types/chat';
-import type { ChannelResponse } from '../../types/group';
+import type { ChannelResponse, GroupMemberResponse, GroupRole } from '../../types/group';
 import { GroupQrModal } from './GroupQrModal';
 import { GroupAvatar } from './GroupAvatar';
 import { groupService } from '../../services/groupService';
@@ -39,7 +46,6 @@ interface ConversationInfoPanelProps {
   activeFriend: any;
   activeConversation: ConversationResponse;
   activeChannel?: ChannelResponse | null;
-  isGroupModerator?: boolean;
   isTogglingTasks?: boolean;
   handleToggleTaskEnabled?: () => void;
   onOpenSearch: () => void;
@@ -70,6 +76,8 @@ interface ConversationInfoPanelProps {
   activeFriendIsFriend: boolean;
   handleProfileFriendAction: () => void;
   currentUserIsGroupOwner: boolean;
+  isUpdatingGroupAvatar: boolean;
+  onGroupAvatarSelected: (event: ChangeEvent<HTMLInputElement>) => void;
   handleToggleBlockUser: () => void;
   blockActionLoading: boolean;
   activePrivateChatBlockedByMe: boolean;
@@ -89,7 +97,6 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeFriend,
   activeConversation,
   activeChannel,
-  isGroupModerator,
   onOpenSearch,
   onUpdateNotificationSettings,
   getConversationInfoSubtitle,
@@ -118,6 +125,8 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeFriendIsFriend,
   handleProfileFriendAction,
   currentUserIsGroupOwner,
+  isUpdatingGroupAvatar,
+  onGroupAvatarSelected,
   handleToggleBlockUser,
   blockActionLoading,
   activePrivateChatBlockedByMe,
@@ -136,6 +145,10 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [notificationFeedback, setNotificationFeedback] = useState<string | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showNicknameManager, setShowNicknameManager] = useState(false);
+  const [showGroupMembers, setShowGroupMembers] = useState(false);
+  const [groupMemberSearchQuery, setGroupMemberSearchQuery] = useState('');
+  const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
+  const [groupManagementFeedback, setGroupManagementFeedback] = useState<string | null>(null);
   const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
   const [savingNicknameUserId, setSavingNicknameUserId] = useState<string | null>(null);
@@ -147,6 +160,77 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
     taskId: string;
     taskTitle: string;
   }>>([]);
+  const groupAvatarInputRef = useRef<HTMLInputElement>(null);
+  const updateMemberRole = useGroupStore((state) => state.updateMemberRole);
+  const fetchGroups = useGroupStore((state) => state.fetchGroups);
+
+  const currentGroupMembership = activeGroup?.members?.find(
+    (member: GroupMemberResponse) => member.userId === currentUserId,
+  ) as GroupMemberResponse | undefined;
+  const leaderRoles: GroupRole[] = ['OWNER', 'LEADER', 'ADMIN'];
+  const isLeaderRole = (role?: GroupRole | null) => Boolean(role && leaderRoles.includes(role));
+  const currentUserIsActualOwner =
+    currentGroupMembership?.role === 'OWNER' || activeGroup?.ownerId === currentUserId;
+  const canManageMemberRoles = isLeaderRole(currentGroupMembership?.role);
+  const roleLabels: Record<GroupRole, string> = {
+    OWNER: 'Trưởng nhóm',
+    LEADER: 'Trưởng nhóm',
+    ADMIN: 'Trưởng nhóm',
+    DEPUTY: 'Phó nhóm',
+    MEMBER: 'Thành viên',
+  };
+
+  const canSetGroupMemberRole = (member: GroupMemberResponse, role: GroupRole) => {
+    if (!activeGroup || member.userId === currentUserId || member.role === role) return false;
+    if (role === 'OWNER') return currentUserIsActualOwner && member.role !== 'OWNER';
+    return canManageMemberRoles
+      && !isLeaderRole(member.role)
+      && (role === 'DEPUTY' || role === 'MEMBER');
+  };
+
+  const handleUpdateGroupMemberRole = async (member: GroupMemberResponse, role: GroupRole) => {
+    if (!activeGroup || !canSetGroupMemberRole(member, role) || groupMemberActionId) return;
+
+    const isOwnershipTransfer = role === 'OWNER';
+    const confirmed = window.confirm(
+      isOwnershipTransfer
+        ? `Chuyển quyền Trưởng nhóm cho ${member.username}? Sau thao tác này bạn sẽ trở thành Thành viên.`
+        : `Cập nhật ${member.username} thành ${roleLabels[role]}?`,
+    );
+    if (!confirmed) return;
+
+    setGroupMemberActionId(`${member.userId}:${role}`);
+    setGroupManagementFeedback(null);
+    try {
+      const ok = await updateMemberRole(activeGroup.id, member.userId, role);
+      if (!ok) {
+        setGroupManagementFeedback('Không thể cập nhật vai trò thành viên.');
+        return;
+      }
+      await fetchGroups();
+      await fetchConversations();
+      setGroupManagementFeedback(
+        isOwnershipTransfer
+          ? `Đã chuyển quyền Trưởng nhóm cho ${member.username}.`
+          : `Đã cập nhật vai trò của ${member.username}.`,
+      );
+    } finally {
+      setGroupMemberActionId(null);
+    }
+  };
+
+  const normalizedGroupMemberSearch = groupMemberSearchQuery.trim().toLowerCase();
+  const filteredGroupMembers = (activeGroup?.members ?? []).filter((member: GroupMemberResponse) => {
+    if (!normalizedGroupMemberSearch) return true;
+    return [member.username, roleLabels[member.role]]
+      .some((value) => value.toLowerCase().includes(normalizedGroupMemberSearch));
+  });
+
+  useEffect(() => {
+    setGroupMemberSearchQuery('');
+    setGroupManagementFeedback(null);
+    setShowGroupMembers(false);
+  }, [activeGroup?.id]);
 
   useEffect(() => {
     if (!isConversationInfoOpen || !activeGroup?.id || !activeChannel?.id || !activeChannel.isTaskEnabled) {
@@ -241,10 +325,40 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-          <section className="flex flex-col items-center text-center">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5">
+          <section className="order-[-3] flex flex-col items-center text-center">
             {isGroupConversation ? (
-              <GroupAvatar conversation={activeGroup} size={80} className="!rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700" />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => currentUserIsGroupOwner && groupAvatarInputRef.current?.click()}
+                  disabled={!currentUserIsGroupOwner || isUpdatingGroupAvatar}
+                  className="group/avatar relative block overflow-hidden rounded-2xl disabled:cursor-default"
+                  title={currentUserIsGroupOwner ? 'Đổi ảnh đại diện nhóm' : 'Bạn không có quyền đổi ảnh đại diện nhóm'}
+                >
+                  <GroupAvatar conversation={activeGroup} size={80} className="!rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-zinc-700" />
+                  {currentUserIsGroupOwner && (
+                    <span
+                      className={`absolute inset-0 flex items-center justify-center rounded-2xl bg-black/55 text-white transition ${
+                        isUpdatingGroupAvatar
+                          ? 'opacity-100'
+                          : 'opacity-0 group-hover/avatar:opacity-100 group-focus-visible/avatar:opacity-100'
+                      }`}
+                    >
+                      {isUpdatingGroupAvatar
+                        ? <Loader2 className="h-6 w-6 animate-spin" />
+                        : <Camera className="h-6 w-6" />}
+                    </span>
+                  )}
+                </button>
+                <input
+                  ref={groupAvatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onGroupAvatarSelected}
+                />
+              </div>
             ) : activeFriend?.avatarUrl ? (
               <img
                 src={activeFriend.avatarUrl}
@@ -263,6 +377,115 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
             </div>
             <p className="m-0 text-xs font-medium text-gray-500 dark:text-zinc-400">{getConversationInfoSubtitle()}</p>
           </section>
+
+          {isGroupConversation && activeGroup && showGroupMembers && (
+            <section className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-zinc-700">
+              <div className="relative mb-2">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
+                <input
+                  type="search"
+                  value={groupMemberSearchQuery}
+                  onChange={(event) => setGroupMemberSearchQuery(event.target.value)}
+                  placeholder="Tìm thành viên..."
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                />
+              </div>
+
+              <div className="max-h-72 space-y-1 overflow-y-auto rounded-xl border border-gray-200 p-1 dark:border-zinc-700">
+                {filteredGroupMembers.map((member: GroupMemberResponse) => {
+                  const canTransferOwnership = canSetGroupMemberRole(member, 'OWNER');
+                  const canMakeDeputy = canSetGroupMemberRole(member, 'DEPUTY');
+                  const canMakeMember = canSetGroupMemberRole(member, 'MEMBER');
+                  const roleActionLoading = groupMemberActionId?.startsWith(`${member.userId}:`);
+
+                  return (
+                    <div
+                      key={member.userId}
+                      className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800/60"
+                    >
+                      {member.avatarUrl ? (
+                        <img
+                          src={member.avatarUrl}
+                          alt={member.username}
+                          className="h-9 w-9 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white">
+                          {member.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1 text-left">
+                        <p className="m-0 truncate text-sm font-semibold text-gray-800 dark:text-zinc-100">
+                          {member.username}{member.userId === currentUserId ? ' (Bạn)' : ''}
+                        </p>
+                        <p className="m-0 text-[11px] text-gray-400 dark:text-zinc-500">
+                          {roleLabels[member.role]}
+                        </p>
+                      </div>
+
+                      {(canTransferOwnership || canMakeDeputy || canMakeMember) && (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          {canTransferOwnership && (
+                            <button
+                              type="button"
+                              onClick={() => void handleUpdateGroupMemberRole(member, 'OWNER')}
+                              disabled={Boolean(groupMemberActionId)}
+                              className="rounded-lg p-2 text-amber-500 transition hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50 dark:hover:bg-amber-500/10"
+                              title="Chuyển quyền Trưởng nhóm"
+                            >
+                              {roleActionLoading
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Crown className="h-4 w-4" />}
+                            </button>
+                          )}
+                          {canMakeDeputy && (
+                            <button
+                              type="button"
+                              onClick={() => void handleUpdateGroupMemberRole(member, 'DEPUTY')}
+                              disabled={Boolean(groupMemberActionId)}
+                              className="rounded-lg p-2 text-sky-500 transition hover:bg-sky-50 hover:text-sky-600 disabled:opacity-50 dark:hover:bg-sky-500/10"
+                              title="Bổ nhiệm Phó nhóm"
+                            >
+                              {roleActionLoading
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <UserCog className="h-4 w-4" />}
+                            </button>
+                          )}
+                          {canMakeMember && (
+                            <button
+                              type="button"
+                              onClick={() => void handleUpdateGroupMemberRole(member, 'MEMBER')}
+                              disabled={Boolean(groupMemberActionId)}
+                              className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:hover:bg-zinc-800"
+                              title="Hạ xuống Thành viên"
+                            >
+                              {roleActionLoading
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <User className="h-4 w-4" />}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {filteredGroupMembers.length === 0 && (
+                  <p className="m-0 px-3 py-4 text-center text-sm text-gray-500 dark:text-zinc-400">
+                    Không tìm thấy thành viên phù hợp.
+                  </p>
+                )}
+              </div>
+
+              {groupManagementFeedback && (
+                <p
+                  role="status"
+                  className="mt-2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-semibold text-white dark:bg-white dark:text-gray-900"
+                >
+                  {groupManagementFeedback}
+                </p>
+              )}
+            </section>
+          )}
 
           <button type="button" onClick={() => setShowNicknameManager(true)} className="mt-6 flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
             <Pencil className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
@@ -318,46 +541,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
             <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-zinc-400">Mọi thành viên đều có thể thay đổi biệt danh. Thay đổi sẽ được thông báo trong cuộc trò chuyện.</p>
           </section>
 
-          {isGroupConversation && activeGroup && activeChannel && (isGroupModerator || activeGroup.members.find((m: any) => m.userId === currentUserId)?.role === 'OWNER') && (
-            <section className="mt-6 px-4">
-              <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-50 p-3 text-left dark:bg-discord-black/35">
-                <div>
-                  <p className="m-0 text-sm font-semibold">Quản lý công việc kênh #{activeChannel.name}</p>
-                  <p className="m-0 mt-0.5 text-xs text-gray-500 dark:text-discord-muted">Bật/tắt tính năng quản lý công việc cho kênh này.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const nextState = !(activeChannel.isTaskEnabled ?? false);
-                      await groupService.updateChannel(activeGroup.id, activeChannel.id, { isTaskEnabled: nextState });
-                      const updatedGroup = await groupService.getGroup(activeGroup.id);
-                      if (updatedGroup.success && updatedGroup.data) {
-                        useGroupStore.getState().upsertGroup(updatedGroup.data);
-                      }
-                    } catch (e) {
-                      console.error('Failed to update channel task setting:', e);
-                    }
-                  }}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${
-                    (activeChannel.isTaskEnabled ?? false) ? 'bg-indigo-600 dark:bg-discord-blurple' : 'bg-gray-300 dark:bg-zinc-700'
-                  }`}
-                  role="switch"
-                  aria-checked={activeChannel.isTaskEnabled ?? false}
-                >
-                  <span className="sr-only">Toggle channel tasks</span>
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      (activeChannel.isTaskEnabled ?? false) ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </section>
-          )}
-
-          <section className="mt-6">
+          <section className="order-[-2] mt-6">
             <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Lối tắt nhanh</h4>
             <div className="grid grid-cols-4 gap-2">
               <button
@@ -408,7 +592,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
           </section>
 
           {isGroupConversation && activeGroup && (
-            <section className="mt-6">
+            <section className="order-[-1] mt-6">
               <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Liên kết tham gia nhóm</h4>
               {activeGroup.inviteCode ? (
                 <div className="flex flex-col gap-2">
@@ -458,6 +642,26 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   )}
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => setShowGroupMembers((value) => !value)}
+                className="mt-4 w-full overflow-hidden rounded-xl border border-gray-200 text-left transition hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/60"
+                aria-expanded={showGroupMembers}
+              >
+                <span className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-sm font-bold text-gray-800 dark:text-zinc-100">Thành viên nhóm</span>
+                  <ChevronDown
+                    className={`h-5 w-5 text-gray-500 transition-transform ${showGroupMembers ? 'rotate-180' : ''}`}
+                  />
+                </span>
+                <span className="flex items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-zinc-800">
+                  <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">
+                    {activeGroup.memberCount ?? activeGroup.members.length} thành viên
+                  </span>
+                </span>
+              </button>
             </section>
           )}
 
