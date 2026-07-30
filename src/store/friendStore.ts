@@ -17,6 +17,7 @@ interface FriendState {
   acceptRequest: (userId: string) => Promise<string | null>;
   rejectRequest: (userId: string) => Promise<boolean>;
   removeFriend: (userId: string) => Promise<boolean>;
+  dismissSuggestion: (userId: string) => Promise<boolean>;
   fetchRelationStatuses: (userIds: string[]) => Promise<void>;
   setRelationStatus: (userId: string, status: FriendRelationStatus) => void;
   updateFriendPresence: (userId: string, status: string, lastSeen?: string) => void;
@@ -186,6 +187,22 @@ export const useFriendStore = create<FriendState>((set, get) => ({
       return false;
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  dismissSuggestion: async (userId) => {
+    try {
+      const response = await friendService.dismissSuggestion(userId);
+      if (response.success) {
+        set((state) => ({
+          suggestions: state.suggestions.filter((suggestion) => suggestion.id !== userId),
+        }));
+      }
+      return response.success;
+    } catch (err: any) {
+      console.error(err);
+      set({ error: err.response?.data?.message || 'Failed to hide friend suggestion' });
+      return false;
     }
   },
 

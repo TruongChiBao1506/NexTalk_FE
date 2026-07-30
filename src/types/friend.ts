@@ -24,12 +24,13 @@ export interface FriendshipAcceptResponse {
 export interface FriendSuggestionResponse {
   id: string;
   username: string;
-  email: string;
   avatarUrl?: string;
   bio?: string;
   status: string;
   lastSeen?: string;
   mutualFriendsCount: number;
+  sharedGroupsCount: number;
+  suggestionReason: string;
   isRequestSent: boolean;
 }
 

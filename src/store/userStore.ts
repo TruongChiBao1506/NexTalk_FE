@@ -16,6 +16,7 @@ interface UserState {
     enableBirthdayNotification?: boolean;
     showActivityStatus?: boolean;
     blockStrangerMessages?: boolean;
+    friendSuggestionDiscoverable?: boolean;
   }) => Promise<boolean>;
 }
 

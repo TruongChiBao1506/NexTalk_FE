@@ -14,6 +14,7 @@ export interface User {
   birthdayReminderEnabled?: boolean;
   showActivityStatus?: boolean;
   blockStrangerMessages?: boolean;
+  friendSuggestionDiscoverable?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -48,7 +48,14 @@ export const friendService = {
   },
 
   async getSuggestions(): Promise<ApiResponse<FriendSuggestionResponse[]>> {
-    const response = await apiClient.get<ApiResponse<FriendSuggestionResponse[]>>('/friends/suggestions');
+    const response = await apiClient.get<ApiResponse<FriendSuggestionResponse[]>>('/friends/suggestions', {
+      params: { limit: 20 }
+    });
+    return response.data;
+  },
+
+  async dismissSuggestion(userId: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.post<ApiResponse<void>>(`/friends/suggestions/${userId}/dismiss`);
     return response.data;
   }
 };

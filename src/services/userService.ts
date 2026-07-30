@@ -11,6 +11,7 @@ export interface UpdateProfilePayload {
   birthdayReminderEnabled?: boolean;
   showActivityStatus?: boolean;
   blockStrangerMessages?: boolean;
+  friendSuggestionDiscoverable?: boolean;
 }
 
 export interface ProfileQrConfig {

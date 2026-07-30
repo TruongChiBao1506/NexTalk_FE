@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Search, UserCheck, Clock3, Send, type LucideIcon } from 'lucide-react';
+import { MessageSquare, UserMinus, Loader2, AlertCircle, Users, UserPlus, X, Search, UserCheck, Clock3, Send, EyeOff, type LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useFriendStore } from '../store/friendStore';
 import { useGroupStore } from '../store/groupStore';
@@ -35,6 +35,7 @@ export const Friends = () => {
     removeFriend,
     sendFriendRequest,
     cancelFriendRequest,
+    dismissSuggestion,
     fetchRelationStatuses,
   } = useFriendStore();
   const {
@@ -112,6 +113,12 @@ export const Friends = () => {
   const handleReject = async (senderId: string) => {
     setActionLoadingId(senderId);
     await rejectRequest(senderId);
+    setActionLoadingId(null);
+  };
+
+  const handleDismissSuggestion = async (userId: string) => {
+    setActionLoadingId(`dismiss-${userId}`);
+    await dismissSuggestion(userId);
     setActionLoadingId(null);
   };
 
@@ -279,8 +286,8 @@ export const Friends = () => {
   const visiblePending = pending.filter((request) => matchesSearch(request.username, request.email));
   const sentSuggestions = suggestions.filter((suggestion) => suggestion.isRequestSent);
   const discoverSuggestions = suggestions.filter((suggestion) => !suggestion.isRequestSent);
-  const visibleSentSuggestions = sentSuggestions.filter((suggestion) => matchesSearch(suggestion.username, suggestion.email));
-  const visibleDiscoverSuggestions = discoverSuggestions.filter((suggestion) => matchesSearch(suggestion.username, suggestion.email));
+  const visibleSentSuggestions = sentSuggestions.filter((suggestion) => matchesSearch(suggestion.username));
+  const visibleDiscoverSuggestions = discoverSuggestions.filter((suggestion) => matchesSearch(suggestion.username, suggestion.suggestionReason));
   const visibleActiveSuggestions = activeTab === 'sent' ? visibleSentSuggestions : visibleDiscoverSuggestions;
   const visibleGroupInvitations = pendingInvitations.filter((invitation) => matchesSearch(invitation.groupName, invitation.inviterUsername));
   const friendTabs: Array<{ key: ActiveTab; label: string; description: string; count: number; icon: LucideIcon }> = [
@@ -582,12 +589,15 @@ export const Friends = () => {
                   {visibleActiveSuggestions.map((suggestion) => (
                     <div key={suggestion.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-200 sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-discord-mid dark:hover:border-indigo-500/30">
                       {suggestion.avatarUrl ? <img src={suggestion.avatarUrl} alt={suggestion.username} className="h-12 w-12 shrink-0 rounded-full border border-gray-200 object-cover dark:border-zinc-800" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-650 text-lg font-bold text-white dark:bg-discord-blurple">{suggestion.username?.charAt(0)?.toUpperCase() ?? '?'}</div>}
-                      <div className="min-w-0 flex-1 text-left"><h4 className="m-0 truncate font-bold text-gray-950 dark:text-white">{suggestion.username}</h4><p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-gray-550 dark:text-discord-muted"><Users className="h-4 w-4" />Có {suggestion.mutualFriendsCount} bạn chung</p></div>
+                      <div className="min-w-0 flex-1 text-left"><h4 className="m-0 truncate font-bold text-gray-950 dark:text-white">{suggestion.username}</h4><p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-gray-550 dark:text-discord-muted"><Users className="h-4 w-4" />{suggestion.suggestionReason}</p></div>
                       <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
                         {suggestion.isRequestSent ? (
                           <button onClick={() => handleCancelSuggestionRequest(suggestion.id)} disabled={actionLoadingId === suggestion.id} className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg bg-gray-100 px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-red-500/10 dark:hover:text-red-400">{actionLoadingId === suggestion.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4" />Hủy lời mời</>}</button>
                         ) : (
-                          <button onClick={() => handleSendSuggestionRequest(suggestion.id)} disabled={actionLoadingId === suggestion.id} className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 disabled:opacity-50 sm:flex-none dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20">{actionLoadingId === suggestion.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4" />Kết bạn</>}</button>
+                          <>
+                            <button onClick={() => void handleDismissSuggestion(suggestion.id)} disabled={Boolean(actionLoadingId)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-200" title="Ẩn gợi ý này">{actionLoadingId === `dismiss-${suggestion.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <EyeOff className="h-4 w-4" />}</button>
+                            <button onClick={() => handleSendSuggestionRequest(suggestion.id)} disabled={Boolean(actionLoadingId)} className="inline-flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 disabled:opacity-50 sm:flex-none dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20">{actionLoadingId === suggestion.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4" />Kết bạn</>}</button>
+                          </>
                         )}
                       </div>
                     </div>

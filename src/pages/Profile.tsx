@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Calendar, Cake, Bell, BellOff, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2, Monitor, MapPin, X } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, Cake, Bell, BellOff, ShieldCheck, ShieldAlert, Loader2, Edit3, LogOut, Lock, Trash2, Monitor, MapPin, X, UsersRound } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
@@ -347,6 +347,19 @@ export const Profile = () => {
                   </div>
                   <button type="button" onClick={() => void updateProfile({ showActivityStatus: profile.showActivityStatus === false })} className={`rounded-full px-4 py-2 text-xs font-bold text-white transition ${profile.showActivityStatus !== false ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'}`}>
                     {profile.showActivityStatus !== false ? 'Đang bật' : 'Đang tắt'}
+                  </button>
+                </div>
+
+                <div className="flex flex-col justify-between gap-2 rounded-2xl border border-gray-100 bg-white/50 p-3 text-left text-sm dark:border-zinc-900/30 dark:bg-discord-black/20 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex shrink-0 items-center gap-2.5 text-gray-500 dark:text-discord-muted">
+                    <UsersRound className={`h-4.5 w-4.5 ${profile.friendSuggestionDiscoverable !== false ? 'text-indigo-500' : ''}`} />
+                    <div>
+                      <span className="block">Xuất hiện trong Khám phá</span>
+                      <span className="block text-xs text-gray-400">Cho phép NexTalk gợi ý hồ sơ của bạn với người phù hợp</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => void updateProfile({ friendSuggestionDiscoverable: profile.friendSuggestionDiscoverable === false })} className={`rounded-full px-4 py-2 text-xs font-bold text-white transition ${profile.friendSuggestionDiscoverable !== false ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 hover:bg-gray-500'}`}>
+                    {profile.friendSuggestionDiscoverable !== false ? 'Đang bật' : 'Đang tắt'}
                   </button>
                 </div>
 
