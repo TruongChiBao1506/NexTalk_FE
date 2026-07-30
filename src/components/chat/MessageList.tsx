@@ -760,6 +760,10 @@ export const MessageList: React.FC<MessageListProps> = ({
           const parentMessage = msg.parentId ? messagesById.get(msg.parentId) : null;
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
+          const isAiSystemMessage = msg.messageType === 'SYSTEM'
+            && (msg.metadata?.systemType === 'AI_BOT_PENDING' || msg.metadata?.systemType === 'AI_BOT_REPLY');
+          const aiBotAvatarUrl = msg.metadata?.botAvatarUrl
+            || 'https://res.cloudinary.com/dp5r0dqqh/image/upload/v1783700471/nextalk/nnjdwhw3tfhjjjymbfgj.png';
           const isRecalledMessage = Boolean(msg.isRecalled || (msg.expiresAt && new Date(msg.expiresAt).getTime() <= Date.now()));
           const voiceInvite = !isRecalledMessage ? parseVoiceInvite(msg.content) : null;
           const timeSuggestion = !isRecalledMessage
@@ -859,30 +863,33 @@ export const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   </div>
                 ) : msg.messageType === 'SYSTEM' ? (
-                  <div className="flex justify-center py-1.5 select-none">
-                    {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
-                      <div className="w-full max-w-[min(86vw,620px)] select-none rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
-                        <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            <Sparkles className="h-4 w-4" />
-                          </span>
-                          <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
-                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                          <span>Đang suy nghĩ và chuẩn bị câu trả lời...</span>
-                        </div>
-                      </div>
-                    ) : msg.metadata?.systemType === 'AI_BOT_REPLY' ? (
-                      <div className="w-full max-w-[min(86vw,620px)] select-text rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80">
-                        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            <Sparkles className="h-4 w-4" />
-                          </span>
-                          <span>{msg.metadata?.botName || 'NexTalk AI'}</span>
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {stripMessageMarkup(msg.content)}
+                  <div className={`flex py-1.5 ${isAiSystemMessage ? 'justify-start' : 'justify-center select-none'}`}>
+                    {isAiSystemMessage ? (
+                      <div className="flex max-w-[min(88vw,680px)] items-start gap-2.5">
+                        <img
+                          src={aiBotAvatarUrl}
+                          alt={msg.metadata?.botName || 'NexTalk AI'}
+                          className="mt-0.5 h-9 w-9 shrink-0 rounded-full border border-indigo-100 bg-indigo-50 object-cover shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10"
+                        />
+                        <div className="min-w-0">
+                          <div className="mb-1 text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                            {msg.metadata?.botName || 'NexTalk AI'}
+                          </div>
+                          <div className={`max-w-[min(78vw,620px)] rounded-2xl rounded-bl-md border border-indigo-100 bg-white px-4 py-3 text-left text-gray-700 shadow-sm ring-1 ring-white/70 dark:border-indigo-500/20 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-800/80 ${
+                            msg.metadata?.systemType === 'AI_BOT_PENDING' ? 'select-none' : 'select-text'
+                          }`}>
+                            {msg.metadata?.systemType === 'AI_BOT_PENDING' ? (
+                              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+                                <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                <span>Đang suy nghĩ và chuẩn bị câu trả lời...</span>
+                              </div>
+                            ) : (
+                              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                {stripMessageMarkup(msg.content)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1 text-[10px] text-gray-400">{formatMessageTime(msg.createdAt)}</div>
                         </div>
                       </div>
                     ) : msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (

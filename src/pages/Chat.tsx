@@ -107,6 +107,7 @@ type PendingAiReply = {
   id: string;
   conversationId: string;
   createdAt: string;
+  triggerClientMessageId: string;
 };
 
 type SpeechRecognitionResultLike = {
@@ -714,7 +715,13 @@ export const Chat = () => {
       const pendingTime = new Date(pending.createdAt).getTime();
       return !aiReplies.some((reply) => (
         reply.conversationId === pending.conversationId
-        && new Date(reply.createdAt).getTime() >= pendingTime
+        && (
+          messages.some((message) => (
+            (message.clientMessageId ?? message.metadata?.clientMessageId) === pending.triggerClientMessageId
+            && reply.metadata?.triggerMessageId === message.id
+          ))
+          || new Date(reply.createdAt).getTime() >= pendingTime
+        )
       ));
     }));
   }, [messages]);
@@ -2356,7 +2363,7 @@ export const Chat = () => {
     return /(^|\s)@(bot|nextalk\s+ai|meta\s+ai)\b/i.test(plainText);
   };
 
-  const addPendingAiReply = (conversationId?: string | null) => {
+  const addPendingAiReply = (conversationId: string | null | undefined, triggerClientMessageId: string) => {
     if (!conversationId) return;
 
     setPendingAiReplies((current) => [
@@ -2365,6 +2372,7 @@ export const Chat = () => {
         id: `ai-pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         conversationId,
         createdAt: new Date().toISOString(),
+        triggerClientMessageId,
       },
     ]);
   };
@@ -2581,7 +2589,7 @@ export const Chat = () => {
           return;
         }
         if (isAiBotMentionMessage(trimmedMessage)) {
-          addPendingAiReply(activeConversation.id);
+          addPendingAiReply(activeConversation.id, clientMessageId);
         }
       }
       clearEditorInput();
@@ -3470,19 +3478,32 @@ export const Chat = () => {
   const activeAiPendingSystemMessages = activeConversation
     ? pendingAiReplies
       .filter((pending) => pending.conversationId === activeConversation.id)
-      .map((pending) => ({
-        id: pending.id,
-        conversationId: pending.conversationId,
-        senderId: 'system',
-        senderUsername: 'NexTalk AI',
-        content: 'NexTalk AI đang trả lời...',
-        messageType: 'SYSTEM' as const,
-        createdAt: pending.createdAt,
-        metadata: {
-          systemType: 'AI_BOT_PENDING',
-          botName: 'NexTalk AI',
-        },
-      }))
+      .map((pending) => {
+        const triggerMessage = messages.find((message) => (
+          (message.clientMessageId ?? message.metadata?.clientMessageId) === pending.triggerClientMessageId
+        ));
+        const pendingTime = new Date(pending.createdAt).getTime();
+        const triggerTime = triggerMessage ? new Date(triggerMessage.createdAt).getTime() : Number.NaN;
+        const createdAt = Number.isFinite(triggerTime)
+          ? new Date(Math.max(pendingTime, triggerTime + 1)).toISOString()
+          : pending.createdAt;
+
+        return {
+          id: pending.id,
+          conversationId: pending.conversationId,
+          senderId: 'nextalk-ai',
+          senderUsername: 'NexTalk AI',
+          content: 'NexTalk AI đang trả lời...',
+          messageType: 'SYSTEM' as const,
+          createdAt,
+          metadata: {
+            systemType: 'AI_BOT_PENDING',
+            botName: 'NexTalk AI',
+            botAvatarUrl: 'https://res.cloudinary.com/dp5r0dqqh/image/upload/v1783700471/nextalk/nnjdwhw3tfhjjjymbfgj.png',
+            triggerClientMessageId: pending.triggerClientMessageId,
+          },
+        };
+      })
     : [];
 
   let visibleMessages = [
