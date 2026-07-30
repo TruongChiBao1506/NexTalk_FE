@@ -6,7 +6,6 @@ import PublicRoute from './components/common/PublicRoute';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
 import { ensureFreshAccessToken, apiClient } from './api/apiClient';
-import { requestFirebaseToken, onMessageListener } from './firebase';
 
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
@@ -109,18 +108,20 @@ function App() {
     if (isAuthenticated) {
       const setupFCM = async () => {
         try {
+          const { requestFirebaseToken, onMessageListener } = await import('./firebase');
           const token = await requestFirebaseToken();
           if (token) {
             await apiClient.post('/fcm/token', { token });
           }
+          void onMessageListener().catch(err =>
+            console.log('failed to receive foreground message: ', err)
+          );
         } catch (err: any) {
           console.error('Failed to setup FCM', err);
         }
       };
 
-      setupFCM();
-
-      onMessageListener().catch(err => console.log('failed to receive foreground message: ', err));
+      void setupFCM();
     }
   }, [isAuthenticated]);
 

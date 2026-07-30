@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Fragment, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { useEditor } from '@tiptap/react';
@@ -57,14 +57,9 @@ import { SidebarSearch } from '../components/chat/SidebarSearch';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
 import { VoiceConnectedPanel } from '../components/chat/VoiceConnectedPanel';
 import { VoiceChannelGrid } from '../components/chat/VoiceChannelGrid';
-import { CreatePollModal } from '../components/chat/CreatePollModal';
-import { PollVoterDialogModal } from '../components/chat/PollVoterDialogModal';
 import { PinSetupModal } from '../components/chat/PinSetupModal';
-import { MediaViewerModal } from '../components/chat/MediaViewerModal';
-import { ImageAiEditorModal, type ImageEditTarget } from '../components/chat/ImageAiEditorModal';
-import { TaskAssistantModal } from '../components/chat/TaskAssistantModal';
+import type { ImageEditTarget } from '../components/chat/ImageAiEditorModal';
 import type { ImageEditResult } from '../services/imageEditService';
-import { SearchProfileModal } from '../components/chat/SearchProfileModal';
 import { StrangerWarningBanner } from '../components/chat/StrangerWarningBanner';
 import { ReportModal } from '../components/chat/ReportModal';
 import ChannelSettingsModal from '../components/chat/ChannelSettingsModal';
@@ -74,9 +69,6 @@ import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
 import { MessageFilterBar } from '../components/chat/MessageFilterBar';
-import { ThemeSettingsModal } from '../components/chat/ThemeSettingsModal';
-import { MyQrModal } from '../components/chat/MyQrModal';
-import { QrScannerModal } from '../components/chat/QrScannerModal';
 import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import { ActionInboxPanel } from '../components/chat/ActionInboxPanel';
 import { MyTasksPanel } from '../components/chat/MyTasksPanel';
@@ -88,6 +80,34 @@ import { pickAndZipFolder, supportsDirectoryPicker, zipFolder } from '../utils/f
 import { stripHtml } from '../utils/text';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useMessageActions } from '../hooks/useMessageActions';
+
+const CreatePollModal = lazy(() =>
+  import('../components/chat/CreatePollModal').then(module => ({ default: module.CreatePollModal }))
+);
+const PollVoterDialogModal = lazy(() =>
+  import('../components/chat/PollVoterDialogModal').then(module => ({ default: module.PollVoterDialogModal }))
+);
+const MediaViewerModal = lazy(() =>
+  import('../components/chat/MediaViewerModal').then(module => ({ default: module.MediaViewerModal }))
+);
+const ImageAiEditorModal = lazy(() =>
+  import('../components/chat/ImageAiEditorModal').then(module => ({ default: module.ImageAiEditorModal }))
+);
+const TaskAssistantModal = lazy(() =>
+  import('../components/chat/TaskAssistantModal').then(module => ({ default: module.TaskAssistantModal }))
+);
+const SearchProfileModal = lazy(() =>
+  import('../components/chat/SearchProfileModal').then(module => ({ default: module.SearchProfileModal }))
+);
+const ThemeSettingsModal = lazy(() =>
+  import('../components/chat/ThemeSettingsModal').then(module => ({ default: module.ThemeSettingsModal }))
+);
+const MyQrModal = lazy(() =>
+  import('../components/chat/MyQrModal').then(module => ({ default: module.MyQrModal }))
+);
+const QrScannerModal = lazy(() =>
+  import('../components/chat/QrScannerModal').then(module => ({ default: module.QrScannerModal }))
+);
 
 type MessageReminder = {
   id: string;

@@ -9,7 +9,6 @@ import { useAuthStore } from './authStore';
 import { useNotificationStore } from './notificationStore';
 import { useActionInboxStore } from './actionInboxStore';
 import { useFriendStore } from './friendStore';
-import { useCallStore } from './callStore';
 import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType, TypingIndicatorEvent } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
@@ -893,12 +892,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         stompClient.subscribe('/user/queue/calls', (message) => {
           try {
             const body = JSON.parse(message.body);
-            useCallStore.getState().handleIncomingSignal(body);
+            void import('./callStore').then(({ useCallStore }) => {
+              useCallStore.getState().handleIncomingSignal(body);
+            });
           } catch (e) {
             console.error('[STOMP] Failed to process call signal:', e);
           }
         });
-        void useCallStore.getState().syncActiveCalls();
+        void import('./callStore').then(({ useCallStore }) => {
+          void useCallStore.getState().syncActiveCalls();
+        });
 
         import('./groupStore').then(({ useGroupStore }) => {
           const groups = useGroupStore.getState().groups;
@@ -906,7 +909,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const voiceChannelIds = groups.flatMap((group) =>
             group.channels.filter((channel) => channel.type === 'VOICE').map((channel) => channel.id)
           );
-          void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
+          void import('./callStore').then(({ useCallStore }) => {
+            void useCallStore.getState().syncVoiceChannelMembers(voiceChannelIds);
+          });
         }).catch(() => undefined);
       };
 

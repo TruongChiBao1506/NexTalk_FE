@@ -1,16 +1,22 @@
 import { create } from 'zustand';
-import AgoraRTC, {
-  type IAgoraRTCClient,
-  type ICameraVideoTrack,
-  type IMicrophoneAudioTrack,
-  type ILocalVideoTrack,
-  type ILocalAudioTrack,
-  type IAgoraRTCRemoteUser
+import type {
+  IAgoraRTCClient,
+  ICameraVideoTrack,
+  IMicrophoneAudioTrack,
+  ILocalVideoTrack,
+  ILocalAudioTrack,
+  IAgoraRTCRemoteUser
 } from 'agora-rtc-sdk-ng';
 import { useChatStore } from './chatStore';
 import { useAuthStore } from './authStore';
 import { apiClient } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
+
+let agoraModulePromise: Promise<typeof import('agora-rtc-sdk-ng')> | null = null;
+const loadAgoraRTC = async () => {
+  agoraModulePromise ??= import('agora-rtc-sdk-ng');
+  return (await agoraModulePromise).default;
+};
 
 type CallState = 'idle' | 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected';
 type CallType = 'voice' | 'video';
@@ -564,6 +570,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     if (!agoraClient) return;
 
     try {
+      const AgoraRTC = await loadAgoraRTC();
       const videoTrack = await AgoraRTC.createCameraVideoTrack();
       set({ localVideoTrack: videoTrack, isCameraMuted: false });
       if (!isScreenSharing) {
@@ -597,6 +604,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { localVideoTrack } = get();
     if (!localVideoTrack) return;
 
+    const AgoraRTC = await loadAgoraRTC();
     const cameras = await AgoraRTC.getCameras();
     if (cameras.length < 2) return;
 
@@ -618,6 +626,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
 
     try {
+      const AgoraRTC = await loadAgoraRTC();
       const videoTrack = await AgoraRTC.createCameraVideoTrack();
       set({ localVideoTrack: videoTrack, isCameraMuted: false });
       await agoraClient.publish(videoTrack);
@@ -632,6 +641,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     if (!isScreenSharing) {
       try {
+        const AgoraRTC = await loadAgoraRTC();
         const screenTrackResult = await AgoraRTC.createScreenVideoTrack({}, 'auto');
         const screenTrack = Array.isArray(screenTrackResult) ? screenTrackResult[0] : screenTrackResult;
         const screenAudio = Array.isArray(screenTrackResult) ? screenTrackResult[1] : null;
@@ -1095,6 +1105,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { conversationId, callType } = get();
     if (!conversationId) return;
 
+    const AgoraRTC = await loadAgoraRTC();
     AgoraRTC.onAutoplayFailed = () => {
       set({ remoteAudioPlaybackBlocked: true });
     };
@@ -1290,6 +1301,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
   joinVoiceChannel: async (channelId: string, channelName: string, groupId: string) => {
     if (get().callState !== 'idle') return;
+    const AgoraRTC = await loadAgoraRTC();
 
     set({
       callState: 'connected',
