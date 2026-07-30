@@ -133,7 +133,29 @@ const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {
 const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
 const MESSAGE_PAGE_SIZE = 25;
+const MESSAGE_PREFETCH_COUNT = 3;
 const SEEN_RECEIPT_DEBOUNCE_MS = 400;
+const initialHistoryRequests = new Map<string, Promise<MessageResponse[]>>();
+
+const fetchInitialHistory = (ownerId: string, conversationId: string) => {
+  const requestKey = `${ownerId}:${conversationId}`;
+  const existing = initialHistoryRequests.get(requestKey);
+  if (existing) return existing;
+
+  const request = messageService
+    .getConversationMessages(conversationId, 0, MESSAGE_PAGE_SIZE)
+    .then((response) => {
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Failed to load message history');
+      }
+      return response.data;
+    })
+    .finally(() => {
+      initialHistoryRequests.delete(requestKey);
+    });
+  initialHistoryRequests.set(requestKey, request);
+  return request;
+};
 
 const scheduleSeenReceipt = (conversationId: string) => {
   const pending = seenReceiptTimeouts[conversationId];
@@ -369,7 +391,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchConversations: async () => {
     const userId = useAuthStore.getState().user?.id;
 
-    // ── Stale-While-Revalidate: Tải cache mã hóa từ IndexedDB (< 2ms) ───────
+    // Stale-while-revalidate from the current session's RAM-only cache.
     const cached = await encryptedCacheService.load(userId);
     if (cached && cached.conversations && cached.conversations.length > 0) {
       set({
@@ -382,7 +404,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ isLoadingConversations: true });
     }
 
-    // ── Revalidation ngầm với Server (/api/conversations/with-previews) ─────
+    // Revalidate in the background with the server.
     try {
       const response = await conversationService.getConversationsWithPreviews();
       if (response.success && response.data) {
@@ -397,13 +419,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
           isLoadingConversations: false,
         });
 
+        if (userId) {
+          sorted.slice(0, MESSAGE_PREFETCH_COUNT).forEach((conversation) => {
+            if ((get().messagesCache[conversation.id]?.length ?? 0) > 0) return;
+            void fetchInitialHistory(userId, conversation.id)
+              .then((history) => {
+                if (useAuthStore.getState().user?.id !== userId) return;
+                set((state) => ({
+                  messagesCache: {
+                    ...state.messagesCache,
+                    [conversation.id]: mergeMessagesNewestFirst(
+                      state.messagesCache[conversation.id] ?? [],
+                      history,
+                    ),
+                  },
+                  paginationCache: {
+                    ...state.paginationCache,
+                    [conversation.id]: {
+                      currentPage: 0,
+                      hasMoreMessages: history.length === MESSAGE_PAGE_SIZE,
+                    },
+                  },
+                }));
+              })
+              .catch(() => undefined);
+          });
+        }
+
         // Mark active conversation as delivered if present
         const currentActive = get().activeConversation;
         if (currentActive?.id) {
           messageService.markAsDelivered(currentActive.id).catch(() => {});
         }
 
-        // Lưu cache mã hóa AES-256 vào IndexedDB để lần mở sau hiển thị 0ms
+        // Keep conversation previews in the session-only cache.
         await encryptedCacheService.save(userId, {
           conversations: sorted,
           lastMessages: freshLastMessages,
@@ -511,47 +560,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     try {
-      const response = await messageService.getConversationMessages(conversationId, 0, MESSAGE_PAGE_SIZE);
-      if (response.success && response.data) {
-        const history = response.data;
+      const ownerId = useAuthStore.getState().user?.id ?? 'anonymous-session';
+      const history = await fetchInitialHistory(ownerId, conversationId);
         
-        // Mark messages as seen
-        scheduleSeenReceipt(conversationId);
+      // Mark messages as seen
+      scheduleSeenReceipt(conversationId);
 
-        // Fetch pinned messages in background
-        get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
+      // Fetch pinned messages in background
+      get().fetchPinnedMessages(conversationId).catch((e) => console.error('Failed to fetch pinned messages:', e));
 
-        if (get().activeConversation?.id === conversationId) {
-          set((state) => {
-            const updatedLastMessages = { ...state.lastMessages };
-            if (history.length > 0) {
-              updatedLastMessages[conversationId] = newerMessage(updatedLastMessages[conversationId], history[0])!;
-            }
+      if (get().activeConversation?.id === conversationId) {
+        set((state) => {
+          const updatedLastMessages = { ...state.lastMessages };
+          if (history.length > 0) {
+            updatedLastMessages[conversationId] = newerMessage(updatedLastMessages[conversationId], history[0])!;
+          }
 
-            const newMessages = mergeMessagesNewestFirst(state.messages, history);
-            const newHasMore = state.messages.length > 0 ? state.hasMoreMessages : history.length === MESSAGE_PAGE_SIZE;
+          const newMessages = mergeMessagesNewestFirst(state.messages, history);
+          const newHasMore = state.messages.length > 0 ? state.hasMoreMessages : history.length === MESSAGE_PAGE_SIZE;
 
-            const markerIndex = unreadCountAtOpen > 0
-              ? Math.min(unreadCountAtOpen, newMessages.length) - 1
-              : -1;
-            const unreadMarker = markerIndex >= 0 && newMessages[markerIndex]
-              ? { messageId: newMessages[markerIndex].id, count: unreadCountAtOpen }
-              : undefined;
+          const markerIndex = unreadCountAtOpen > 0
+            ? Math.min(unreadCountAtOpen, newMessages.length) - 1
+            : -1;
+          const unreadMarker = markerIndex >= 0 && newMessages[markerIndex]
+            ? { messageId: newMessages[markerIndex].id, count: unreadCountAtOpen }
+            : undefined;
 
-            return {
-              messages: newMessages,
-              hasMoreMessages: newHasMore,
-              isLoading: false,
-              lastMessages: updatedLastMessages,
-              unreadMarkersByConversation: unreadMarker
-                ? {
-                    ...state.unreadMarkersByConversation,
-                    [conversationId]: unreadMarker,
-                  }
-                : state.unreadMarkersByConversation,
-            };
-          });
-        }
+          return {
+            messages: newMessages,
+            hasMoreMessages: newHasMore,
+            isLoading: false,
+            lastMessages: updatedLastMessages,
+            unreadMarkersByConversation: unreadMarker
+              ? {
+                  ...state.unreadMarkersByConversation,
+                  [conversationId]: unreadMarker,
+                }
+              : state.unreadMarkersByConversation,
+          };
+        });
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -1035,7 +1082,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
     });
 
-    // Ghi đè ngầm IndexedDB cache mới nhất
+    // Refresh the session-only conversation preview cache.
     const currentUserId = useAuthStore.getState().user?.id;
     const currentState = get();
     encryptedCacheService.patch(currentUserId, {
