@@ -29,6 +29,7 @@ export const Profile = () => {
   const [isPinInputModalOpen, setIsPinInputModalOpen] = useState(false);
   const [resetPinInput, setResetPinInput] = useState('');
   const [resetPinError, setResetPinError] = useState('');
+  const [resetPinPassword, setResetPinPassword] = useState('');
   const [sessions, setSessions] = useState<SessionResponse[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
@@ -503,34 +504,55 @@ export const Profile = () => {
       <ConfirmDialog
         isOpen={isConfirmResetPinOpen}
         title="Xóa mã PIN ẩn cuộc trò chuyện?"
-        description="Nếu xóa mã PIN, toàn bộ tin nhắn trong các cuộc trò chuyện bị ẩn sẽ bị xóa sạch hoàn toàn (không thể khôi phục) và các cuộc trò chuyện đó sẽ tự động hiển thị lại ở danh sách chính. Bạn có chắc chắn muốn tiếp tục?"
+        description="Nhập mật khẩu tài khoản hiện tại để đặt lại PIN. Các cuộc trò chuyện sẽ được bỏ ẩn và toàn bộ lịch sử được giữ nguyên."
         confirmLabel="Xóa mã PIN"
         variant="danger"
         isLoading={isResettingPin}
         onCancel={() => {
           if (!isResettingPin) {
             setIsConfirmResetPinOpen(false);
+            setResetPinPassword('');
+            setResetPinError('');
           }
         }}
         onConfirm={async () => {
+          if (!resetPinPassword) {
+            setResetPinError('Vui lòng nhập mật khẩu hiện tại.');
+            return;
+          }
           setIsResettingPin(true);
           try {
-            const res = await userService.resetChatPin();
+            const res = await userService.resetChatPin(undefined, resetPinPassword);
             if (res.success) {
               useAuthStore.getState().updateUser(res.data);
               await fetchProfile();
               useChatStore.getState().fetchConversations();
               setIsConfirmResetPinOpen(false);
+              setResetPinPassword('');
+              setResetPinError('');
             } else {
-              window.alert(res.message || 'Lỗi khi xóa mã PIN.');
+              setResetPinError(res.message || 'Không thể đặt lại mã PIN.');
             }
           } catch (err: any) {
-            window.alert(err.response?.data?.message || 'Không thể xóa mã PIN.');
+            setResetPinError(err.response?.data?.message || 'Mật khẩu hiện tại không chính xác.');
           } finally {
             setIsResettingPin(false);
           }
         }}
-      />
+      >
+        <input
+          type="password"
+          value={resetPinPassword}
+          onChange={(event) => {
+            setResetPinPassword(event.target.value);
+            setResetPinError('');
+          }}
+          autoComplete="current-password"
+          placeholder="Mật khẩu hiện tại"
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800"
+        />
+        {resetPinError ? <p className="mt-2 text-sm text-rose-500">{resetPinError}</p> : null}
+      </ConfirmDialog>
 
       {/* Pin Input Reset Modal */}
       {isPinInputModalOpen && (

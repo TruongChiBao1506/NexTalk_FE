@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   icon?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }
 
 export const ConfirmDialog = ({
@@ -27,6 +28,7 @@ export const ConfirmDialog = ({
   icon,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) => {
   if (!isOpen) return null;
 
@@ -65,6 +67,7 @@ export const ConfirmDialog = ({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {children ? <div className="mt-4">{children}</div> : null}
 
         <div className="mt-5 flex justify-end gap-2">
           {showCancel && (

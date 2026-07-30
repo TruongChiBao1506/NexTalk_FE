@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { User } from '../types/auth'
+import { encryptedCacheService } from '../services/encryptedCacheService'
 
 interface AuthState {
   user: User | null;
@@ -39,6 +40,8 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     logout: () => {
+      const userId = useAuthStore.getState().user?.id;
+      void encryptedCacheService.clear(userId);
       localStorage.removeItem('nextalk_user');
       localStorage.removeItem('nextalk_accessToken');
       localStorage.removeItem('nextalk_refreshToken');

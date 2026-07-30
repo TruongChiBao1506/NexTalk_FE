@@ -66,8 +66,8 @@ export const userService = {
     return response.data;
   },
 
-  async resetChatPin(pin?: string): Promise<ApiResponse<User>> {
-    const response = await apiClient.post<ApiResponse<User>>('/users/chat-pin/reset', { pin });
+  async resetChatPin(pin?: string, currentPassword?: string): Promise<ApiResponse<User>> {
+    const response = await apiClient.post<ApiResponse<User>>('/users/chat-pin/reset', { pin, currentPassword });
     return response.data;
   },
 

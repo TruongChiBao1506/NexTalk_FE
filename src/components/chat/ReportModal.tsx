@@ -82,13 +82,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 Đã gửi báo cáo
               </h4>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Hệ thống AI sẽ tự động phân tích cuộc trò chuyện của bạn và {reportedUserName} để đưa ra biện pháp xử lý. Cảm ơn bạn!
+                Báo cáo đã được tiếp nhận. AI chỉ hỗ trợ phân tích; mọi biện pháp xử lý phải được quản trị viên xem xét. Cảm ơn bạn!
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Bạn đang báo cáo <span className="font-semibold text-rose-500">{reportedUserName}</span>. Hành động này sẽ được AI kiểm duyệt dựa trên lịch sử nhắn tin gần nhất.
+                Bạn đang báo cáo <span className="font-semibold text-rose-500">{reportedUserName}</span>. Lịch sử liên quan sẽ được phân tích để hỗ trợ quản trị viên xem xét.
               </p>
 
               <div className="space-y-2">
