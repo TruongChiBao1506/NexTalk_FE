@@ -451,6 +451,29 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
     return status === 'DELIVERED' ? 'Đã nhận' : 'Đã gửi';
   };
+  const getLatestSeenMembers = (msg: any, messageIndex: number) => {
+    if (msg.senderId !== user?.id) return [];
+
+    const seenStatuses = (msg.statuses ?? []).filter(
+      (status: any) => status.userId !== user?.id && status.status === 'SEEN'
+    );
+
+    return seenStatuses
+      .filter((status: any) => !visibleMessages.slice(0, messageIndex).some(
+        (newerMessage: any) => newerMessage.senderId === user?.id
+          && (newerMessage.statuses ?? []).some(
+            (newerStatus: any) => newerStatus.userId === status.userId && newerStatus.status === 'SEEN'
+          )
+      ))
+      .map((status: any) => {
+        const member = activeConversation?.members?.find((item: any) => item.id === status.userId);
+        return {
+          id: status.userId,
+          username: member?.username || status.username || 'Thành viên',
+          avatarUrl: member?.avatarUrl || null,
+        };
+      });
+  };
   const getNicknameSystemText = (msg: any) => {
     const metadata = msg.metadata ?? {};
     const actorIsViewer = metadata.actorId === user?.id;
@@ -864,6 +887,8 @@ export const MessageList: React.FC<MessageListProps> = ({
 
         {visibleMessages.map((msg: any, index: number) => {
           const isMe = msg.senderId === user?.id;
+          const latestSeenMembers = getLatestSeenMembers(msg, index);
+          const visibleSeenMembers = latestSeenMembers.slice(0, isGroupConversation ? 3 : 1);
           const isMentionedCurrentUser = !isMe && Boolean(
             msg.metadata?.mentionAll ||
             (Array.isArray(msg.metadata?.mentionedUserIds) && msg.metadata.mentionedUserIds.includes(user?.id))
@@ -1924,7 +1949,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
                             )}
                             <span>{formatMessageTime(msg.createdAt)}</span>
-                            {isMe && (
+                            {isMe && latestSeenMembers.length === 0 && (
                               <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
                                 {getMessageStatus(msg) === 'SEEN' && (
                                   <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
@@ -1943,6 +1968,36 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </span>
                             )}
                           </span>
+                        )}
+                        {isMe && latestSeenMembers.length > 0 && (
+                          <div
+                            className="mt-1 flex items-center justify-end -space-x-1.5"
+                            aria-label={getMessageStatusLabel(msg)}
+                            title={latestSeenMembers.map((member: any) => member.username).join(', ')}
+                          >
+                            {visibleSeenMembers.map((member: any) => (
+                              member.avatarUrl ? (
+                                <img
+                                  key={member.id}
+                                  src={member.avatarUrl}
+                                  alt={member.username}
+                                  className="h-[18px] w-[18px] rounded-full border-2 border-white object-cover shadow-sm dark:border-zinc-900"
+                                />
+                              ) : (
+                                <span
+                                  key={member.id}
+                                  className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white bg-indigo-100 text-[8px] font-bold text-indigo-700 shadow-sm dark:border-zinc-900 dark:bg-indigo-500/25 dark:text-indigo-200"
+                                >
+                                  {member.username.charAt(0).toUpperCase()}
+                                </span>
+                              )
+                            ))}
+                            {latestSeenMembers.length > visibleSeenMembers.length && (
+                              <span className="relative z-10 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-slate-200 px-0.5 text-[8px] font-bold text-slate-600 dark:border-zinc-900 dark:bg-zinc-700 dark:text-zinc-200">
+                                +{latestSeenMembers.length - visibleSeenMembers.length}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       {isSelectionMode && (
