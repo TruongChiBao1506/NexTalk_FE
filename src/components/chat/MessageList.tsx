@@ -978,7 +978,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                       </div>
                     ) : (
                       <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
-                        <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
                         {getSenderAvatar(msg) ? (
                           <img
                             src={getSenderAvatar(msg)!}
