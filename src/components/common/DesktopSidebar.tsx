@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CircleUserRound, LogOut, MessageSquare, Users } from 'lucide-react';
+import { Bookmark, CircleUserRound, LogOut, MessageSquare, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '../../store/chatStore';
 import { useFriendStore } from '../../store/friendStore';
@@ -12,6 +12,7 @@ interface DesktopSidebarProps {
   activePage: DesktopPage;
   onLogout: () => void;
   isLoggingOut: boolean;
+  onOpenSavedMessages?: () => void;
 }
 
 const navButtonClass = (active: boolean) =>
@@ -21,7 +22,7 @@ const navButtonClass = (active: boolean) =>
       : 'bg-white/60 text-slate-600 hover:bg-white hover:text-indigo-600 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'
   }`;
 
-export const DesktopSidebar = ({ activePage, onLogout, isLoggingOut }: DesktopSidebarProps) => {
+export const DesktopSidebar = ({ activePage, onLogout, isLoggingOut, onOpenSavedMessages }: DesktopSidebarProps) => {
   const navigate = useNavigate();
   const { selectConversation } = useChatStore();
   const { pending, fetchPending } = useFriendStore();
@@ -59,6 +60,12 @@ export const DesktopSidebar = ({ activePage, onLogout, isLoggingOut }: DesktopSi
       <button type="button" onClick={() => navigate('/profile')} className={`${navButtonClass(activePage === 'profile')} mt-3`} aria-label="Hồ sơ" title="Hồ sơ">
         <CircleUserRound className="h-5 w-5" />
       </button>
+
+      {onOpenSavedMessages && (
+        <button type="button" onClick={onOpenSavedMessages} className={`${navButtonClass(false)} mt-3`} aria-label="Tin nhắn đã lưu" title="Tin nhắn đã lưu">
+          <Bookmark className="h-5 w-5" />
+        </button>
+      )}
 
       <div className="mt-auto flex flex-col items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center">

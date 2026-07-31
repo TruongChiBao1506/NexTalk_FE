@@ -188,12 +188,60 @@ export interface GroupResponse {
   channels: ChannelResponse[];
   requiresApproval: boolean;
   isTaskEnabled: boolean;
+  membersCanCreateEvents: boolean;
   inviteCode: string;
   pendingApprovalCount?: number;
   members: GroupMemberResponse[];
   memberCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export type GroupEventRsvpStatus = 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING';
+export type GroupEventStatus = 'SCHEDULED' | 'CANCELLED';
+
+export interface GroupEventParticipant {
+  userId: string;
+  username: string;
+  avatarUrl?: string | null;
+  status: GroupEventRsvpStatus;
+}
+
+export interface GroupEventResponse {
+  id: string;
+  groupId: string;
+  conversationId: string;
+  messageId?: string | null;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  meetingUrl?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  reminderMinutes: number;
+  status: GroupEventStatus;
+  creatorId: string;
+  creatorUsername: string;
+  creatorAvatarUrl?: string | null;
+  currentUserRsvp?: GroupEventRsvpStatus | null;
+  attendingCount: number;
+  maybeCount: number;
+  notAttendingCount: number;
+  participants: GroupEventParticipant[];
+  canManage: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveGroupEventRequest {
+  conversationId?: string;
+  title: string;
+  description?: string;
+  location?: string;
+  meetingUrl?: string;
+  startsAt: string;
+  endsAt?: string;
+  reminderMinutes: number;
 }
 
 export interface CreateGroupRequest {

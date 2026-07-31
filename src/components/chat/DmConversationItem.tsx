@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { memo } from 'react';
 import {
-  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud, Phone,
+  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud, Phone, PhoneMissed,
 } from 'lucide-react';
 import type { ConversationResponse, MessageResponse } from '../../types/chat';
 
@@ -13,6 +13,7 @@ interface DmConversationItemProps {
   draftPreview: string;
   isSelected: boolean;
   unreadCount: number;
+  missedCallCount: number;
   hasUnread: boolean;
   activeCallState?: 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected' | null;
   openConversationMenuId: string | null;
@@ -34,6 +35,7 @@ export const DmConversationItem = memo(({
   draftPreview,
   isSelected,
   unreadCount,
+  missedCallCount,
   hasUnread,
   activeCallState,
   openConversationMenuId,
@@ -150,6 +152,15 @@ export const DmConversationItem = memo(({
               'Bắt đầu cuộc trò chuyện'
             )}
           </p>
+          {missedCallCount > 0 && (
+            <span
+              className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center gap-1 rounded-full bg-rose-50 px-1.5 text-[10px] font-bold text-rose-600 dark:bg-rose-500/15 dark:text-rose-300"
+              title={`${missedCallCount} cuộc gọi nhỡ`}
+            >
+              <PhoneMissed className="h-3 w-3" />
+              {missedCallCount > 99 ? '99+' : missedCallCount}
+            </span>
+          )}
           <div className="relative shrink-0">
             <button
               type="button"

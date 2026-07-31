@@ -45,7 +45,9 @@ import {
   ExternalLink,
   Volume2,
   MessageSquareShare,
-  X
+  X,
+  Bookmark,
+  Languages
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
@@ -59,6 +61,7 @@ import { useChatStore } from '../../store/chatStore';
 import { useCallStore } from '../../store/callStore';
 import { useGroupStore } from '../../store/groupStore';
 import { detectVietnameseTime } from '../../utils/vietnameseTime';
+import { GroupEventCard } from './GroupEventCard';
 
 const MESSAGE_CLUSTER_WINDOW_MS = 5 * 60 * 1000;
 
@@ -222,12 +225,161 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
+  const [personalActionModal, setPersonalActionModal] = useState<{
+    kind: 'saving' | 'save-success' | 'save-error' | 'translating' | 'translation' | 'translation-error';
+    title: string;
+    message?: string;
+    language?: string;
+  } | null>(null);
   const joinVoiceChannel = useCallStore((state) => state.joinVoiceChannel);
   const groups = useGroupStore((state) => state.groups);
   const messagesById = React.useMemo(
     () => new Map(visibleMessages.map((message: any) => [message.id, message])),
     [visibleMessages]
   );
+
+  const savePersonalMessage = async (messageId: string) => {
+    setPersonalActionModal({ kind: 'saving', title: 'Đang lưu tin nhắn' });
+    try {
+      await messageService.saveMessage(messageId);
+      setPersonalActionModal({
+        kind: 'save-success',
+        title: 'Đã lưu tin nhắn',
+        message: 'Tin nhắn đã được thêm vào kho lưu cá nhân của bạn.',
+      });
+    } catch {
+      setPersonalActionModal({
+        kind: 'save-error',
+        title: 'Không thể lưu tin nhắn',
+        message: 'Tin nhắn có thể không còn khả dụng hoặc bạn đã mất quyền truy cập.',
+      });
+    }
+  };
+
+  const [inlineTranslations, setInlineTranslations] = useState<
+    Record<
+      string,
+      {
+        translatedText?: string;
+        languageLabel?: string;
+        targetLanguage?: string;
+        isLoading?: boolean;
+        error?: string;
+        isVisible: boolean;
+      }
+    >
+  >({});
+
+  const translatePersonalMessage = async (messageId: string, targetLanguage: string, language: string) => {
+    const existing = inlineTranslations[messageId];
+
+    // Cache hit: If already translated into targetLanguage, toggle visibility instantly (0ms)
+    if (existing?.translatedText && existing.targetLanguage === targetLanguage) {
+      setInlineTranslations((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          isVisible: !prev[messageId].isVisible,
+        },
+      }));
+      return;
+    }
+
+    // Set loading & visible state immediately
+    setInlineTranslations((prev) => ({
+      ...prev,
+      [messageId]: {
+        targetLanguage,
+        languageLabel: language,
+        isLoading: true,
+        isVisible: true,
+        error: undefined,
+      },
+    }));
+
+    try {
+      const response = await messageService.translateMessage(messageId, targetLanguage);
+      setInlineTranslations((prev) => ({
+        ...prev,
+        [messageId]: {
+          translatedText: response.data.translatedText,
+          targetLanguage,
+          languageLabel: language,
+          isLoading: false,
+          isVisible: true,
+        },
+      }));
+    } catch (error: any) {
+      setInlineTranslations((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          isLoading: false,
+          error: error?.response?.data?.message || 'Dịch vụ dịch hiện không khả dụng. Vui lòng thử lại sau.',
+        },
+      }));
+    }
+  };
+
+  const toggleInlineTranslation = (messageId: string) => {
+    setInlineTranslations((prev) => {
+      if (!prev[messageId]) return prev;
+      return {
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          isVisible: !prev[messageId].isVisible,
+        },
+      };
+    });
+  };
+
+  const renderInlineTranslationBlock = (messageId: string, isMe: boolean) => {
+    const trans = inlineTranslations[messageId];
+    if (!trans || !trans.isVisible) return null;
+
+    return (
+      <div className={`mt-2 pt-2 border-t text-xs leading-relaxed transition-all animate-in fade-in duration-150 ${
+        isMe
+          ? 'border-indigo-200/40 dark:border-indigo-400/20 text-slate-100 dark:text-zinc-200'
+          : 'border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200'
+      }`}>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-1.5 font-bold text-[11px] text-indigo-500 dark:text-indigo-400">
+            <Languages className="w-3.5 h-3.5 shrink-0" />
+            <span>Bản dịch · {trans.languageLabel || 'English'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleInlineTranslation(messageId);
+            }}
+            className={`text-[10px] underline cursor-pointer font-medium hover:opacity-80 ${
+              isMe ? 'text-indigo-100 dark:text-indigo-300' : 'text-gray-500 dark:text-zinc-400'
+            }`}
+          >
+            Ẩn bản dịch
+          </button>
+        </div>
+
+        {trans.isLoading ? (
+          <div className="flex items-center gap-2 py-1 text-gray-500 dark:text-zinc-400 italic text-[11px]">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500 shrink-0" />
+            <span>Đang dịch tin nhắn...</span>
+          </div>
+        ) : trans.error ? (
+          <div className="text-rose-500 dark:text-rose-400 text-[11px]">
+            {trans.error}
+          </div>
+        ) : trans.translatedText ? (
+          <div className="break-words text-sm font-normal mt-1 whitespace-pre-wrap select-text">
+            {trans.translatedText}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   const handleScrollWithStickyDate = (event: React.UIEvent<HTMLDivElement>) => {
     handleMessagesScroll(event);
@@ -892,10 +1044,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                           <div className="mt-1 text-[10px] text-gray-400">{formatMessageTime(msg.createdAt)}</div>
                         </div>
                       </div>
+                    ) : msg.metadata?.systemType === 'GROUP_EVENT' && msg.metadata?.event ? (
+                      <GroupEventCard event={msg.metadata.event} />
                     ) : msg.metadata?.systemType === 'MESSAGE_REMINDER' ? (
                       renderReminderSystemMessage(msg)
                     ) : isCallLog ? (
-                      <div className="w-full max-w-[min(86vw,560px)] rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:border-indigo-500/20 dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20">
+                      <div className={`${expandedCallLogId === msg.id ? 'w-full' : 'w-fit'} max-w-[min(86vw,560px)] rounded-2xl bg-white/95 px-4 py-3 text-center text-gray-600 shadow-sm dark:bg-[#151b2a] dark:text-zinc-300 dark:shadow-black/20`}>
                         <button
                           type="button"
                           onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
@@ -1290,6 +1444,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onRemind={() => setReminderTargetMessage(msg)}
                                 onCreateTask={() => onCreateTaskFromMessage?.(msg)}
                                 onEditImage={(image) => onEditImage?.({ messageId: msg.id, ...image })}
+                                onSavePersonal={() => void savePersonalMessage(msg.id)}
+                                onTranslate={(targetLanguage, language) => void translatePersonalMessage(msg.id, targetLanguage, language)}
                                 canCreateTask={canCreateTaskFromMessage}
                                 canPin={canPinMessage(msg)}
                                 canRecall={canRecallMessageInActiveConversation(msg)}
@@ -1530,6 +1686,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
                                 <div className={`px-3 py-2 text-sm ${isMe ? 'nextalk-themed-bubble' : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-white'}`}>
                                   {renderFormattedMessage(msg.content)}
+                                  {renderInlineTranslationBlock(msg.id, isMe)}
                                 </div>
                               )}
                             </div>
@@ -1630,6 +1787,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               {(msg.attachments && msg.attachments.length > 0 && msg.content) && (
                                 <div className={`px-2 py-1 text-sm ${isMe ? 'text-indigo-900 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'}`}>
                                   {renderFormattedMessage(msg.content)}
+                                  {renderInlineTranslationBlock(msg.id, isMe)}
                                 </div>
                               )}
                             </div>
@@ -1683,6 +1841,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
                                 {renderFormattedMessage(msg.content)}
+                                {renderInlineTranslationBlock(msg.id, isMe)}
                                 {renderLinkPreviewCard(msg, isMe)}
                                 {msg.isEdited && (
                                   <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
@@ -1889,6 +2048,40 @@ export const MessageList: React.FC<MessageListProps> = ({
           setConfirmState({ isOpen: false, type: null, messageId: null });
         }}
       />
+
+      {personalActionModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/45 p-4" onMouseDown={() => {
+          if (personalActionModal.kind !== 'saving' && personalActionModal.kind !== 'translating') setPersonalActionModal(null);
+        }}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl dark:bg-zinc-900" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-zinc-100">
+                {personalActionModal.kind.startsWith('save') ? <Bookmark className="h-5 w-5 text-indigo-600" /> : <Languages className="h-5 w-5 text-indigo-600" />}
+                {personalActionModal.title}
+              </div>
+              {personalActionModal.kind !== 'saving' && personalActionModal.kind !== 'translating' && (
+                <button type="button" onClick={() => setPersonalActionModal(null)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-5 w-5" /></button>
+              )}
+            </div>
+            {personalActionModal.kind === 'saving' || personalActionModal.kind === 'translating' ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                Vui lòng chờ…
+              </div>
+            ) : (
+              <>
+                <p className={`mt-4 whitespace-pre-wrap text-sm leading-6 ${
+                  personalActionModal.kind.endsWith('error') ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-zinc-200'
+                }`}>{personalActionModal.message}</p>
+                {personalActionModal.kind === 'translation' && (
+                  <p className="mt-3 text-[11px] text-gray-400">Bản dịch chỉ hiển thị cho bạn và không thay đổi tin nhắn gốc.</p>
+                )}
+                <button type="button" onClick={() => setPersonalActionModal(null)} className="mt-4 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-bold text-white hover:bg-indigo-700">Đóng</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 };

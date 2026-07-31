@@ -1,11 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
-import { MessageSquare, Users, CircleUserRound } from 'lucide-react';
+import { Bookmark, MessageSquare, Users, CircleUserRound } from 'lucide-react';
 import { useFriendStore } from '../../store/friendStore';
 import { useGroupStore } from '../../store/groupStore';
 import { useChatStore } from '../../store/chatStore';
 
-export const MobileBottomNav = () => {
+export const MobileBottomNav = ({ onOpenSavedMessages }: { onOpenSavedMessages?: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -61,6 +61,13 @@ export const MobileBottomNav = () => {
           </span>
         )}
       </button>
+
+      {onOpenSavedMessages && (
+        <button onClick={onOpenSavedMessages} className="flex h-full flex-1 flex-col items-center justify-center py-1 text-gray-500 transition-all hover:text-indigo-600 dark:text-zinc-400">
+          <Bookmark className="h-5.5 w-5.5" />
+          <span className="mt-1 text-[10px] font-bold tracking-wide">Đã lưu</span>
+        </button>
+      )}
 
       {/* Profile/Settings Tab */}
       <button

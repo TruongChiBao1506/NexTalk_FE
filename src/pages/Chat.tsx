@@ -14,10 +14,11 @@ import { useChatStore } from '../store/chatStore';
 import { useChannelTaskStore } from '../store/channelTaskStore';
 import { useGroupStore } from '../store/groupStore';
 import { useFriendStore } from '../store/friendStore';
+import { useActionInboxStore } from '../store/actionInboxStore';
 import { useChatRequestStore } from '../store/chatRequestStore';
 import { authService } from '../services/authService';
 import { fileService } from '../services/fileService';
-import { messageService } from '../services/messageService';
+import { messageService, type SavedMessageResponse } from '../services/messageService';
 import { reminderService } from '../services/reminderService';
 import { blockService } from '../services/blockService';
 import { groupService } from '../services/groupService';
@@ -71,6 +72,7 @@ import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel'
 import { MessageFilterBar } from '../components/chat/MessageFilterBar';
 import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
 import { ActionInboxPanel } from '../components/chat/ActionInboxPanel';
+import { SavedMessagesModal } from '../components/chat/SavedMessagesModal';
 import { MyTasksPanel } from '../components/chat/MyTasksPanel';
 import type { CreatePollData } from '../components/chat/CreatePollModal';
 import type { NotificationResponse } from '../types/notification';
@@ -257,6 +259,7 @@ export const Chat = () => {
   } = useChatRequestStore();
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
+  const [isSavedMessagesOpen, setIsSavedMessagesOpen] = useState(false);
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [isMyQrOpen, setIsMyQrOpen] = useState(false);
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
@@ -3027,6 +3030,9 @@ export const Chat = () => {
 
     if (!item.referenceId) return;
     await selectConversation(item.referenceId);
+    if (item.type === 'MISSED_CALL') {
+      void useActionInboxStore.getState().resolveMissedCalls(item.referenceId);
+    }
 
     if ((item.type === 'TASK_ASSIGNED' || item.type === 'TASK_DUE' || item.type === 'TASK_UPDATED') && item.secondaryReferenceId) {
       window.setTimeout(() => {
@@ -3610,6 +3616,7 @@ export const Chat = () => {
         activePage="chat"
         onLogout={handleLogout}
         isLoggingOut={isLoggingOut}
+        onOpenSavedMessages={() => setIsSavedMessagesOpen(true)}
       />
 
       {/* Column 2: Conversations Sidebar — Zalo style */}
@@ -4352,6 +4359,25 @@ export const Chat = () => {
         canUnpin={Boolean(canPinMessageInActiveConversation)}
       />
 
+      <SavedMessagesModal
+        open={isSavedMessagesOpen}
+        onClose={() => setIsSavedMessagesOpen(false)}
+        onOpenMessage={async (item: SavedMessageResponse) => {
+          setIsSavedMessagesOpen(false);
+          setChannelView('chat');
+          await selectConversation(item.message.conversationId);
+          useChatStore.setState((state) => {
+            const withoutTarget = state.messages.filter((message) => message.id !== item.message.id);
+            return {
+              messages: [...withoutTarget, item.message].sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+              ),
+            };
+          });
+          window.setTimeout(() => handleJumpToMessage(item.message.id), 120);
+        }}
+      />
+
       {/* Search Messages Panel */}
       <SearchPanel
         isOpen={isSearchPanelOpen}
@@ -4567,7 +4593,7 @@ export const Chat = () => {
         onClose={() => setIsQrScannerOpen(false)}
       />
 
-      {!activeConversation && !selectedChatRequest && <MobileBottomNav />}
+      {!activeConversation && !selectedChatRequest && <MobileBottomNav onOpenSavedMessages={() => setIsSavedMessagesOpen(true)} />}
     </div>
   );
 };

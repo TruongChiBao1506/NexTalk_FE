@@ -26,6 +26,7 @@ import {
   Crown,
   UserCog,
   User,
+  UserPlus,
   Users,
   ChevronDown
 } from 'lucide-react';
@@ -35,8 +36,10 @@ import { GroupQrModal } from './GroupQrModal';
 import { GroupAvatar } from './GroupAvatar';
 import { groupService } from '../../services/groupService';
 import { useGroupStore } from '../../store/groupStore';
+import { useFriendStore } from '../../store/friendStore';
 import { downloadFile } from '../../utils/fileUtils';
 import { ConversationNotificationSettings } from './ConversationNotificationSettings';
+import { GroupEventsSection } from './GroupEventsSection';
 
 interface ConversationInfoPanelProps {
   isConversationInfoOpen: boolean;
@@ -148,6 +151,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [showGroupMembers, setShowGroupMembers] = useState(false);
   const [groupMemberSearchQuery, setGroupMemberSearchQuery] = useState('');
   const [groupMemberActionId, setGroupMemberActionId] = useState<string | null>(null);
+  const [friendRequestActionId, setFriendRequestActionId] = useState<string | null>(null);
   const [groupManagementFeedback, setGroupManagementFeedback] = useState<string | null>(null);
   const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
@@ -163,6 +167,10 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const groupAvatarInputRef = useRef<HTMLInputElement>(null);
   const updateMemberRole = useGroupStore((state) => state.updateMemberRole);
   const fetchGroups = useGroupStore((state) => state.fetchGroups);
+  const relationStatuses = useFriendStore((state) => state.relationStatuses);
+  const fetchRelationStatuses = useFriendStore((state) => state.fetchRelationStatuses);
+  const sendFriendRequest = useFriendStore((state) => state.sendFriendRequest);
+  const acceptFriendRequest = useFriendStore((state) => state.acceptRequest);
 
   const currentGroupMembership = activeGroup?.members?.find(
     (member: GroupMemberResponse) => member.userId === currentUserId,
@@ -231,6 +239,35 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
     setGroupManagementFeedback(null);
     setShowGroupMembers(false);
   }, [activeGroup?.id]);
+
+  useEffect(() => {
+    if (!showGroupMembers) return;
+    const memberIds = (activeGroup?.members ?? [])
+      .map((member: GroupMemberResponse) => member.userId)
+      .filter((userId: string) => userId !== currentUserId);
+    void fetchRelationStatuses(memberIds);
+  }, [activeGroup?.members, currentUserId, fetchRelationStatuses, showGroupMembers]);
+
+  const handleSendGroupMemberFriendRequest = async (member: GroupMemberResponse) => {
+    if (friendRequestActionId || member.userId === currentUserId) return;
+    setFriendRequestActionId(member.userId);
+    setGroupManagementFeedback(null);
+    try {
+      const isIncomingRequest = relationStatuses[member.userId] === 'INCOMING_PENDING';
+      const ok = isIncomingRequest
+        ? Boolean(await acceptFriendRequest(member.userId))
+        : await sendFriendRequest(member.userId);
+      setGroupManagementFeedback(
+        ok
+          ? isIncomingRequest
+            ? `Bạn và ${member.username} đã trở thành bạn bè.`
+            : `Đã gửi lời mời kết bạn đến ${member.username}.`
+          : `Không thể cập nhật kết nối với ${member.username}.`,
+      );
+    } finally {
+      setFriendRequestActionId(null);
+    }
+  };
 
   useEffect(() => {
     if (!isConversationInfoOpen || !activeGroup?.id || !activeChannel?.id || !activeChannel.isTaskEnabled) {
@@ -397,6 +434,11 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                   const canMakeDeputy = canSetGroupMemberRole(member, 'DEPUTY');
                   const canMakeMember = canSetGroupMemberRole(member, 'MEMBER');
                   const roleActionLoading = groupMemberActionId?.startsWith(`${member.userId}:`);
+                  const friendRelation = relationStatuses[member.userId];
+                  const canSendFriendRequest = member.userId !== currentUserId
+                    && (!friendRelation || friendRelation === 'NONE' || friendRelation === 'REJECTED');
+                  const friendRequestPending = friendRelation === 'OUTGOING_PENDING';
+                  const canAcceptFriendRequest = friendRelation === 'INCOMING_PENDING';
 
                   return (
                     <div
@@ -422,6 +464,25 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
                           {roleLabels[member.role]}
                         </p>
                       </div>
+
+                      {(canSendFriendRequest || canAcceptFriendRequest || friendRequestPending) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSendGroupMemberFriendRequest(member)}
+                          disabled={Boolean(friendRequestActionId) || friendRequestPending}
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 disabled:cursor-default disabled:opacity-60 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                          title={friendRequestPending
+                            ? 'Lời mời kết bạn đã được gửi'
+                            : canAcceptFriendRequest
+                              ? `Chấp nhận lời mời của ${member.username}`
+                              : `Kết bạn với ${member.username}`}
+                        >
+                          {friendRequestActionId === member.userId
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <UserPlus className="h-3.5 w-3.5" />}
+                          <span>{friendRequestPending ? 'Đã gửi' : canAcceptFriendRequest ? 'Chấp nhận' : 'Kết bạn'}</span>
+                        </button>
+                      )}
 
                       {(canTransferOwnership || canMakeDeputy || canMakeMember) && (
                         <div className="flex shrink-0 items-center gap-0.5">
@@ -590,6 +651,15 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               </p>
             )}
           </section>
+
+          {isGroupConversation && activeGroup && (
+            <GroupEventsSection
+              group={activeGroup}
+              conversationId={activeConversation.id}
+              currentUserRole={currentGroupMembership?.role}
+              onGroupsChanged={fetchGroups}
+            />
+          )}
 
           {isGroupConversation && activeGroup && (
             <section className="order-[-1] mt-6">

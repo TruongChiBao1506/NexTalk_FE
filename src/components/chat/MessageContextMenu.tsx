@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo, Sparkles } from 'lucide-react';
+import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo, Sparkles, Bookmark, Languages, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
 import { useChatStore } from '../../store/chatStore';
@@ -16,6 +16,8 @@ interface MessageActionsBarProps {
   onRemind: () => void;
   onCreateTask?: () => void;
   onEditImage?: (image: { url: string; name?: string | null }) => void;
+  onSavePersonal: () => void;
+  onTranslate: (targetLanguage: string, languageLabel: string) => void;
   canCreateTask?: boolean;
   canPin?: boolean;
   canRecall?: boolean;
@@ -136,22 +138,29 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
   onRemind,
   onCreateTask,
   onEditImage,
+  onSavePersonal,
+  onTranslate,
   canCreateTask = false,
   canPin = true,
   canRecall,
   onMenuOpenChange,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showTranslateSubmenu, setShowTranslateSubmenu] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     onMenuOpenChange?.(showDropdown);
+    if (!showDropdown) {
+      setShowTranslateSubmenu(false);
+    }
   }, [showDropdown, onMenuOpenChange]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
+        setShowTranslateSubmenu(false);
       }
     };
 
@@ -180,6 +189,11 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
         ? { url: message.content, name: 'image' }
         : undefined)
     : undefined;
+
+  const translate = async (targetLanguage: string, language: string) => {
+    setShowDropdown(false);
+    onTranslate(targetLanguage, language);
+  };
 
   return (
     <div className="flex items-center bg-white dark:bg-discord-mid border border-gray-200 dark:border-zinc-700 rounded-md shadow-md px-1.5 py-0.5 space-x-1 text-gray-700 dark:text-zinc-100 select-none h-8 transition-colors">
@@ -246,6 +260,77 @@ export const MessageActionsBar: React.FC<MessageActionsBarProps> = ({
               <Copy className="w-3.5 h-3.5 mr-2" />
               <span>Sao chép nội dung</span>
             </button>
+
+            {!message.isRecalled && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDropdown(false);
+                  onSavePersonal();
+                }}
+                className="w-full flex items-center px-2 py-1.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-500/15 text-left font-medium"
+              >
+                <Bookmark className="mr-2 h-3.5 w-3.5" />
+                <span>Lưu tin nhắn</span>
+              </button>
+            )}
+
+            {!message.isRecalled && message.content?.trim() && message.messageType !== 'STICKER' && message.messageType !== 'SYSTEM' && (
+              <div className="relative group/translate">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTranslateSubmenu((prev) => !prev);
+                  }}
+                  onMouseEnter={() => setShowTranslateSubmenu(true)}
+                  className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-650 dark:hover:bg-indigo-500/15 dark:hover:text-white transition-colors duration-150 text-left font-medium"
+                >
+                  <div className="flex items-center">
+                    <Languages className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                    <span>Dịch tin nhắn</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                </button>
+
+                {showTranslateSubmenu && (
+                  <div
+                    className="absolute left-full top-0 ml-1 min-w-[160px] bg-white dark:bg-discord-mid border border-gray-200 dark:border-zinc-700 rounded-md shadow-lg p-1 z-50 animate-in fade-in slide-in-from-left-2 duration-100"
+                    onMouseLeave={() => setShowTranslateSubmenu(false)}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 py-1 mb-0.5 border-b border-gray-100 dark:border-zinc-700/60">
+                      Chọn ngôn ngữ
+                    </div>
+                    <div className="flex flex-col gap-0.5 max-h-56 overflow-y-auto">
+                      {[
+                        ['vi', 'Tiếng Việt'],
+                        ['en', 'English'],
+                        ['ja', '日本語 (Tiếng Nhật)'],
+                        ['ko', '한국어 (Tiếng Hàn)'],
+                        ['zh-CN', '中文 (Tiếng Trung)'],
+                        ['fr', 'Français (Tiếng Pháp)'],
+                        ['de', 'Deutsch (Tiếng Đức)'],
+                        ['es', 'Español (Tây Ban Nha)'],
+                        ['th', 'ไทย (Tiếng Thái)'],
+                        ['id', 'Indonesia'],
+                      ].map(([code, label]) => (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            setShowTranslateSubmenu(false);
+                            void translate(code, label);
+                          }}
+                          className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/15 dark:hover:text-white transition-colors"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {editableImage && onEditImage && (
               <button

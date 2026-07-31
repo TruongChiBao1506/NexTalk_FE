@@ -11,6 +11,7 @@ import { useChatStore } from './chatStore';
 import { useAuthStore } from './authStore';
 import { apiClient } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
+import { useActionInboxStore } from './actionInboxStore';
 
 let agoraModulePromise: Promise<typeof import('agora-rtc-sdk-ng')> | null = null;
 const loadAgoraRTC = async () => {
@@ -228,6 +229,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       destination: '/app/call.invite',
       body: JSON.stringify(signalPayload)
     });
+    void useActionInboxStore.getState().resolveMissedCalls(conversationId);
 
     const ringTimeoutId = window.setTimeout(() => {
       const state = get();

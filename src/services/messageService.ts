@@ -2,6 +2,19 @@ import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
 import type { MessageResponse } from '../types/chat';
 
+export interface SavedMessageResponse {
+  id: string;
+  savedAt: string;
+  conversationName?: string | null;
+  message: MessageResponse;
+}
+
+export interface MessageTranslationResponse {
+  messageId: string;
+  targetLanguage: string;
+  translatedText: string;
+}
+
 export interface CreatePollPayload {
   conversationId: string;
   question: string;
@@ -81,6 +94,28 @@ export const messageService = {
 
   async unpinMessage(id: string): Promise<ApiResponse<MessageResponse>> {
     const response = await apiClient.delete<ApiResponse<MessageResponse>>(`/messages/${id}/pin`);
+    return response.data;
+  },
+
+  async saveMessage(id: string): Promise<ApiResponse<SavedMessageResponse>> {
+    const response = await apiClient.post<ApiResponse<SavedMessageResponse>>(`/saved-messages/${id}`);
+    return response.data;
+  },
+
+  async removeSavedMessage(id: string): Promise<ApiResponse<void>> {
+    const response = await apiClient.delete<ApiResponse<void>>(`/saved-messages/${id}`);
+    return response.data;
+  },
+
+  async getSavedMessages(limit = 50): Promise<ApiResponse<SavedMessageResponse[]>> {
+    const response = await apiClient.get<ApiResponse<SavedMessageResponse[]>>('/saved-messages', { params: { limit } });
+    return response.data;
+  },
+
+  async translateMessage(id: string, targetLanguage: string): Promise<ApiResponse<MessageTranslationResponse>> {
+    const response = await apiClient.post<ApiResponse<MessageTranslationResponse>>(`/messages/${id}/translate`, {
+      targetLanguage,
+    });
     return response.data;
   },
 

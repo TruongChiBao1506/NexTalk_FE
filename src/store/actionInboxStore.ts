@@ -4,6 +4,8 @@ import type { ActionItemStatus, NotificationResponse } from '../types/notificati
 
 interface ActionInboxState {
   items: NotificationResponse[];
+  pendingItems: NotificationResponse[];
+  missedCallCounts: Record<string, number>;
   pendingCount: number;
   activeStatus: ActionItemStatus;
   isOpen: boolean;
@@ -15,10 +17,23 @@ interface ActionInboxState {
   fetchPendingCount: () => Promise<void>;
   addActionItem: (item: NotificationResponse) => void;
   updateAction: (id: string, status: ActionItemStatus, snoozedUntil?: string | null) => Promise<boolean>;
+  resolveMissedCalls: (conversationId: string) => Promise<void>;
 }
+
+const getMissedCallCounts = (items: NotificationResponse[]) => items.reduce<Record<string, number>>(
+  (counts, item) => {
+    if (item.type === 'MISSED_CALL' && item.referenceId) {
+      counts[item.referenceId] = (counts[item.referenceId] ?? 0) + 1;
+    }
+    return counts;
+  },
+  {},
+);
 
 export const useActionInboxStore = create<ActionInboxState>((set, get) => ({
   items: [],
+  pendingItems: [],
+  missedCallCounts: {},
   pendingCount: 0,
   activeStatus: 'PENDING',
   isOpen: false,
@@ -33,9 +48,14 @@ export const useActionInboxStore = create<ActionInboxState>((set, get) => ({
     try {
       const response = await notificationService.getActionItems(status);
       if (!response.success) throw new Error(response.message || 'Không thể tải Hộp Cần xử lý');
-      set({ items: response.data ?? [] });
+      const responseItems = response.data ?? [];
+      set({ items: responseItems });
       if (status === 'PENDING') {
-        set({ pendingCount: response.data?.length ?? 0 });
+        set({
+          pendingItems: responseItems,
+          missedCallCounts: getMissedCallCounts(responseItems),
+          pendingCount: responseItems.length,
+        });
       }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Không thể tải Hộp Cần xử lý' });
@@ -46,8 +66,15 @@ export const useActionInboxStore = create<ActionInboxState>((set, get) => ({
 
   fetchPendingCount: async () => {
     try {
-      const response = await notificationService.getPendingActionCount();
-      if (response.success) set({ pendingCount: response.data ?? 0 });
+      const response = await notificationService.getActionItems('PENDING');
+      if (response.success) {
+        const pendingItems = response.data ?? [];
+        set({
+          pendingItems,
+          missedCallCounts: getMissedCallCounts(pendingItems),
+          pendingCount: pendingItems.length,
+        });
+      }
     } catch {
       // Badge refresh is best effort.
     }
@@ -55,27 +82,40 @@ export const useActionInboxStore = create<ActionInboxState>((set, get) => ({
 
   addActionItem: (item) => {
     if (item.actionStatus !== 'PENDING') return;
-    set((state) => ({
-      items: state.activeStatus === 'PENDING' && !state.items.some((current) => current.id === item.id)
-        ? [item, ...state.items]
-        : state.items,
-      pendingCount: state.pendingCount + (state.items.some((current) => current.id === item.id) ? 0 : 1),
-    }));
+    set((state) => {
+      if (state.pendingItems.some((current) => current.id === item.id)) return state;
+      const pendingItems = [item, ...state.pendingItems];
+      return {
+        items: state.activeStatus === 'PENDING' ? [item, ...state.items] : state.items,
+        pendingItems,
+        missedCallCounts: getMissedCallCounts(pendingItems),
+        pendingCount: pendingItems.length,
+      };
+    });
   },
 
   updateAction: async (id, status, snoozedUntil = null) => {
     try {
       const response = await notificationService.updateAction(id, status, snoozedUntil);
       if (!response.success) return false;
-      const wasPending = get().items.find((item) => item.id === id)?.actionStatus === 'PENDING'
-        || get().activeStatus === 'PENDING';
+      const wasPending = get().pendingItems.some((item) => item.id === id);
       set((state) => ({
         items: state.items.filter((item) => item.id !== id),
+        pendingItems: state.pendingItems.filter((item) => item.id !== id),
+        missedCallCounts: getMissedCallCounts(state.pendingItems.filter((item) => item.id !== id)),
         pendingCount: wasPending ? Math.max(0, state.pendingCount - 1) : state.pendingCount,
       }));
       return true;
     } catch {
       return false;
     }
+  },
+
+  resolveMissedCalls: async (conversationId) => {
+    const missedCalls = get().pendingItems.filter(
+      (item) => item.type === 'MISSED_CALL' && item.referenceId === conversationId,
+    );
+    if (missedCalls.length === 0) return;
+    await Promise.all(missedCalls.map((item) => get().updateAction(item.id, 'RESOLVED')));
   },
 }));

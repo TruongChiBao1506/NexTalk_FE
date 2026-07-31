@@ -11,6 +11,7 @@ import {
   Image,
   Video,
   Phone,
+  PhoneMissed,
   UserPlus,
   Pin,
   Sparkles,
@@ -36,6 +37,7 @@ import React, { useCallback, useMemo } from 'react';
 import { ChatListSkeleton } from '../common/Skeleton';
 import { GroupAvatar } from './GroupAvatar';
 import { useCallStore } from '../../store/callStore';
+import { useActionInboxStore } from '../../store/actionInboxStore';
 import { DmConversationItem } from './DmConversationItem';
 
 const javaStringHashUid = (value: string) => {
@@ -163,6 +165,8 @@ export const ConversationList = ({
   const remoteVoiceUsers = useCallStore((state) => state.remoteUsers);
   const activeCallState = useCallStore((state) => state.callState);
   const activeCallConversationId = useCallStore((state) => state.conversationId);
+  const missedCallCounts = useActionInboxStore((state) => state.missedCallCounts);
+  const resolveMissedCalls = useActionInboxStore((state) => state.resolveMissedCalls);
 
   const getDraftPreview = useCallback((conversationId?: string | null) => {
     if (!conversationId) return '';
@@ -578,6 +582,7 @@ export const ConversationList = ({
             const draftPreview = getDraftPreview(c.id);
             const isSelected = activeConversation?.id === c.id;
             const unreadCount = unreadCounts[c.id] ?? 0;
+            const missedCallCount = missedCallCounts[c.id] ?? 0;
             const hasUnread = unreadCount > 0;
 
             return (
@@ -590,6 +595,7 @@ export const ConversationList = ({
                 draftPreview={draftPreview}
                 isSelected={isSelected}
                 unreadCount={unreadCount}
+                missedCallCount={missedCallCount}
                 hasUnread={hasUnread}
                 activeCallState={activeCallConversationId === c.id ? activeCallState : null}
                 openConversationMenuId={openConversationMenuId}
@@ -598,6 +604,7 @@ export const ConversationList = ({
                 formatLastMessage={formatLastMessage}
                 onSelect={() => {
                   setOpenConversationMenuId(null);
+                  void resolveMissedCalls(c.id);
                   selectConversation(c.id);
                 }}
                 onToggleMenu={() =>
@@ -641,6 +648,10 @@ export const ConversationList = ({
             0,
           );
           const unreadCount = channelUnreadCount;
+          const missedCallCount = Array.from(groupConversationIds).reduce(
+            (total: number, conversationId: any) => total + (missedCallCounts[conversationId] ?? 0),
+            0,
+          );
           const hasUnread = unreadCount > 0;
 
           return (
@@ -648,6 +659,9 @@ export const ConversationList = ({
               <div
                 onClick={(e) => {
                   setOpenConversationMenuId(null);
+                  groupConversationIds.forEach((conversationId: any) => {
+                    void resolveMissedCalls(conversationId);
+                  });
                   handleOpenGroup(g);
                   toggleGroupExpand(g.id, e);
                 }}
@@ -743,6 +757,15 @@ export const ConversationList = ({
                         `${g.memberCount} thành viên`
                       )}
                     </p>
+                    {missedCallCount > 0 && (
+                      <span
+                        className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center gap-1 rounded-full bg-rose-50 px-1.5 text-[10px] font-bold text-rose-600 dark:bg-rose-500/15 dark:text-rose-300"
+                        title={`${missedCallCount} cuộc gọi nhỡ`}
+                      >
+                        <PhoneMissed className="h-3 w-3" />
+                        {missedCallCount > 99 ? '99+' : missedCallCount}
+                      </span>
+                    )}
                     {groupConversationId && groupConversation && (
                       <div className="flex items-center gap-0.5 shrink-0">
                         {g.channels?.some((channel) => !channel.hidden) && (
@@ -894,6 +917,7 @@ export const ConversationList = ({
                       activeConversation?.id === ch.conversationId;
                     const channelLastMessage = lastMessages[ch.conversationId];
                     const channelUnreadCount = unreadCounts[ch.conversationId] ?? 0;
+                    const channelMissedCallCount = missedCallCounts[ch.conversationId] ?? 0;
                     const channelHasUnread = channelUnreadCount > 0;
                     const channelDraftPreview = getDraftPreview(ch.conversationId);
                     const voiceMemberIds = ch.type === "VOICE"
@@ -926,6 +950,7 @@ export const ConversationList = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (channelIsPrivate && !isMemberOfChannel) return;
+                          void resolveMissedCalls(ch.conversationId);
                           selectConversation(ch.conversationId);
                         }}
                         className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-xl transition-colors ${
@@ -985,6 +1010,15 @@ export const ConversationList = ({
                             {channelHasUnread && (
                               <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-sm">
                                 {channelUnreadCount > 99 ? "99+" : channelUnreadCount}
+                              </span>
+                            )}
+                            {channelMissedCallCount > 0 && (
+                              <span
+                                className="inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center gap-0.5 rounded-full bg-rose-50 px-1 text-[9px] font-bold text-rose-600 dark:bg-rose-500/15 dark:text-rose-300"
+                                title={`${channelMissedCallCount} cuộc gọi nhỡ`}
+                              >
+                                <PhoneMissed className="h-2.5 w-2.5" />
+                                {channelMissedCallCount > 99 ? '99+' : channelMissedCallCount}
                               </span>
                             )}
                             {ch.type === "VOICE" && voiceMembers.length > 0 && (

@@ -3,6 +3,7 @@ import {
   AlarmClock,
   ArchiveX,
   BellRing,
+  CalendarDays,
   Check,
   ClipboardList,
   Inbox,
@@ -30,6 +31,7 @@ function ActionIcon({ type }: { type: NotificationResponse['type'] }) {
   if (type === 'MENTION') return <MessageSquareText className={className} />;
   if (type === 'TASK_ASSIGNED' || type === 'TASK_DUE' || type === 'TASK_UPDATED') return <ClipboardList className={className} />;
   if (type === 'MISSED_CALL') return <PhoneMissed className={className} />;
+  if (type === 'GROUP_EVENT_REMINDER') return <CalendarDays className={className} />;
   if (type === 'FRIEND_REQUEST' || type === 'GROUP_INVITE' || type === 'CHAT_REQUEST') return <UserPlus className={className} />;
   return <BellRing className={className} />;
 }
