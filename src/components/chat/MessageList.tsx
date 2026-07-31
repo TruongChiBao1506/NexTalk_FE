@@ -225,6 +225,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
+  const [timestampMessageId, setTimestampMessageId] = useState<string | null>(null);
   const [personalActionModal, setPersonalActionModal] = useState<{
     kind: 'saving' | 'save-success' | 'save-error' | 'translating' | 'translation' | 'translation-error';
     title: string;
@@ -969,6 +970,19 @@ export const MessageList: React.FC<MessageListProps> = ({
               <div
                 id={`message-${msg.id}`}
                 data-message-date={msg.createdAt}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest('button, a, input, textarea, video, audio')) return;
+                  setTimestampMessageId((current) => current === msg.id ? null : msg.id);
+                }}
+                onDoubleClick={(event) => {
+                  if (
+                    isSelectionMode
+                    || isRecalledMessage
+                    || (event.target as HTMLElement).closest('button, a, input, textarea, video, audio')
+                  ) return;
+                  event.preventDefault();
+                  reactToMessage(msg.id, '❤️');
+                }}
                 onMouseEnter={() => setHoveredMessageId(msg.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
                 className={`relative group flex flex-col space-y-1 px-3 py-0.5 rounded-xl transition-colors ${isSameSenderCluster ? 'mt-0.5' : 'mt-4'} ${isMentionedCurrentUser
@@ -1880,7 +1894,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                                       : 'text-slate-400 dark:text-zinc-500'
                                   }`}>
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
-                                    <span>{formatMessageTime(msg.createdAt)}</span>
+                                    {(timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
+                                      <span>{formatMessageTime(msg.createdAt)}</span>
+                                    )}
                                     {isMe && (
                                       <span title={getMessageStatusLabel(msg)} className={getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-300' : 'text-current'}>
                                         {getMessageStatus(msg) === 'SEEN' || getMessageStatus(msg) === 'DELIVERED'
@@ -1943,7 +1959,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         </div>
 
                         {/* Status block */}
-                        {!showTimestampInsideBubble && (
+                        {!showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
                           <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                             {msg.isPinned && (
                               <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
