@@ -890,6 +890,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           const isMe = msg.senderId === user?.id;
           const latestSeenMembers = getLatestSeenMembers(msg, index);
           const visibleSeenMembers = latestSeenMembers.slice(0, isGroupConversation ? 3 : 1);
+          const hasReactions = Boolean(!msg.isRecalled && msg.reactions?.length);
           const isMentionedCurrentUser = !isMe && Boolean(
             msg.metadata?.mentionAll ||
             (Array.isArray(msg.metadata?.mentionedUserIds) && msg.metadata.mentionedUserIds.includes(user?.id))
@@ -1459,7 +1460,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           {/* Context menu actions bar */}
                           {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !isRecalledMessage && !isSelectionMode && (
                             <div
-                              className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${isMe
+                              className={`absolute z-20 animate-in fade-in zoom-in-95 duration-100 bottom-full mb-1 md:bottom-auto md:top-1/2 md:-translate-y-1/2 ${hasReactions ? 'md:-mt-5' : ''} ${isMe
                                   ? 'right-0 md:right-[calc(100%+8px)] md:left-auto'
                                   : 'left-0 md:left-[calc(100%+8px)] md:right-auto'
                                 }`}
@@ -1887,16 +1888,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     (đã chỉnh sửa)
                                   </span>
                                 )}
-                                {showTimestampInsideBubble && (
+                                {showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
                                   <span className={`ml-2 inline-flex items-center gap-1 whitespace-nowrap align-baseline text-[9px] leading-none ${
                                     isMe
                                       ? 'text-slate-500 dark:text-white/70'
                                       : 'text-slate-400 dark:text-zinc-500'
                                   }`}>
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
-                                    {(timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
-                                      <span>{formatMessageTime(msg.createdAt)}</span>
-                                    )}
+                                    <span>{formatMessageTime(msg.createdAt)}</span>
                                     {isMe && (
                                       <span title={getMessageStatusLabel(msg)} className={getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-300' : 'text-current'}>
                                         {getMessageStatus(msg) === 'SEEN' || getMessageStatus(msg) === 'DELIVERED'
@@ -1936,7 +1935,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           )}
 
                           {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !isRecalledMessage && (
-                            <div className="absolute -bottom-3 right-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                            <div className={`absolute right-1 z-30 animate-in fade-in zoom-in-95 duration-100 ${hasReactions ? 'bottom-7' : '-bottom-3'}`}>
                               <MessageReactionButton
                                 onReact={(emoji) => reactToMessage(msg.id, emoji)}
                                 align={isMe ? 'right' : 'left'}
