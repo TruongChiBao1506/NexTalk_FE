@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo, Sparkles, Bookmark, Languages, ChevronRight, ChevronLeft } from 'lucide-react';
+import { BellRing, MessageSquareReply, MessageSquareShare, Edit2, Trash2, Undo2, Pin, PinOff, Copy, MoreHorizontal, Smile, Check, ListTodo, Sparkles, Bookmark, Languages, ChevronRight } from 'lucide-react';
 import type { MessageResponse } from '../../types/chat';
 import { stripHtml } from '../../utils/text';
 import { useChatStore } from '../../store/chatStore';

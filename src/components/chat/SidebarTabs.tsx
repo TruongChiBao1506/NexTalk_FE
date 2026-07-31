@@ -1,49 +1,48 @@
+import React from 'react';
+import { ConversationTagDropdown } from './ConversationTagDropdown';
+import type { ConversationTag } from '../../services/conversationTagService';
+
 interface SidebarTabsProps {
-  conversationTab: 'chats' | 'requests';
-  setConversationTab: (val: 'chats' | 'requests') => void;
-  fetchIncomingChatRequests: () => void;
-  incomingRequestsCount: number;
+  conversationTab?: 'chats' | 'requests';
+  setConversationTab?: (val: 'chats' | 'requests') => void;
+  fetchIncomingChatRequests?: () => void;
+  incomingRequestsCount?: number;
+  tags?: ConversationTag[];
+  selectedTagIds?: string[];
+  filterStrangers?: boolean;
+  onToggleTag?: (tagId: string) => void;
+  onToggleFilterStrangers?: () => void;
+  onOpenManageModal?: () => void;
 }
 
 export const SidebarTabs = ({
-  conversationTab,
-  setConversationTab,
-  fetchIncomingChatRequests,
-  incomingRequestsCount,
+  tags = [],
+  selectedTagIds = [],
+  filterStrangers = false,
+  onToggleTag,
+  onToggleFilterStrangers,
+  onOpenManageModal,
 }: SidebarTabsProps) => {
   return (
     <div className="px-3 pb-2 shrink-0">
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/55 p-1 ring-1 ring-indigo-100/80 dark:bg-zinc-900/55 dark:ring-zinc-800">
-        <button
-          type="button"
-          onClick={() => setConversationTab('chats')}
-          className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-            conversationTab === 'chats'
-              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
-              : 'text-slate-500 hover:text-slate-950 dark:text-zinc-400 dark:hover:text-white'
-          }`}
-        >
-          Trò chuyện
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setConversationTab('requests');
-            fetchIncomingChatRequests();
-          }}
-          className={`relative rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-            conversationTab === 'requests'
-              ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
-              : 'text-slate-500 hover:text-slate-950 dark:text-zinc-400 dark:hover:text-white'
-          }`}
-        >
-          Tin nhắn chờ
-          {incomingRequestsCount > 0 && (
-            <span className="absolute -right-1 -top-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-[18px] text-white shadow">
-              {incomingRequestsCount > 99 ? '99+' : incomingRequestsCount}
-            </span>
-          )}
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 px-1">
+            Trò chuyện
+          </span>
+        </div>
+
+        {/* Conversation Tag Filter Dropdown */}
+        {onToggleTag && onToggleFilterStrangers && onOpenManageModal && (
+          <ConversationTagDropdown
+            tags={tags}
+            selectedTagIds={selectedTagIds}
+            filterStrangers={filterStrangers}
+            onToggleTag={onToggleTag}
+            onToggleFilterStrangers={onToggleFilterStrangers}
+            onOpenManageModal={onOpenManageModal}
+          />
+        )}
       </div>
     </div>
   );

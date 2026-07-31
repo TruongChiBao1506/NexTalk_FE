@@ -1,9 +1,10 @@
 // @ts-nocheck
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import {
-  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud, Phone, PhoneMissed,
+  Pin, PinOff, Lock, Loader2, Trash2, MoreHorizontal, AlertTriangle, BellRing, Cloud, Phone, PhoneMissed, Tag as TagIcon, ChevronDown, Check
 } from 'lucide-react';
 import type { ConversationResponse, MessageResponse } from '../../types/chat';
+import type { ConversationTag } from '../../services/conversationTagService';
 
 interface DmConversationItemProps {
   c: ConversationResponse;
@@ -18,6 +19,10 @@ interface DmConversationItemProps {
   activeCallState?: 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected' | null;
   openConversationMenuId: string | null;
   conversationActionId: string | null;
+  assignedTags?: ConversationTag[];
+  allTags?: ConversationTag[];
+  onAssignTag?: (tagId: string) => void;
+  onUnassignTag?: (tagId: string) => void;
   formatConversationTime: (date: string) => string;
   formatLastMessage: (msg: MessageResponse, isGroup: boolean) => React.ReactNode;
   onSelect: () => void;
@@ -40,6 +45,10 @@ export const DmConversationItem = memo(({
   activeCallState,
   openConversationMenuId,
   conversationActionId,
+  assignedTags = [],
+  allTags = [],
+  onAssignTag,
+  onUnassignTag,
   formatConversationTime,
   formatLastMessage,
   onSelect,
@@ -48,6 +57,8 @@ export const DmConversationItem = memo(({
   onHide,
   onDelete,
 }: DmConversationItemProps) => {
+  const [showTagSubmenu, setShowTagSubmenu] = useState(false);
+
   return (
     <div
       onClick={onSelect}
@@ -90,16 +101,32 @@ export const DmConversationItem = memo(({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <span
-            className={`text-[14px] truncate ${
-              hasUnread
-                ? 'font-bold text-gray-900 dark:text-white'
-                : 'font-medium text-gray-800 dark:text-zinc-200'
-            }`}
-          >
-            {friendDisplayName}
-            {c.pinned && <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <span
+              className={`text-[14px] truncate ${
+                hasUnread
+                  ? 'font-bold text-gray-900 dark:text-white'
+                  : 'font-medium text-gray-800 dark:text-zinc-200'
+              }`}
+            >
+              {friendDisplayName}
+            </span>
+            {c.pinned && <Pin className="inline h-3 w-3 text-indigo-500 shrink-0" />}
+
+            {/* Assigned Tag Badges */}
+            {assignedTags.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0 ml-1">
+                {assignedTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
+                    style={{ backgroundColor: tag.color }}
+                    title={tag.name}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
           {lastMsg && (
             <span
               className={`text-[11px] shrink-0 ${
@@ -176,7 +203,7 @@ export const DmConversationItem = memo(({
             </button>
             {openConversationMenuId === c.id && (
               <div
-                className="absolute right-0 top-8 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                className="absolute right-0 top-8 z-30 w-56 rounded-xl border border-gray-200 bg-white py-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -194,7 +221,52 @@ export const DmConversationItem = memo(({
                   )}
                   <span>{c.pinned ? 'Bỏ ghim hội thoại' : 'Ghim hội thoại'}</span>
                 </button>
-                <div className="my-1 border-t border-gray-100 dark:border-zinc-800" />
+
+                {/* Assign Tag Accordion Menu Item */}
+                {allTags.length > 0 && onAssignTag && onUnassignTag && (
+                  <div className="border-t border-b border-gray-100 dark:border-zinc-800 my-1 py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowTagSubmenu(!showTagSubmenu)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <TagIcon className="h-4 w-4 text-indigo-500" />
+                        <span>Gán thẻ phân loại</span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showTagSubmenu ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showTagSubmenu && (
+                      <div className="bg-gray-50/80 dark:bg-zinc-800/50 py-1.5 px-1 max-h-48 overflow-y-auto space-y-0.5 border-t border-gray-100 dark:border-zinc-800/80">
+                        {allTags.map((tag) => {
+                          const isAssigned = assignedTags.some((t) => t.id === tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => {
+                                if (isAssigned) {
+                                  onUnassignTag(tag.id);
+                                } else {
+                                  onAssignTag(tag.id);
+                                }
+                              }}
+                              className="flex w-full items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-gray-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-700/60 transition shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="w-3 h-3 rounded-sm transform rotate-45 shrink-0 shadow-xs" style={{ backgroundColor: tag.color }} />
+                                <span className="truncate">{tag.name}</span>
+                              </div>
+                              {isAssigned && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 font-bold" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={onHide}

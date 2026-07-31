@@ -103,6 +103,15 @@ interface ConversationListProps {
   setSearchQuery: any;
   messageDrafts?: Record<string, string>;
   stripMessageMarkup?: (content: string) => string;
+  tags?: any[];
+  tagMappings?: Record<string, string[]>;
+  selectedTagIds?: string[];
+  filterStrangers?: boolean;
+  onAssignTag?: (targetId: string, tagId: string) => void;
+  onUnassignTag?: (targetId: string, tagId: string) => void;
+  onToggleTag?: (tagId: string) => void;
+  onToggleFilterStrangers?: () => void;
+  onOpenManageModal?: () => void;
 }
 
 export const ConversationList = ({
@@ -159,6 +168,15 @@ export const ConversationList = ({
   setSearchQuery,
   messageDrafts = {},
   stripMessageMarkup,
+  tags = [],
+  tagMappings = {},
+  selectedTagIds = [],
+  filterStrangers = false,
+  onAssignTag,
+  onUnassignTag,
+  onToggleTag,
+  onToggleFilterStrangers,
+  onOpenManageModal,
 }: ConversationListProps) => {
   const voiceChannelMembers = useCallStore((state) => state.voiceChannelMembers);
   const activeVoiceChannelId = useCallStore((state) => state.activeVoiceChannelId);
@@ -175,6 +193,25 @@ export const ConversationList = ({
     const text = stripMessageMarkup ? stripMessageMarkup(draft) : draft.replace(/<[^>]*>/g, ' ');
     return text.replace(/\s+/g, ' ').trim();
   }, [messageDrafts, stripMessageMarkup]);
+
+  const displayUnified = useMemo(() => filteredUnified.filter((item: any) => {
+    const target = item.kind === 'dm' ? item.conv : item.group;
+    const friend = item.kind === 'dm' ? getFriendInfo(item.conv) : null;
+    const assignedTagIds = [
+      ...(tagMappings[target?.id] || []),
+      ...(friend?.id ? (tagMappings[friend.id] || []) : []),
+    ];
+    if (selectedTagIds.length > 0 && !selectedTagIds.every((tagId) => assignedTagIds.includes(tagId))) {
+      return false;
+    }
+    if (filterStrangers) {
+      return item.kind === 'dm'
+        && item.conv?.type !== 'CLOUD'
+        && friend?.id
+        && !isExistingFriend(friend.id);
+    }
+    return true;
+  }), [filteredUnified, filterStrangers, getFriendInfo, isExistingFriend, selectedTagIds, tagMappings]);
 
   if (conversationTab !== 'requests' && isLoadingConversations && conversations.length === 0 && !isSearchActive) {
     return (
@@ -561,19 +598,19 @@ export const ConversationList = ({
               </div>
             )}
         </div>
-      ) : filteredUnified.length === 0 ? (
+      ) : displayUnified.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
           <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
             <MessageSquare className="w-6 h-6 text-gray-400 dark:text-zinc-500" />
           </div>
           <p className="text-sm text-gray-400 dark:text-zinc-500">
-            {searchQuery
-              ? "Không tìm thấy cuộc trò chuyện nào."
+            {searchQuery || selectedTagIds.length > 0 || filterStrangers
+              ? "Không tìm thấy cuộc trò chuyện nào phù hợp bộ lọc."
               : "Chưa có cuộc trò chuyện nào."}
           </p>
         </div>
       ) : (
-        filteredUnified.map((item) => {
+        displayUnified.map((item) => {
           if (item.kind === "dm") {
             const c = item.conv;
             const friend = getFriendInfo(c);
@@ -584,6 +621,9 @@ export const ConversationList = ({
             const unreadCount = unreadCounts[c.id] ?? 0;
             const missedCallCount = missedCallCounts[c.id] ?? 0;
             const hasUnread = unreadCount > 0;
+
+            const assignedTagIds = (tagMappings[c.id] || []).concat(friend ? (tagMappings[friend.id] || []) : []);
+            const assignedTags = tags.filter((t) => assignedTagIds.includes(t.id));
 
             return (
               <DmConversationItem
@@ -600,6 +640,10 @@ export const ConversationList = ({
                 activeCallState={activeCallConversationId === c.id ? activeCallState : null}
                 openConversationMenuId={openConversationMenuId}
                 conversationActionId={conversationActionId}
+                assignedTags={assignedTags}
+                allTags={tags}
+                onAssignTag={(tagId) => onAssignTag?.(tagId, c.id)}
+                onUnassignTag={(tagId) => onUnassignTag?.(tagId, c.id)}
                 formatConversationTime={formatConversationTime}
                 formatLastMessage={formatLastMessage}
                 onSelect={() => {
@@ -643,7 +687,7 @@ export const ConversationList = ({
               .map((channel: any) => channel.conversationId),
           );
           if (groupConversationId) groupConversationIds.add(groupConversationId);
-          const channelUnreadCount = Array.from(groupConversationIds).reduce(
+const channelUnreadCount = Array.from(groupConversationIds).reduce(
             (total: number, conversationId: any) => total + (unreadCounts[conversationId] ?? 0),
             0,
           );
@@ -653,6 +697,9 @@ export const ConversationList = ({
             0,
           );
           const hasUnread = unreadCount > 0;
+          const targetId = groupConversationId || g.id;
+          const assignedTagIds = tagMappings[targetId] || [];
+          const groupAssignedTags = tags.filter((t: any) => assignedTagIds.includes(t.id));
 
           return (
             <div key={g.id} className="flex flex-col">
@@ -688,18 +735,34 @@ export const ConversationList = ({
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`text-[14px] truncate ${
-                        hasUnread
-                          ? "font-bold text-gray-900 dark:text-white"
-                          : "font-medium text-gray-800 dark:text-zinc-200"
-                      }`}
-                    >
-                      {g.name}
+                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                      <span
+                        className={`text-[14px] truncate ${
+                          hasUnread
+                            ? "font-bold text-gray-900 dark:text-white"
+                            : "font-medium text-gray-800 dark:text-zinc-200"
+                        }`}
+                      >
+                        {g.name}
+                      </span>
                       {groupConversation?.pinned && (
-                        <Pin className="ml-1.5 inline h-3 w-3 text-indigo-500" />
+                        <Pin className="inline h-3 w-3 text-indigo-500 shrink-0" />
                       )}
-                    </span>
+
+                      {/* Group Assigned Tag Badges */}
+                      {groupAssignedTags.length > 0 && (
+                        <div className="flex items-center gap-1 shrink-0 ml-1">
+                          {groupAssignedTags.map((tag: any) => (
+                            <span
+                              key={tag.id}
+                              className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
+                              style={{ backgroundColor: tag.color }}
+                              title={tag.name}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {lastMsg && (
                       <span
                         className={`text-[11px] shrink-0 ${

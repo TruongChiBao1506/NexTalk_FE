@@ -55,6 +55,9 @@ import { ConversationList } from '../components/chat/ConversationList';
 import DesktopSidebar from '../components/common/DesktopSidebar';
 import { SidebarHeader } from '../components/chat/SidebarHeader';
 import { SidebarSearch } from '../components/chat/SidebarSearch';
+import { SidebarTabs } from '../components/chat/SidebarTabs';
+import { ManageConversationTagsModal } from '../components/chat/ManageConversationTagsModal';
+import { conversationTagService, type ConversationTag } from '../services/conversationTagService';
 import { SidebarFooter } from '../components/chat/SidebarFooter';
 import { VoiceConnectedPanel } from '../components/chat/VoiceConnectedPanel';
 import { VoiceChannelGrid } from '../components/chat/VoiceChannelGrid';
@@ -180,6 +183,66 @@ export const Chat = () => {
   const [pendingHideId, setPendingHideId] = useState<string | null>(null);
   const { toggleHideConversation } = useChatStore();
 
+  const [tags, setTags] = useState<ConversationTag[]>([]);
+  const [tagMappings, setTagMappings] = useState<Record<string, string[]>>({});
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [filterStrangers, setFilterStrangers] = useState(false);
+  const [isManageTagsModalOpen, setIsManageTagsModalOpen] = useState(false);
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      conversationTagService.getUserTagData().then((data) => {
+        setTags(data.tags || []);
+        setTagMappings(data.mappings || {});
+      }).catch(console.error);
+    }
+  }, [user]);
+
+  const handleToggleTag = useCallback((tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  }, []);
+
+  const handleToggleFilterStrangers = useCallback(() => {
+    setFilterStrangers((prev) => !prev);
+  }, []);
+
+  const handleCreateTag = async (name: string, color: string) => {
+    await conversationTagService.createTag(name, color);
+    const data = await conversationTagService.getUserTagData();
+    setTags(data.tags || []);
+    setTagMappings(data.mappings || {});
+  };
+
+  const handleUpdateTag = async (tagId: string, name: string, color: string) => {
+    await conversationTagService.updateTag(tagId, name, color);
+    const data = await conversationTagService.getUserTagData();
+    setTags(data.tags || []);
+    setTagMappings(data.mappings || {});
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    await conversationTagService.deleteTag(tagId);
+    const data = await conversationTagService.getUserTagData();
+    setTags(data.tags || []);
+    setTagMappings(data.mappings || {});
+    setSelectedTagIds((prev) => prev.filter((id) => id !== tagId));
+  };
+
+  const handleAssignTag = async (tagId: string, targetId: string) => {
+    const data = await conversationTagService.assignTag(tagId, targetId);
+    setTags(data.tags || []);
+    setTagMappings(data.mappings || {});
+  };
+
+  const handleUnassignTag = async (tagId: string, targetId: string) => {
+    const data = await conversationTagService.unassignTag(tagId, targetId);
+    setTags(data.tags || []);
+    setTagMappings(data.mappings || {});
+  };
+
   const {
     conversations,
     activeConversation,
@@ -260,7 +323,6 @@ export const Chat = () => {
 
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isSavedMessagesOpen, setIsSavedMessagesOpen] = useState(false);
-  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [isMyQrOpen, setIsMyQrOpen] = useState(false);
   const [isInviteMembersOpen, setIsInviteMembersOpen] = useState(false);
   const [isGroupApprovalsModalOpen, setIsGroupApprovalsModalOpen] = useState(false);
@@ -3619,10 +3681,8 @@ export const Chat = () => {
         onOpenSavedMessages={() => setIsSavedMessagesOpen(true)}
       />
 
-      {/* Column 2: Conversations Sidebar — Zalo style */}
+      {/* Column 2: Conversations Sidebar */}
       <section className={`${(activeConversation || selectedChatRequest) ? 'hidden md:flex' : 'flex'} w-full md:w-[360px] flex-col border-r shrink-0 pb-16 md:pb-0`}>
-
-        {/* Header */}
         <SidebarHeader
           isConnecting={isConnecting}
           isConnected={isConnected}
@@ -3630,12 +3690,23 @@ export const Chat = () => {
           setShowCreateGroupModal={setShowCreateGroupModal}
         />
 
-        {/* Search bar */}
         <SidebarSearch
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
         />
 
+        <SidebarTabs
+          conversationTab={conversationTab}
+          setConversationTab={setConversationTab}
+          fetchIncomingChatRequests={fetchIncomingChatRequests}
+          incomingRequestsCount={incomingChatRequests.length}
+          tags={tags}
+          selectedTagIds={selectedTagIds}
+          filterStrangers={filterStrangers}
+          onToggleTag={handleToggleTag}
+          onToggleFilterStrangers={handleToggleFilterStrangers}
+          onOpenManageModal={() => setIsManageTagsModalOpen(true)}
+        />
 
         <ConversationList
           conversationTab={conversationTab}
@@ -3691,6 +3762,15 @@ export const Chat = () => {
           setSearchQuery={setSearchQuery}
           messageDrafts={messageDrafts}
           stripMessageMarkup={stripMessageMarkup}
+          tags={tags}
+          tagMappings={tagMappings}
+          selectedTagIds={selectedTagIds}
+          filterStrangers={filterStrangers}
+          onAssignTag={handleAssignTag}
+          onUnassignTag={handleUnassignTag}
+          onToggleTag={handleToggleTag}
+          onToggleFilterStrangers={handleToggleFilterStrangers}
+          onOpenManageModal={() => setIsManageTagsModalOpen(true)}
         />
 
         {/* Voice Connected Panel */}
@@ -4594,6 +4674,15 @@ export const Chat = () => {
       />
 
       {!activeConversation && !selectedChatRequest && <MobileBottomNav onOpenSavedMessages={() => setIsSavedMessagesOpen(true)} />}
+
+      <ManageConversationTagsModal
+        isOpen={isManageTagsModalOpen}
+        onClose={() => setIsManageTagsModalOpen(false)}
+        tags={tags}
+        onCreateTag={handleCreateTag}
+        onUpdateTag={handleUpdateTag}
+        onDeleteTag={handleDeleteTag}
+      />
     </div>
   );
 };
