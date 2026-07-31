@@ -58,20 +58,20 @@ export const MessageReactions: React.FC<MessageReactionsProps> = ({
             onClick={() => onReactToggle(group.emoji)}
             className={`group relative inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs font-semibold shadow-sm transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 ${
               group.reactedByCurrentUser
-                ? 'border-indigo-300 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 dark:border-indigo-500/60 dark:bg-indigo-500/20 dark:text-indigo-100 dark:ring-indigo-400/25'
-                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
+                ? 'border-indigo-300 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 dark:border-indigo-500/60 dark:bg-indigo-500/20 dark:text-indigo-100 dark:ring-indigo-400/25 dark:hover:bg-indigo-500/30'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50/70 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-indigo-500/40 dark:hover:bg-zinc-700'
             }`}
-            title={tooltipText}
+            aria-label={`${group.emoji}: ${tooltipText}`}
           >
             <span className="text-sm leading-none">{group.emoji}</span>
             <span className="min-w-2 text-[10px] leading-none">{group.users.length}</span>
 
             <span
-              className={`pointer-events-none absolute top-full mt-2 hidden w-max max-w-[230px] flex-col rounded-lg border border-gray-800 bg-gray-950/95 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-white shadow-xl group-hover:flex group-focus-visible:flex dark:border-zinc-800 dark:bg-zinc-950/95 ${
+              className={`pointer-events-none absolute top-full z-40 mt-2 hidden w-max max-w-[230px] flex-col rounded-xl border border-indigo-100 bg-white/95 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-slate-700 shadow-lg shadow-indigo-950/10 backdrop-blur-md group-hover:flex group-focus-visible:flex dark:border-zinc-700 dark:bg-[#242938]/95 dark:text-zinc-100 dark:shadow-black/25 ${
                 isMe ? 'right-0 text-right' : 'left-0 text-left'
               }`}
             >
-              <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200">
+              <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
                 {group.emoji} {group.users.length}
               </span>
               <span className="whitespace-normal break-words">{tooltipText}</span>
