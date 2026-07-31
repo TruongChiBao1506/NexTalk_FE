@@ -1,4 +1,3 @@
-import React from 'react';
 import { ConversationTagDropdown } from './ConversationTagDropdown';
 import type { ConversationTag } from '../../services/conversationTagService';
 
