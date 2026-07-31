@@ -979,6 +979,20 @@ export const MessageList: React.FC<MessageListProps> = ({
                     ) : (
                       <div className="inline-flex max-w-[min(86vw,520px)] items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-zinc-900/95 dark:text-zinc-200 dark:ring-zinc-700">
                         <Pin className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                        {getSenderAvatar(msg) ? (
+                          <img
+                            src={getSenderAvatar(msg)!}
+                            alt={getSenderUsername(msg)}
+                            className="h-6 w-6 shrink-0 rounded-full bg-gray-100 object-cover ring-1 ring-gray-200 dark:bg-zinc-800 dark:ring-zinc-700"
+                          />
+                        ) : (
+                          <span
+                            aria-label={`Avatar của ${getSenderUsername(msg)}`}
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white ring-1 ring-indigo-500/20"
+                          >
+                            {(getSenderUsername(msg) || '?').charAt(0).toUpperCase()}
+                          </span>
+                        )}
                         <span className="min-w-0 truncate">
                           {msg.metadata?.systemType === 'NICKNAME_UPDATED' ? (
                             getNicknameSystemText(msg)
