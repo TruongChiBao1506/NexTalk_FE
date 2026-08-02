@@ -669,24 +669,31 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   const getPreviewThumbnail = (preview: any) => preview?.thumbnailUrl || preview?.image || null;
 
-  const isStandaloneHttpUrl = (value?: string | null) => {
-    if (!value || /\s/.test(value.trim())) return false;
-    try {
-      const url = new URL(value.trim());
-      return url.protocol === 'https:' || url.protocol === 'http:';
-    } catch {
-      return false;
-    }
+  const normalizePreviewText = (value?: string | null) => String(value || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('vi');
+
+  const isPreviewOnlyLinkContent = (value: string, preview: any) => {
+    const urls = value.match(/https?:\/\/[^\s<>"']+/gi) || [];
+    if (urls.length !== 1) return false;
+
+    const remainingText = normalizePreviewText(
+      value.replace(/https?:\/\/[^\s<>"']+/gi, ' '),
+    );
+    if (!remainingText) return true;
+
+    const previewTitle = normalizePreviewText(preview?.title);
+    return Boolean(previewTitle && remainingText === previewTitle);
   };
 
-  const isStandaloneVideoLinkPreview = (message: any) => {
+  const isStandaloneLinkPreview = (message: any) => {
     const preview = getLinkPreview(message);
     return Boolean(
       preview
-      && getNormalizedPreviewType(preview) === 'VIDEO'
-      && getPreviewThumbnail(preview)
       && !message?.parentId
-      && isStandaloneHttpUrl(stripMessageMarkup(message?.content || ''))
+      && isPreviewOnlyLinkContent(stripMessageMarkup(message?.content || ''), preview)
     );
   };
 
@@ -699,14 +706,14 @@ export const MessageList: React.FC<MessageListProps> = ({
     const isRichVideo = previewType === 'VIDEO' && Boolean(thumbnailUrl);
     const isRichArticle = previewType === 'ARTICLE' && Boolean(thumbnailUrl);
     const isRichPreview = isRichVideo || isRichArticle;
-    const isStandaloneVideo = isStandaloneVideoLinkPreview(message);
+    const isStandalonePreview = isStandaloneLinkPreview(message);
     const displaySource = preview.displayDomain || preview.siteName || getLinkHost(preview.url);
 
     if (isRichPreview) return (
       <button
         type="button"
         onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
-        className={`${isStandaloneVideo ? 'mt-0' : 'mt-3'} block w-full max-w-[350px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${isMine
+        className={`${isStandalonePreview ? 'mt-0' : 'mt-3'} block w-full max-w-[350px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${isMine
             ? 'bg-white/92 ring-1 ring-blue-200/90 shadow-sm dark:bg-zinc-900/80 dark:ring-indigo-500/25'
             : 'bg-gray-50 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
           }`}
@@ -743,7 +750,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       <button
         type="button"
         onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
-        className={`mt-3 flex w-full max-w-[330px] items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition hover:brightness-95 ${isMine
+        className={`${isStandalonePreview ? 'mt-0' : 'mt-3'} flex w-full max-w-[330px] items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition hover:brightness-95 ${isMine
           ? 'bg-white/92 ring-blue-200/90 dark:bg-zinc-900/80 dark:ring-indigo-500/25'
           : 'bg-gray-50 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
         }`}
@@ -1026,7 +1033,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
           // Find parent message if replied to
           const parentMessage = msg.parentId ? messagesById.get(msg.parentId) : null;
-          const standaloneVideoLinkPreview = isStandaloneVideoLinkPreview(msg);
+          const standaloneLinkPreview = isStandaloneLinkPreview(msg);
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
           const isAiSystemMessage = msg.messageType === 'SYSTEM'
@@ -1982,7 +1989,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <div className={standaloneVideoLinkPreview
+                            <div className={standaloneLinkPreview
                               ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
                               : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
                                 ? msg.parentId
@@ -1993,7 +2000,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               {renderPriorityBadge()}
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
-                                {!standaloneVideoLinkPreview && renderFormattedMessage(msg.content)}
+                                {!standaloneLinkPreview && renderFormattedMessage(msg.content)}
                                 {renderInlineTranslationBlock(msg.id, isMe)}
                                 {renderLinkPreviewCard(msg, isMe)}
                                 {msg.isEdited && (

@@ -210,6 +210,7 @@ const shouldPlayIncomingMessageSound = (message: MessageResponse) => {
   if (!message?.id || !message.conversationId) return false;
   if (message.senderId === currentUserId) return false;
   if (message.messageType === 'SYSTEM') return false;
+  if (message.metadata?.realtimeEvent === 'LINK_PREVIEW_UPDATED') return false;
   return true;
 };
 
@@ -1076,6 +1077,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const targetConversation = conversations.find((item) => item.id === message.conversationId)
       ?? (activeConversation?.id === message.conversationId ? activeConversation : undefined);
     const isReactionUpdate = message.metadata?.realtimeEvent === 'REACTION_UPDATED';
+    const isLinkPreviewUpdate = message.metadata?.realtimeEvent === 'LINK_PREVIEW_UPDATED';
     const reactionPreview = createReactionConversationPreview(
       message,
       currentUser?.id,
@@ -1086,15 +1088,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const currentLastMessage = state.lastMessages[message.conversationId];
       const nextLastMessage = reactionPreview
-        ?? (isReactionUpdate
-          ? (currentLastMessage?.id === message.id ? message : currentLastMessage)
+        ?? (isReactionUpdate || isLinkPreviewUpdate
+          ? (!currentLastMessage || currentLastMessage.id === message.id ? message : currentLastMessage)
           : message);
       return {
       lastMessages: nextLastMessage ? {
         ...state.lastMessages,
         [message.conversationId]: nextLastMessage,
       } : state.lastMessages,
-      unreadCounts: currentUser && message.senderId !== currentUser.id && activeConversation?.id !== message.conversationId
+      unreadCounts: isLinkPreviewUpdate
+        ? state.unreadCounts
+        : currentUser && message.senderId !== currentUser.id && activeConversation?.id !== message.conversationId
         ? { ...state.unreadCounts, [message.conversationId]: (state.unreadCounts[message.conversationId] ?? 0) + 1 }
         : { ...state.unreadCounts, [message.conversationId]: 0 },
     };
@@ -1125,7 +1129,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { messages: updatedMessages };
       });
 
-      if (currentUser && message.senderId !== currentUser.id) {
+      if (!isLinkPreviewUpdate && currentUser && message.senderId !== currentUser.id) {
         scheduleSeenReceipt(message.conversationId);
       }
 
@@ -1171,14 +1175,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } else {
       // If we are not the sender, mark it as DELIVERED
-      if (currentUser && message.senderId !== currentUser.id) {
+      if (!isLinkPreviewUpdate && currentUser && message.senderId !== currentUser.id) {
         messageService.markAsDelivered(message.conversationId).catch(() => {});
       }
     }
 
     // Bump the conversation to the top and update its updatedAt field
     const conversationIndex = conversations.findIndex((c) => c.id === message.conversationId);
-    if (conversationIndex > -1) {
+    if (!isLinkPreviewUpdate && conversationIndex > -1) {
       set((state) => {
         const list = [...state.conversations];
         const target = { ...list[conversationIndex], updatedAt: message.createdAt };
@@ -1187,7 +1191,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           conversations: sortConversations([target, ...list]),
         };
       });
-    } else {
+    } else if (!isLinkPreviewUpdate) {
       // Fetch the conversation and prepend it
       conversationService.getConversationById(message.conversationId).then((response) => {
         if (response.success && response.data) {
