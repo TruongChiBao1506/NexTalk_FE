@@ -28,7 +28,8 @@ import {
   User,
   UserPlus,
   Users,
-  ChevronDown
+  ChevronDown,
+  MailOpen
 } from 'lucide-react';
 import type { ConversationNotificationMode, ConversationResponse } from '../../types/chat';
 import type { ChannelResponse, GroupMemberResponse, GroupRole } from '../../types/group';
@@ -90,6 +91,7 @@ interface ConversationInfoPanelProps {
   onOpenMedia: (media: { url: string; type: 'IMAGE' | 'VIDEO'; name?: string }) => void;
   currentUserId: string;
   onUpdateNickname: (userId: string, nickname: string) => Promise<void>;
+  onMarkUnread: () => Promise<void>;
 }
 
 export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
@@ -102,6 +104,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   activeChannel,
   onOpenSearch,
   onUpdateNotificationSettings,
+  onMarkUnread,
   getConversationInfoSubtitle,
   isPinnedPanelOpen,
   setIsPinnedPanelOpen,
@@ -604,7 +607,7 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
 
           <section className="order-[-2] mt-6">
             <h4 className="mb-2 text-[11px] font-bold uppercase text-gray-400 dark:text-zinc-500">Lối tắt nhanh</h4>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <button
                 type="button"
                 onClick={onOpenSearch}
@@ -643,6 +646,14 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               >
                 <Palette className="h-4 w-4" />
                 <span>Chủ đề</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void onMarkUnread()}
+                className="flex flex-col items-center gap-1 rounded-lg bg-gray-50 px-2 py-3 text-center text-xs font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <MailOpen className="h-4 w-4" />
+                <span>Chưa đọc</span>
               </button>
             </div>
             {notificationFeedback && (

@@ -249,6 +249,7 @@ interface ChatState {
   clearMessageDraft: (conversationId: string) => void;
   reloadMessageDrafts: () => void;
   clearUnreadMarker: (conversationId: string) => void;
+  markConversationAsUnread: (conversationId: string) => Promise<boolean>;
   getOrCreatePrivateConversation: (friendId: string) => Promise<ConversationResponse | null>;
   getOrCreateCloudConversation: () => Promise<ConversationResponse | null>;
   connectWebSocket: () => void;
@@ -473,6 +474,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch {
       // Giữ dữ liệu hiện tại nếu đồng bộ nền thất bại.
+    }
+  },
+
+  markConversationAsUnread: async (conversationId: string) => {
+    try {
+      const response = await messageService.markConversationAsUnread(conversationId);
+      if (!response.success || !response.data) return false;
+      set((state) => ({
+        unreadCounts: { ...state.unreadCounts, [conversationId]: Math.max(1, response.data!.unreadCount) },
+        unreadMarkersByConversation: {
+          ...state.unreadMarkersByConversation,
+          [conversationId]: { messageId: response.data!.messageId, count: Math.max(1, response.data!.unreadCount) },
+        },
+      }));
+      return true;
+    } catch {
+      return false;
     }
   },
 

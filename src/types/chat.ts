@@ -128,11 +128,19 @@ export interface PollMetadata {
 }
 
 export interface LinkPreviewMetadata {
+  version?: number;
   url?: string;
+  canonicalUrl?: string;
+  type?: 'VIDEO' | 'ARTICLE' | 'IMAGE' | 'AUDIO' | 'DEFAULT';
+  provider?: string;
   title?: string;
   description?: string;
+  /** Version 1 compatibility field. */
   image?: string;
+  thumbnailUrl?: string;
   siteName?: string;
+  displayDomain?: string;
+  action?: 'OPEN_EXTERNAL';
 }
 
 export type MessageMetadata = Record<string, any>

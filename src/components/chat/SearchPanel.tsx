@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Search, ExternalLink, Loader2 } from 'lucide-react';
 import { messageService } from '../../services/messageService';
 import type { MessageResponse } from '../../types/chat';
+import type { MessageType } from '../../types/chat';
 import { SearchResultSkeleton } from '../common/Skeleton';
 
 interface SearchPanelProps {
@@ -9,6 +10,7 @@ interface SearchPanelProps {
   onClose: () => void;
   activeConversationId: string | null;
   onJumpToMessage: (messageId: string, conversationId: string) => void;
+  members?: Array<{ id: string; username: string }>;
 }
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({
@@ -16,27 +18,44 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   onClose,
   activeConversationId,
   onJumpToMessage,
+  members = [],
 }) => {
   const [query, setQuery] = useState('');
   const [onlyCurrent, setOnlyCurrent] = useState(true);
   const [results, setResults] = useState<MessageResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [messageType, setMessageType] = useState<MessageType | ''>('');
+  const [senderId, setSenderId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [totalElements, setTotalElements] = useState(0);
 
   if (!isOpen) return null;
 
-  const handleSearch = async (e?: React.FormEvent) => {
+  const handleSearch = async (e?: React.FormEvent, page = 0) => {
     if (e) e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() && !messageType && !senderId && !from && !to) return;
 
     setIsLoading(true);
     setSearched(true);
     try {
       const convId = onlyCurrent && activeConversationId ? activeConversationId : undefined;
-      const response = await messageService.searchMessages(query, convId);
+      const response = await messageService.searchMessagesAdvanced({
+        query: query.trim(),
+        conversationId: convId,
+        senderId: senderId || undefined,
+        messageType: messageType || undefined,
+        from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+        to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
+        page,
+        size: 20,
+      });
       if (response.success && response.data) {
-        // filter out recalled messages from search results for privacy, or display them differently
-        setResults(response.data);
+        setResults((current) => page === 0 ? response.data!.items : [...current, ...response.data!.items]);
+        setHasMore(response.data.hasMore);
+        setTotalElements(response.data.totalElements);
       }
     } catch (err) {
       console.error('Failed to search messages:', err);
@@ -61,7 +80,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     return (
       <span>
         {parts.map((part, i) =>
-          regex.test(part) ? (
+          i % 2 === 1 ? (
             <mark key={i} className="bg-yellow-500/40 text-yellow-100 rounded-sm px-0.5">
               {part}
             </mark>
@@ -124,9 +143,27 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             </label>
           )}
 
+          <div className="grid grid-cols-2 gap-2">
+            <select value={messageType} onChange={(event) => setMessageType(event.target.value as MessageType | '')} className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 dark:border-discord-gray-600 dark:bg-discord-dark dark:text-zinc-200">
+              <option value="">Mọi loại tin</option>
+              <option value="TEXT">Văn bản</option>
+              <option value="IMAGE">Hình ảnh</option>
+              <option value="VIDEO">Video</option>
+              <option value="AUDIO">Tin thoại</option>
+              <option value="FILE">Tệp</option>
+              <option value="POLL">Bình chọn</option>
+            </select>
+            <select value={senderId} onChange={(event) => setSenderId(event.target.value)} disabled={!onlyCurrent || members.length === 0} className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 disabled:opacity-50 dark:border-discord-gray-600 dark:bg-discord-dark dark:text-zinc-200">
+              <option value="">Mọi người gửi</option>
+              {members.map((member) => <option key={member.id} value={member.id}>@{member.username}</option>)}
+            </select>
+            <label className="text-[10px] text-gray-500 dark:text-zinc-400">Từ ngày<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs dark:border-discord-gray-600 dark:bg-discord-dark" /></label>
+            <label className="text-[10px] text-gray-500 dark:text-zinc-400">Đến ngày<input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs dark:border-discord-gray-600 dark:bg-discord-dark" /></label>
+          </div>
+
           <button
             type="submit"
-            disabled={isLoading || !query.trim()}
+            disabled={isLoading || (!query.trim() && !messageType && !senderId && !from && !to)}
             className="w-full flex items-center justify-center space-x-1.5 bg-discord-blurple hover:bg-discord-blurple-hover disabled:opacity-55 disabled:hover:bg-discord-blurple text-white font-medium py-1.5 px-4 rounded text-xs transition-colors duration-150"
           >
             {isLoading ? (
@@ -157,7 +194,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         ) : (
           <div className="space-y-3">
             <p className="text-[10px] uppercase font-semibold text-gray-500 dark:text-discord-gray-500 tracking-wider">
-              Tìm thấy {results.length} kết quả
+              Tìm thấy {totalElements} kết quả
             </p>
             {results.map((msg) => (
               <div
@@ -195,6 +232,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                 </div>
               </div>
             ))}
+            {hasMore && (
+              <button type="button" disabled={isLoading} onClick={() => void handleSearch(undefined, Math.floor(results.length / 20))} className="w-full rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10">
+                {isLoading ? 'Đang tải…' : 'Tải thêm kết quả'}
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -1,6 +1,54 @@
 import { apiClient } from '../api/apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { MessageResponse } from '../types/chat';
+import type { MessageResponse, MessageType } from '../types/chat';
+
+export interface AdvancedMessageSearchParams {
+  query?: string;
+  conversationId?: string;
+  senderId?: string;
+  messageType?: MessageType;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface MessageSearchResponse {
+  items: MessageResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  hasMore: boolean;
+}
+
+export interface ConversationUnreadResponse {
+  conversationId: string;
+  messageId: string;
+  unreadCount: number;
+}
+
+export type DeliveryStatusFilter = 'ALL' | 'SEEN' | 'DELIVERED' | 'SENT';
+
+export interface MessageDeliveryParticipant {
+  userId: string;
+  username: string;
+  avatarUrl?: string | null;
+  status: Exclude<DeliveryStatusFilter, 'ALL'>;
+  updatedAt: string;
+}
+
+export interface MessageDeliveryDetailsResponse {
+  messageId: string;
+  seenCount: number;
+  deliveredCount: number;
+  sentCount: number;
+  totalRecipients: number;
+  items: MessageDeliveryParticipant[];
+  page: number;
+  size: number;
+  totalElements: number;
+  hasMore: boolean;
+}
 
 export interface SavedMessageResponse {
   id: string;
@@ -60,6 +108,24 @@ export const messageService = {
     const response = await apiClient.post<ApiResponse<void>>('/messages/status/seen', {
       conversationId
     });
+    return response.data;
+  },
+
+  async markConversationAsUnread(conversationId: string): Promise<ApiResponse<ConversationUnreadResponse>> {
+    const response = await apiClient.post<ApiResponse<ConversationUnreadResponse>>(`/messages/${conversationId}/unread`);
+    return response.data;
+  },
+
+  async getMessageDeliveryDetails(
+    messageId: string,
+    status: DeliveryStatusFilter = 'ALL',
+    page = 0,
+    size = 20
+  ): Promise<ApiResponse<MessageDeliveryDetailsResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageDeliveryDetailsResponse>>(
+      `/messages/${messageId}/delivery-details`,
+      { params: { status, page, size } }
+    );
     return response.data;
   },
 
@@ -164,6 +230,11 @@ export const messageService = {
     const response = await apiClient.get<ApiResponse<MessageResponse[]>>('/messages/search', {
       params: { query, conversationId }
     });
+    return response.data;
+  },
+
+  async searchMessagesAdvanced(params: AdvancedMessageSearchParams): Promise<ApiResponse<MessageSearchResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageSearchResponse>>('/messages/search/advanced', { params });
     return response.data;
   },
 

@@ -146,6 +146,8 @@ interface MessageListProps {
   onCreateTaskFromMessage?: (message: any) => void;
   canCreateTaskFromMessage?: boolean;
   onEditImage?: (target: { messageId: string; url: string; name?: string | null }) => void;
+  onRetryMessage: (message: any) => void;
+  onOpenDeliveryDetails: (message: any) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -223,6 +225,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   onCreateTaskFromMessage,
   canCreateTaskFromMessage,
   onEditImage,
+  onRetryMessage,
+  onOpenDeliveryDetails,
 }) => {
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
@@ -623,7 +627,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   const getLinkPreview = (message: any) => {
     const preview = message?.metadata?.linkPreview;
-    if (!preview || !preview.url || (!preview.title && !preview.description && !preview.image)) {
+    if (!preview || !preview.url || (!preview.title && !preview.description && !preview.image && !preview.thumbnailUrl)) {
       return null;
     }
     return preview;
@@ -637,32 +641,87 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   };
 
+  const getLegacyVideoProvider = (url?: string | null) => {
+    if (!url) return null;
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return 'TIKTOK';
+      if (
+        host === 'youtu.be'
+        || host === 'youtube.com'
+        || host.endsWith('.youtube.com')
+        || host === 'youtube-nocookie.com'
+        || host.endsWith('.youtube-nocookie.com')
+      ) return 'YOUTUBE';
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const getNormalizedPreviewType = (preview: any) => {
+    const declaredType = String(preview?.type || '').toUpperCase();
+    if (['VIDEO', 'ARTICLE', 'IMAGE', 'AUDIO', 'DEFAULT'].includes(declaredType)) {
+      return declaredType;
+    }
+    return getLegacyVideoProvider(preview?.url) ? 'VIDEO' : 'DEFAULT';
+  };
+
+  const getPreviewThumbnail = (preview: any) => preview?.thumbnailUrl || preview?.image || null;
+
+  const isStandaloneHttpUrl = (value?: string | null) => {
+    if (!value || /\s/.test(value.trim())) return false;
+    try {
+      const url = new URL(value.trim());
+      return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  };
+
+  const isStandaloneVideoLinkPreview = (message: any) => {
+    const preview = getLinkPreview(message);
+    return Boolean(
+      preview
+      && getNormalizedPreviewType(preview) === 'VIDEO'
+      && getPreviewThumbnail(preview)
+      && !message?.parentId
+      && isStandaloneHttpUrl(stripMessageMarkup(message?.content || ''))
+    );
+  };
+
   const renderLinkPreviewCard = (message: any, isMine: boolean) => {
     const preview = getLinkPreview(message);
     if (!preview) return null;
 
-    return (
+    const previewType = getNormalizedPreviewType(preview);
+    const thumbnailUrl = getPreviewThumbnail(preview);
+    const isRichVideo = previewType === 'VIDEO' && Boolean(thumbnailUrl);
+    const isRichArticle = previewType === 'ARTICLE' && Boolean(thumbnailUrl);
+    const isRichPreview = isRichVideo || isRichArticle;
+    const isStandaloneVideo = isStandaloneVideoLinkPreview(message);
+    const displaySource = preview.displayDomain || preview.siteName || getLinkHost(preview.url);
+
+    if (isRichPreview) return (
       <button
         type="button"
         onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
-        className={`mt-3 block w-full max-w-[330px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${isMine
+        className={`${isStandaloneVideo ? 'mt-0' : 'mt-3'} block w-full max-w-[350px] overflow-hidden rounded-xl text-left transition hover:brightness-95 ${isMine
             ? 'bg-white/92 ring-1 ring-blue-200/90 shadow-sm dark:bg-zinc-900/80 dark:ring-indigo-500/25'
             : 'bg-gray-50 ring-1 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
           }`}
       >
-        {preview.image && (
-          <img
-            src={preview.image}
-            alt={preview.title || preview.siteName || 'Link preview'}
-            className="h-36 w-full object-cover"
-            loading="lazy"
-          />
-        )}
+        <img
+          src={thumbnailUrl}
+          alt={preview.title || preview.siteName || 'Link preview'}
+          className={isRichVideo ? 'aspect-video w-full object-cover' : 'h-36 w-full object-cover'}
+          loading="lazy"
+        />
         <div className="space-y-1 p-3">
           <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${isMine ? 'text-indigo-600 dark:text-indigo-300' : 'text-indigo-600 dark:text-indigo-300'
             }`}>
             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{preview.siteName || getLinkHost(preview.url)}</span>
+            <span className="truncate">{displaySource}</span>
           </div>
           {preview.title && (
             <p className={`m-0 line-clamp-2 text-sm font-bold leading-snug ${isMine ? 'text-slate-900 dark:text-white' : 'text-gray-950 dark:text-white'
@@ -677,6 +736,35 @@ export const MessageList: React.FC<MessageListProps> = ({
             </p>
           )}
         </div>
+      </button>
+    );
+
+    return (
+      <button
+        type="button"
+        onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}
+        className={`mt-3 flex w-full max-w-[330px] items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition hover:brightness-95 ${isMine
+          ? 'bg-white/92 ring-blue-200/90 dark:bg-zinc-900/80 dark:ring-indigo-500/25'
+          : 'bg-gray-50 ring-gray-200 dark:bg-zinc-900/70 dark:ring-zinc-800'
+        }`}
+      >
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="h-[52px] w-[52px] shrink-0 rounded-lg object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+            <Link className="h-5 w-5" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          {preview.title && <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{preview.title}</span>}
+          {preview.description && <span className="mt-0.5 line-clamp-1 block text-xs text-slate-600 dark:text-zinc-300">{preview.description}</span>}
+          <span className="mt-1 block truncate text-[11px] font-bold text-indigo-600 dark:text-indigo-300">{displaySource}</span>
+        </span>
       </button>
     );
   };
@@ -938,6 +1026,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
           // Find parent message if replied to
           const parentMessage = msg.parentId ? messagesById.get(msg.parentId) : null;
+          const standaloneVideoLinkPreview = isStandaloneVideoLinkPreview(msg);
           const isCallLog = isCallHistoryMessage(msg);
           const callMetadata = msg.metadata as any;
           const isAiSystemMessage = msg.messageType === 'SYSTEM'
@@ -1601,6 +1690,16 @@ export const MessageList: React.FC<MessageListProps> = ({
                                                 <div className="absolute inset-0 bg-rose-950/80 backdrop-blur-[1px] flex flex-col items-center justify-center text-white p-2 z-20">
                                                   <AlertCircle className="w-6 h-6 text-rose-400 mb-1" />
                                                   <span className="text-[11px] font-bold text-rose-200 text-center">Gửi thất bại</span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                      event.stopPropagation();
+                                                      onRetryMessage(msg);
+                                                    }}
+                                                    className="pointer-events-auto mt-2 rounded-lg bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-white/25"
+                                                  >
+                                                    Thử gửi lại
+                                                  </button>
                                                 </div>
                                               )}
 
@@ -1883,7 +1982,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <div className={`w-fit max-w-[min(80vw,24rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
+                            <div className={standaloneVideoLinkPreview
+                              ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
+                              : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
                                 ? msg.parentId
                                   ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
                                   : 'nextalk-themed-bubble rounded-tr-none'
@@ -1892,7 +1993,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               {renderPriorityBadge()}
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
-                                {renderFormattedMessage(msg.content)}
+                                {!standaloneVideoLinkPreview && renderFormattedMessage(msg.content)}
                                 {renderInlineTranslationBlock(msg.id, isMe)}
                                 {renderLinkPreviewCard(msg, isMe)}
                                 {msg.isEdited && (
@@ -1909,7 +2010,17 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
                                     <span>{formatMessageTime(msg.createdAt)}</span>
                                     {isMe && (
-                                      <span title={getMessageStatusLabel(msg)} className={getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-300' : 'text-current'}>
+                                      <button
+                                        type="button"
+                                        disabled={Boolean(msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed')}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          onOpenDeliveryDetails(msg);
+                                        }}
+                                        title={`${getMessageStatusLabel(msg)} — nhấn để xem chi tiết`}
+                                        aria-label={`${getMessageStatusLabel(msg)}. Xem chi tiết trạng thái gửi`}
+                                        className={`inline-flex items-center gap-0.5 rounded transition hover:bg-black/5 disabled:pointer-events-none dark:hover:bg-white/10 ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-300' : 'text-current'}`}
+                                      >
                                         {getMessageStatus(msg) === 'SEEN' || getMessageStatus(msg) === 'DELIVERED'
                                           ? <CheckCheck className="h-3 w-3" />
                                           : msg.metadata?.deliveryState === 'failed'
@@ -1917,7 +2028,20 @@ export const MessageList: React.FC<MessageListProps> = ({
                                             : msg.metadata?.optimistic
                                               ? <Loader2 className="h-3 w-3 animate-spin" />
                                               : <Check className="h-3 w-3" />}
-                                      </span>
+                                        {!msg.metadata?.optimistic && msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-2.5 w-2.5" />}
+                                      </button>
+                                    )}
+                                    {msg.metadata?.deliveryState === 'failed' && (
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          onRetryMessage(msg);
+                                        }}
+                                        className="ml-1 font-bold text-rose-600 underline underline-offset-2 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+                                      >
+                                        Thử lại
+                                      </button>
                                     )}
                                   </span>
                                 )}
@@ -1977,7 +2101,16 @@ export const MessageList: React.FC<MessageListProps> = ({
                             )}
                             <span>{formatMessageTime(msg.createdAt)}</span>
                             {isMe && latestSeenMembers.length === 0 && (
-                              <span className={`inline-flex shrink-0 items-center gap-1 font-semibold ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`} title={getMessageStatusLabel(msg)}>
+                              <button
+                                type="button"
+                                disabled={Boolean(msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed')}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onOpenDeliveryDetails(msg);
+                                }}
+                                className={`inline-flex shrink-0 items-center gap-1 rounded px-1 font-semibold transition hover:bg-slate-100 disabled:pointer-events-none dark:hover:bg-zinc-800 ${getMessageStatus(msg) === 'SEEN' ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-zinc-500'}`}
+                                title={`${getMessageStatusLabel(msg)} — nhấn để xem chi tiết`}
+                              >
                                 {getMessageStatus(msg) === 'SEEN' && (
                                   <CheckCheck className="w-3.5 h-3.5 text-sky-505 dark:text-sky-400" />
                                 )}
@@ -1992,15 +2125,33 @@ export const MessageList: React.FC<MessageListProps> = ({
                                       : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
                                 )}
                                 <span>{getMessageStatusLabel(msg)}</span>
-                              </span>
+                                {!msg.metadata?.optimistic && msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-3 w-3" />}
+                              </button>
+                            )}
+                            {msg.metadata?.deliveryState === 'failed' && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onRetryMessage(msg);
+                                }}
+                                className="ml-1 font-bold text-rose-600 underline underline-offset-2 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+                              >
+                                Thử lại
+                              </button>
                             )}
                           </span>
                         )}
                         {isMe && latestSeenMembers.length > 0 && (
-                          <div
-                            className="mt-1 flex items-center justify-end -space-x-1.5"
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenDeliveryDetails(msg);
+                            }}
+                            className="mt-1 flex items-center justify-end -space-x-1.5 rounded px-1 py-0.5 transition hover:bg-slate-100 dark:hover:bg-zinc-800"
                             aria-label={getMessageStatusLabel(msg)}
-                            title={latestSeenMembers.map((member: any) => member.username).join(', ')}
+                            title={`${latestSeenMembers.map((member: any) => member.username).join(', ')} — nhấn để xem chi tiết`}
                           >
                             {visibleSeenMembers.map((member: any) => (
                               member.avatarUrl ? (
@@ -2024,7 +2175,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 +{latestSeenMembers.length - visibleSeenMembers.length}
                               </span>
                             )}
-                          </div>
+                            <ChevronDown className="ml-2 h-3 w-3 text-slate-400" />
+                          </button>
                         )}
                       </div>
                       {isSelectionMode && (

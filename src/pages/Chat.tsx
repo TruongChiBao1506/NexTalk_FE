@@ -71,6 +71,7 @@ import CreateChannelModal from '../components/chat/CreateChannelModal';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageInput } from '../components/chat/MessageInput';
 import { MessageList } from '../components/chat/MessageList';
+import { MessageDeliveryDetailsModal } from '../components/chat/MessageDeliveryDetailsModal';
 import { ConversationInfoPanel } from '../components/chat/ConversationInfoPanel';
 import { MessageFilterBar } from '../components/chat/MessageFilterBar';
 import { ChannelTasksPanel } from '../components/chat/ChannelTasksPanel';
@@ -278,6 +279,7 @@ export const Chat = () => {
     clearMessageDraft,
     reloadMessageDrafts,
     clearUnreadMarker,
+    markConversationAsUnread,
     addOptimisticMessage,
     updateOptimisticMessage,
     isSelectionMode,
@@ -367,6 +369,7 @@ export const Chat = () => {
 
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+  const [deliveryDetailsMessageId, setDeliveryDetailsMessageId] = useState<string | null>(null);
   const [imageEditTarget, setImageEditTarget] = useState<ImageEditTarget | null>(null);
 
   const { groups, fetchGroups, updateGroup, removeMember: removeGroupMember, fetchPendingInvitations } = useGroupStore();
@@ -2513,7 +2516,9 @@ export const Chat = () => {
           optimistic: true,
           deliveryState: 'sending',
           clientMessageId,
-          progress: 0
+          progress: 0,
+          retryPriority: messagePriority || undefined,
+          retrySelfDestructSeconds: _options?.selfDestructSeconds ?? undefined,
         }
       };
 
@@ -2656,7 +2661,13 @@ export const Chat = () => {
           parentId: replyTo?.id ?? null,
           createdAt: new Date().toISOString(),
           expiresAt: _options?.selfDestructSeconds ? new Date(Date.now() + _options.selfDestructSeconds * 1000).toISOString() : null,
-          metadata: { clientMessageId, optimistic: true, deliveryState: 'sending' },
+          metadata: {
+            clientMessageId,
+            optimistic: true,
+            deliveryState: 'sending',
+            retryPriority: messagePriority || undefined,
+            retrySelfDestructSeconds: _options?.selfDestructSeconds ?? undefined,
+          },
         });
         const published = sendStompMessage(
           trimmedMessage,
@@ -3082,6 +3093,82 @@ export const Chat = () => {
     return date.getFullYear() === now.getFullYear()
       ? `${day}/${month}`
       : `${day}/${month}/${String(date.getFullYear()).slice(-2)}`;
+  };
+
+  const retryFailedMessage = async (message: MessageResponse) => {
+    const clientMessageId = message.clientMessageId ?? message.metadata?.clientMessageId;
+    if (!clientMessageId || message.metadata?.deliveryState !== 'failed') return;
+
+    if (!useChatStore.getState().isConnected) {
+      connectWebSocket();
+      showAlertDialog('Đang kết nối lại máy chủ. Hãy nhấn “Thử lại” sau khi kết nối được khôi phục.', 'Mất kết nối', 'danger');
+      return;
+    }
+
+    updateOptimisticMessage(clientMessageId, {
+      metadata: { ...message.metadata, clientMessageId, optimistic: true, deliveryState: 'sending' },
+    });
+
+    try {
+      const finalAttachments: MessageAttachment[] = [];
+      for (let index = 0; index < (message.attachments ?? []).length; index += 1) {
+        const attachment = message.attachments![index];
+        if (!attachment.url?.startsWith('blob:')) {
+          finalAttachments.push(attachment);
+          continue;
+        }
+
+        const blob = await fetch(attachment.url).then((response) => response.blob());
+        const retryFile = new File([blob], attachment.name || 'attachment', { type: blob.type });
+        const upload = await fileService.uploadFile(retryFile, (percent) => {
+          const progress = Math.round(((index + percent / 100) / message.attachments!.length) * 100);
+          updateOptimisticMessage(clientMessageId, {
+            metadata: { ...message.metadata, clientMessageId, optimistic: true, deliveryState: 'sending', progress },
+          });
+        });
+        if (!upload.success || !upload.data) throw new Error(upload.message || 'Không thể tải lại tệp.');
+        finalAttachments.push({
+          ...attachment,
+          url: upload.data.url,
+        });
+      }
+
+      updateOptimisticMessage(clientMessageId, {
+        attachments: finalAttachments,
+        metadata: { ...message.metadata, clientMessageId, optimistic: true, deliveryState: 'sending', progress: 100 },
+      });
+
+      const published = sendStompMessage(
+        message.content,
+        message.messageType,
+        message.parentId ?? undefined,
+        finalAttachments.length > 0 ? finalAttachments : undefined,
+        typeof message.metadata?.retryPriority === 'string' ? message.metadata.retryPriority : undefined,
+        clientMessageId,
+        typeof message.metadata?.retrySelfDestructSeconds === 'number'
+          ? message.metadata.retrySelfDestructSeconds
+          : undefined,
+      );
+      if (!published) throw new Error('Chưa thể gửi qua máy chủ tin nhắn.');
+
+      window.setTimeout(() => {
+        const pending = useChatStore.getState().messages.find((item) => (
+          (item.clientMessageId ?? item.metadata?.clientMessageId) === clientMessageId
+          && item.metadata?.optimistic
+          && item.metadata?.deliveryState === 'sending'
+        ));
+        if (pending) {
+          updateOptimisticMessage(clientMessageId, {
+            metadata: { ...pending.metadata, clientMessageId, optimistic: true, deliveryState: 'failed' },
+          });
+        }
+      }, 15_000);
+    } catch (error: any) {
+      updateOptimisticMessage(clientMessageId, {
+        metadata: { ...message.metadata, clientMessageId, optimistic: true, deliveryState: 'failed' },
+      });
+      showAlertDialog(error?.message || 'Không thể gửi lại tin nhắn.', 'Gửi lại thất bại', 'danger');
+    }
   };
 
   const handleOpenActionItem = useCallback(async (item: NotificationResponse) => {
@@ -3903,6 +3990,16 @@ export const Chat = () => {
                   className="min-h-0 flex-1 overflow-hidden bg-cover bg-center flex flex-col bg-[#f8faff] dark:bg-discord-dark"
                   style={activeConversation?.wallpaperUrl ? { backgroundImage: `url(${activeConversation.wallpaperUrl})` } : {}}
                 >
+                  {!isConnected && (
+                    <div role="status" className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+                      <span>{isConnecting ? 'Đang kết nối lại máy chủ tin nhắn…' : 'Mất kết nối — tin nhắn mới có thể chưa gửi được.'}</span>
+                      {!isConnecting && (
+                        <button type="button" onClick={connectWebSocket} className="shrink-0 rounded-lg bg-amber-600 px-3 py-1 font-bold text-white transition hover:bg-amber-700">
+                          Kết nối lại
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <MessageList
                     pinnedMessages={pinnedMessages}
                     handleJumpToMessage={handleJumpToMessage}
@@ -4001,8 +4098,14 @@ export const Chat = () => {
                       setImageEditTarget(target);
                       setActiveMenuMessageId(null);
                     }}
+                    onRetryMessage={retryFailedMessage}
+                    onOpenDeliveryDetails={(message) => setDeliveryDetailsMessageId(message.id)}
                   />
-                </div>
+        <MessageDeliveryDetailsModal
+          messageId={deliveryDetailsMessageId}
+          onClose={() => setDeliveryDetailsMessageId(null)}
+        />
+      </div>
 
                 {selectedChatRequest && (
                   <div className={`px-4 pt-3 bg-gray-100 dark:bg-discord-dark shrink-0 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
@@ -4290,6 +4393,15 @@ export const Chat = () => {
                 await conversationService.updateNickname(activeConversation.id, userId, nickname);
                 await fetchConversations();
               }}
+              onMarkUnread={async () => {
+                const marked = await markConversationAsUnread(activeConversation.id);
+                if (marked) {
+                  setIsConversationInfoOpen(false);
+                  showAlertDialog('Đã đánh dấu cuộc trò chuyện là chưa đọc.', 'Thành công');
+                } else {
+                  showAlertDialog('Không thể đánh dấu chưa đọc. Cuộc trò chuyện cần có ít nhất một tin nhắn.', 'Thông báo', 'danger');
+                }
+              }}
             />
           </>
         ) : selectedChatRequest ? (
@@ -4463,6 +4575,7 @@ export const Chat = () => {
         isOpen={isSearchPanelOpen}
         onClose={() => setIsSearchPanelOpen(false)}
         activeConversationId={activeConversation?.id ?? null}
+        members={activeConversation?.members ?? []}
         onJumpToMessage={handleJumpToMessageFromSearch}
       />
 
