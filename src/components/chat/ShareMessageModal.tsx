@@ -26,6 +26,7 @@ type ShareTarget = {
   id: string;
   title: string;
   subtitle: string;
+  searchText?: string;
   avatarUrl: string | null;
   kind: 'dm' | 'group';
   channels?: ShareChannel[];
@@ -78,7 +79,8 @@ export const ShareMessageModal = ({
         targetMap.set(conversation.id, {
           id: conversation.id,
           title: friend?.username || 'Người dùng',
-          subtitle: friend?.email || 'Tin nhắn riêng',
+          subtitle: 'Tin nhắn riêng',
+          searchText: friend?.email || '',
           avatarUrl: friend?.avatarUrl || null,
           kind: 'dm',
         });
@@ -111,7 +113,8 @@ export const ShareMessageModal = ({
     if (!keyword) return true;
     if (
       target.title.toLowerCase().includes(keyword) ||
-      target.subtitle.toLowerCase().includes(keyword)
+      target.subtitle.toLowerCase().includes(keyword) ||
+      target.searchText?.toLowerCase().includes(keyword)
     ) return true;
     
     if (target.channels) {
