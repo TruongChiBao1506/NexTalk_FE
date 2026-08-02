@@ -47,7 +47,8 @@ import {
   MessageSquareShare,
   X,
   Bookmark,
-  Languages
+  Languages,
+  ChevronDown
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
@@ -1093,8 +1094,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                         <button
                           type="button"
                           onClick={() => setExpandedCallLogId(expandedCallLogId === msg.id ? null : msg.id)}
+                          aria-expanded={expandedCallLogId === msg.id}
+                          aria-controls={`call-log-details-${msg.id}`}
                           className="mx-auto flex max-w-full items-center justify-center gap-2 text-sm font-semibold transition hover:opacity-80 dark:hover:opacity-90"
-                          title="Xem chi tiết cuộc gọi"
+                          title={expandedCallLogId === msg.id ? 'Ẩn chi tiết cuộc gọi' : 'Xem chi tiết cuộc gọi'}
                         >
                           {callMetadata?.status === 'MISSED' ? (
                             callMetadata?.callType === 'VIDEO' ? <VideoOff className="h-4 w-4 text-red-500" /> : <PhoneMissed className="h-4 w-4 text-red-500" />
@@ -1113,10 +1116,19 @@ export const MessageList: React.FC<MessageListProps> = ({
                           }`}>
                             {getCallHistorySummary(msg)}
                           </span>
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 dark:text-zinc-500 ${
+                              expandedCallLogId === msg.id ? 'rotate-180' : ''
+                            }`}
+                          />
                         </button>
 
                         {expandedCallLogId === msg.id && (
-                          <div className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400">
+                          <div
+                            id={`call-log-details-${msg.id}`}
+                            className="mt-3 border-t border-gray-200 pt-3 text-left text-xs text-gray-500 dark:border-zinc-800 dark:text-zinc-400"
+                          >
                             <div className="grid gap-2 sm:grid-cols-2">
                               <div>
                                 <p className="m-0 font-bold text-gray-700 dark:text-zinc-200">Thời gian gọi</p>
