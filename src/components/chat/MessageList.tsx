@@ -1614,7 +1614,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           )}
 
                           {isRecalledMessage ? (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
+                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
                                 ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
                                 : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
                               }`}>
@@ -1624,7 +1624,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           ) : msg.attachments && msg.attachments.length > 0 ? (
                             <div className={`w-fit max-w-[min(80vw,28rem)] text-sm ${
                               hasAttachmentCaption
-                                ? `overflow-hidden rounded-2xl p-2 shadow-sm ${isMe
+                                ? `overflow-hidden rounded-[18px] p-2 shadow-sm ${isMe
                                   ? 'nextalk-themed-bubble rounded-tr-none'
                                   : 'rounded-tl-none border border-indigo-100/80 bg-white text-gray-905 dark:border-zinc-850/60 dark:bg-discord-mid dark:text-discord-text'}`
                                 : ''
@@ -1762,7 +1762,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                                       return (
                                         <div key={`${attachment.url}-${idx}`} className="flex flex-col gap-1 w-full max-w-sm">
-                                          <div className={`flex items-center gap-3 p-3 rounded-2xl border text-sm w-full ${isMe
+                                          <div className={`flex items-center gap-3 p-3 rounded-[18px] border text-sm w-full ${isMe
                                               ? 'nextalk-themed-bubble rounded-tr-none'
                                             : 'bg-white dark:bg-discord-mid border-indigo-100 dark:border-zinc-850 text-gray-900 dark:text-white rounded-tl-none shadow-sm'
                                           }`}>
@@ -1891,7 +1891,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </div>
                           ) : msg.messageType === 'FILE' ? (
                             <div className="flex flex-col gap-1 w-full max-w-sm">
-                              <div className={`flex flex-col p-3 rounded-2xl border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${isMe
+                              <div className={`flex flex-col p-3 rounded-[18px] border text-sm w-full shadow-sm bg-white dark:bg-zinc-900 ${isMe
                                   ? 'border-indigo-100 dark:border-indigo-500/30 rounded-tr-none'
                                   : 'border-indigo-100 dark:border-zinc-800 rounded-tl-none'
                                 }`}>
@@ -1991,7 +1991,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           ) : (
                             <div className={standaloneLinkPreview
                               ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
-                              : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-2xl text-sm leading-relaxed text-left break-words shadow-sm ${isMe
+                              : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm ${isMe
                                 ? msg.parentId
                                   ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
                                   : 'nextalk-themed-bubble rounded-tr-none'
