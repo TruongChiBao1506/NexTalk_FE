@@ -21,10 +21,10 @@ export const GiphyGifPicker: React.FC<{ onSelect: (gif: GiphySelection) => void 
       <input value={query} maxLength={50} onChange={e => setQuery(e.target.value)} placeholder="Tìm GIF trên GIPHY"
         className="h-9 flex-1 bg-transparent text-sm outline-none dark:text-white" />
     </label>
-    <div className="flex-1 columns-3 gap-2 overflow-y-auto custom-scrollbar">
+    <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-x-hidden overflow-y-auto custom-scrollbar">
       {loading ? <Loader2 className="mx-auto mt-16 h-6 w-6 animate-spin text-gray-400" /> : items.map(gif =>
-        <button key={gif.id} type="button" className="relative mb-2 block w-full overflow-hidden rounded-lg" onClick={() => { giphyService.track(gif.analytics.onclick); onSelect(gif); }}>
-          <img src={gif.imageUrl} alt={gif.altText} className="h-auto w-full" loading="lazy" onLoad={() => giphyService.track(gif.analytics.onload)} />
+        <button key={gif.id} type="button" className="relative aspect-square min-w-0 overflow-hidden rounded-lg" onClick={() => { giphyService.track(gif.analytics.onclick); onSelect(gif); }}>
+          <img src={gif.imageUrl} alt={gif.altText} className="h-full w-full object-cover" loading="lazy" onLoad={() => giphyService.track(gif.analytics.onload)} />
           {(gif.username || gif.displayName || gif.sourceTld) && <span className="absolute inset-x-1.5 bottom-1.5 truncate rounded-md bg-slate-950/75 px-1.5 py-0.5 text-left text-[9px] font-semibold text-white">{gif.username ? `@${gif.username}` : (gif.displayName || gif.sourceTld)}</span>}
         </button>)}
     </div>
