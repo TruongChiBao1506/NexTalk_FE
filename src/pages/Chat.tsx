@@ -1364,15 +1364,17 @@ export const Chat = () => {
         const pageSize = 50;
         const maxPages = 5;
         const archiveById = new Map<string, MessageResponse>();
+        let cursor: string | null = null;
 
         for (let page = 0; page < maxPages; page += 1) {
-          const response = await messageService.getConversationMessages(activeConversation.id, page, pageSize);
+          const response = await messageService.getMessageHistory(activeConversation.id, cursor, pageSize);
           if (!response.success || !response.data || cancelled) break;
 
           const sizeBeforePage = archiveById.size;
-          response.data.forEach((message) => archiveById.set(message.id, message));
+          response.data.items.forEach((message) => archiveById.set(message.id, message));
           if (archiveById.size === sizeBeforePage) break;
-          if (response.data.length < pageSize) break;
+          if (!response.data.hasMore || !response.data.nextCursor) break;
+          cursor = response.data.nextCursor;
         }
 
         if (!cancelled) {

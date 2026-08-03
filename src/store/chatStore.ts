@@ -3,6 +3,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { conversationService } from '../services/conversationService';
 import { messageService } from '../services/messageService';
+import type { MessageCursorPageResponse } from '../services/messageService';
 import { notificationService } from '../services/notificationService';
 import { encryptedCacheService } from '../services/encryptedCacheService';
 import { useAuthStore } from './authStore';
@@ -67,7 +68,11 @@ const mergeMessagesNewestFirst = (current: MessageResponse[], incoming: MessageR
     const existing = byId.get(message.id);
     byId.set(message.id, existing ? { ...existing, ...message } : message);
   });
-  return [...byId.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return [...byId.values()].sort((a, b) => {
+    const timeDifference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (timeDifference !== 0) return timeDifference;
+    return b.id.localeCompare(a.id);
+  });
 };
 
 const newerMessage = (current: MessageResponse | undefined, candidate: MessageResponse | undefined) => {
@@ -136,7 +141,7 @@ const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const MESSAGE_PAGE_SIZE = 25;
 const MESSAGE_PREFETCH_COUNT = 3;
 const SEEN_RECEIPT_DEBOUNCE_MS = 400;
-const initialHistoryRequests = new Map<string, Promise<MessageResponse[]>>();
+const initialHistoryRequests = new Map<string, Promise<MessageCursorPageResponse>>();
 
 const fetchInitialHistory = (ownerId: string, conversationId: string) => {
   const requestKey = `${ownerId}:${conversationId}`;
@@ -144,7 +149,7 @@ const fetchInitialHistory = (ownerId: string, conversationId: string) => {
   if (existing) return existing;
 
   const request = messageService
-    .getConversationMessages(conversationId, 0, MESSAGE_PAGE_SIZE)
+    .getMessageHistory(conversationId, null, MESSAGE_PAGE_SIZE)
     .then((response) => {
       if (!response.success || !response.data) {
         throw new Error(response.message || 'Failed to load message history');
@@ -205,10 +210,11 @@ interface ChatState {
   error: string | null;
   hasMoreMessages: boolean;
   currentPage: number;
+  nextMessageCursor: string | null;
   isLoading: boolean;
   isLoadingConversations: boolean;
   messagesCache: Record<string, MessageResponse[]>;
-  paginationCache: Record<string, { currentPage: number; hasMoreMessages: boolean }>;
+  paginationCache: Record<string, { currentPage: number; hasMoreMessages: boolean; nextCursor: string | null }>;
   pinnedMessagesCache: Record<string, MessageResponse[]>;
   stompClient: Client | null;
   replyTo: MessageResponse | null;
@@ -276,6 +282,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   hasMoreMessages: true,
   currentPage: 0,
+  nextMessageCursor: null,
   isLoading: false,
   isLoadingConversations: false,
   messagesCache: {},
@@ -406,21 +413,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
           sorted.slice(0, MESSAGE_PREFETCH_COUNT).forEach((conversation) => {
             if ((get().messagesCache[conversation.id]?.length ?? 0) > 0) return;
             void fetchInitialHistory(userId, conversation.id)
-              .then((history) => {
+              .then((historyPage) => {
                 if (useAuthStore.getState().user?.id !== userId) return;
                 set((state) => ({
                   messagesCache: {
                     ...state.messagesCache,
                     [conversation.id]: mergeMessagesNewestFirst(
                       state.messagesCache[conversation.id] ?? [],
-                      history,
+                      historyPage.items,
                     ),
                   },
                   paginationCache: {
                     ...state.paginationCache,
                     [conversation.id]: {
                       currentPage: 0,
-                      hasMoreMessages: history.length === MESSAGE_PAGE_SIZE,
+                      hasMoreMessages: historyPage.hasMore,
+                      nextCursor: historyPage.nextCursor,
                     },
                   },
                 }));
@@ -486,7 +494,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.messagesCache,
           [activeConversation.id]: state.messages.filter((message) => !isConversationPreviewOnly(message)),
         },
-        paginationCache: { ...state.paginationCache, [activeConversation.id]: { currentPage: state.currentPage, hasMoreMessages: state.hasMoreMessages } },
+        paginationCache: {
+          ...state.paginationCache,
+          [activeConversation.id]: {
+            currentPage: state.currentPage,
+            hasMoreMessages: state.hasMoreMessages,
+            nextCursor: state.nextMessageCursor,
+          },
+        },
         pinnedMessagesCache: { ...state.pinnedMessagesCache, [activeConversation.id]: state.pinnedMessages }
       }));
     }
@@ -496,6 +511,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         activeConversation: null,
         messages: [],
         currentPage: 0,
+        nextMessageCursor: null,
         hasMoreMessages: true,
         replyTo: null,
         pinnedMessages: [],
@@ -541,13 +557,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cachedMessages = cachedConversationMessages.length
       ? cachedConversationMessages
       : lastMessage && !isConversationPreviewOnly(lastMessage) ? [lastMessage] : [];
-    const cachedPagination = paginationCache[conversationId] || { currentPage: 0, hasMoreMessages: true };
+    const cachedPagination = paginationCache[conversationId]
+      || { currentPage: 0, hasMoreMessages: true, nextCursor: null };
     const cachedPinnedMessages = pinnedMessagesCache[conversationId] || [];
 
     set({
       activeConversation: resolvedActive,
       messages: cachedMessages,
       currentPage: cachedPagination.currentPage,
+      nextMessageCursor: cachedPagination.nextCursor,
       hasMoreMessages: cachedPagination.hasMoreMessages,
       isLoading: cachedMessages.length === 0,
       replyTo: null,
@@ -561,7 +579,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       const ownerId = useAuthStore.getState().user?.id ?? 'anonymous-session';
-      const history = await fetchInitialHistory(ownerId, conversationId);
+      const historyPage = await fetchInitialHistory(ownerId, conversationId);
+      const history = historyPage.items;
         
       // Mark messages as seen
       scheduleSeenReceipt(conversationId);
@@ -577,7 +596,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
 
           const newMessages = mergeMessagesNewestFirst(state.messages, history);
-          const newHasMore = state.messages.length > 0 ? state.hasMoreMessages : history.length === MESSAGE_PAGE_SIZE;
+          const retainsOlderWindow = state.messages.length > history.length;
+          const newHasMore = retainsOlderWindow ? state.hasMoreMessages : historyPage.hasMore;
 
           const markerIndex = unreadCountAtOpen > 0
             ? Math.min(unreadCountAtOpen, newMessages.length) - 1
@@ -589,6 +609,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return {
             messages: newMessages,
             hasMoreMessages: newHasMore,
+            nextMessageCursor: retainsOlderWindow
+              ? state.nextMessageCursor
+              : historyPage.nextCursor,
             isLoading: false,
             lastMessages: updatedLastMessages,
             unreadMarkersByConversation: unreadMarker
@@ -627,24 +650,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadMoreMessages: async () => {
-    const { activeConversation, currentPage, hasMoreMessages, isLoading } = get();
+    const { activeConversation, currentPage, nextMessageCursor, hasMoreMessages, isLoading } = get();
     if (!activeConversation || !hasMoreMessages || isLoading) return;
 
     set({ isLoading: true });
     const nextPage = currentPage + 1;
 
     try {
-      const response = await messageService.getConversationMessages(
+      const response = await messageService.getMessageHistory(
         activeConversation.id,
-        nextPage,
+        nextMessageCursor,
         MESSAGE_PAGE_SIZE
       );
       if (response.success && response.data) {
-        const history = response.data;
+        const historyPage = response.data;
+        const history = historyPage.items;
         set((state) => ({
           messages: mergeMessagesNewestFirst(state.messages, history),
           currentPage: nextPage,
-          hasMoreMessages: history.length === MESSAGE_PAGE_SIZE,
+          nextMessageCursor: historyPage.nextCursor,
+          hasMoreMessages: historyPage.hasMore,
           isLoading: false,
         }));
       }
@@ -1435,13 +1460,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   fetchPinnedMessages: async (conversationId) => {
     try {
-      const response = await messageService.getPinnedMessages(conversationId);
+      const response = await messageService.getPinnedMessagesCursor(conversationId, null, 50);
       if (response.success && response.data) {
         if (get().activeConversation?.id === conversationId) {
-          set({ pinnedMessages: response.data });
+          set({ pinnedMessages: response.data.items });
         }
         set((state) => ({
-          pinnedMessagesCache: { ...state.pinnedMessagesCache, [conversationId]: response.data }
+          pinnedMessagesCache: { ...state.pinnedMessagesCache, [conversationId]: response.data!.items }
         }));
       }
     } catch (err) {

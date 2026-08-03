@@ -48,7 +48,7 @@ export const useMessageActions = ({
     setEditingMessageId(null);
   };
 
-  const handleJumpToMessage = (messageId: string) => {
+  const handleJumpToMessage = async (messageId: string) => {
     const scrollToElement = () => {
       const element = document.getElementById(`message-${messageId}`);
       if (!element) return false;
@@ -60,25 +60,35 @@ export const useMessageActions = ({
 
     if (scrollToElement()) return;
 
-    // Pinned messages can be older than the currently loaded history page.
-    // Insert the full pinned response into the rendered timeline, then retry.
     const state = useChatStore.getState();
-    const pinnedMessage = state.pinnedMessages.find((message) => message.id === messageId);
-    if (!pinnedMessage) return;
-    useChatStore.setState((current) => {
-      const withoutDuplicate = current.messages.filter((message) => message.id !== pinnedMessage.id);
-      const messages = [...withoutDuplicate, pinnedMessage].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      return {
-        messages,
-        messagesCache: current.activeConversation
-          ? { ...current.messagesCache, [current.activeConversation.id]: messages }
-          : current.messagesCache
-      };
-    });
-
-    window.setTimeout(scrollToElement, 80);
+    const conversationId = state.activeConversation?.id;
+    if (!conversationId) return;
+    try {
+      const response = await messageService.getMessagesAround(conversationId, messageId, 25);
+      if (!response.success || !response.data) return;
+      const page = response.data;
+      useChatStore.setState((current) => ({
+        messages: page.items,
+        messagesCache: {
+          ...current.messagesCache,
+          [conversationId]: page.items,
+        },
+        currentPage: 0,
+        nextMessageCursor: page.nextCursor,
+        hasMoreMessages: page.hasMore,
+        paginationCache: {
+          ...current.paginationCache,
+          [conversationId]: {
+            currentPage: 0,
+            nextCursor: page.nextCursor,
+            hasMoreMessages: page.hasMore,
+          },
+        },
+      }));
+      window.setTimeout(scrollToElement, 80);
+    } catch {
+      showAlertDialog('KhÃ´ng thá»ƒ táº£i ngá»¯ cáº£nh cá»§a tin nháº¯n.', 'KhÃ´ng thá»ƒ má»Ÿ tin nháº¯n', 'danger');
+    }
   };
 
   const handleJumpToMessageFromSearch = async (messageId: string, conversationId: string) => {
@@ -87,7 +97,7 @@ export const useMessageActions = ({
       await selectConversation(conversationId);
     }
     setTimeout(() => {
-      handleJumpToMessage(messageId);
+      void handleJumpToMessage(messageId);
     }, 450);
   };
 

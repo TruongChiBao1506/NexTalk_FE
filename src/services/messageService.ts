@@ -11,6 +11,19 @@ export interface AdvancedMessageSearchParams {
   to?: string;
   page?: number;
   size?: number;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface MessageCursorPageResponse {
+  items: MessageResponse[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface MessageAroundResponse extends MessageCursorPageResponse {
+  anchorMessageId: string;
+  hasNewer: boolean;
 }
 
 export interface MessageSearchResponse {
@@ -94,6 +107,30 @@ export const messageService = {
     const response = await apiClient.get<ApiResponse<MessageResponse[]>>(`/messages/${conversationId}`, {
       params: { page, size }
     });
+    return response.data;
+  },
+
+  async getMessageHistory(
+    conversationId: string,
+    cursor?: string | null,
+    limit = 25
+  ): Promise<ApiResponse<MessageCursorPageResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageCursorPageResponse>>(
+      `/messages/${conversationId}/history`,
+      { params: { cursor: cursor || undefined, limit } }
+    );
+    return response.data;
+  },
+
+  async getMessagesAround(
+    conversationId: string,
+    messageId: string,
+    limit = 25
+  ): Promise<ApiResponse<MessageAroundResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageAroundResponse>>(
+      `/messages/${conversationId}/around/${messageId}`,
+      { params: { limit } }
+    );
     return response.data;
   },
 
@@ -190,6 +227,18 @@ export const messageService = {
     return response.data;
   },
 
+  async getPinnedMessagesCursor(
+    conversationId: string,
+    cursor?: string | null,
+    limit = 25
+  ): Promise<ApiResponse<MessageCursorPageResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageCursorPageResponse>>(
+      `/conversations/${conversationId}/pinned/cursor`,
+      { params: { cursor: cursor || undefined, limit } }
+    );
+    return response.data;
+  },
+
   async reactToMessage(id: string, emoji: string): Promise<ApiResponse<MessageResponse>> {
     const response = await apiClient.post<ApiResponse<MessageResponse>>(`/messages/${id}/react`, {
       emoji
@@ -235,6 +284,11 @@ export const messageService = {
 
   async searchMessagesAdvanced(params: AdvancedMessageSearchParams): Promise<ApiResponse<MessageSearchResponse>> {
     const response = await apiClient.get<ApiResponse<MessageSearchResponse>>('/messages/search/advanced', { params });
+    return response.data;
+  },
+
+  async searchMessagesCursor(params: AdvancedMessageSearchParams): Promise<ApiResponse<MessageCursorPageResponse>> {
+    const response = await apiClient.get<ApiResponse<MessageCursorPageResponse>>('/messages/search/cursor', { params });
     return response.data;
   },
 

@@ -30,11 +30,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [hasMore, setHasMore] = useState(false);
-  const [totalElements, setTotalElements] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSearch = async (e?: React.FormEvent, page = 0) => {
+  const handleSearch = async (e?: React.FormEvent, cursor: string | null = null) => {
     if (e) e.preventDefault();
     if (!query.trim() && !messageType && !senderId && !from && !to) return;
 
@@ -42,20 +42,25 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setSearched(true);
     try {
       const convId = onlyCurrent && activeConversationId ? activeConversationId : undefined;
-      const response = await messageService.searchMessagesAdvanced({
+      const response = await messageService.searchMessagesCursor({
         query: query.trim(),
         conversationId: convId,
         senderId: senderId || undefined,
         messageType: messageType || undefined,
         from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
         to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
-        page,
-        size: 20,
+        cursor: cursor || undefined,
+        limit: 20,
       });
       if (response.success && response.data) {
-        setResults((current) => page === 0 ? response.data!.items : [...current, ...response.data!.items]);
+        setResults((current) => {
+          if (!cursor) return response.data!.items;
+          const byId = new Map(current.map((message) => [message.id, message]));
+          response.data!.items.forEach((message) => byId.set(message.id, message));
+          return [...byId.values()];
+        });
         setHasMore(response.data.hasMore);
-        setTotalElements(response.data.totalElements);
+        setNextCursor(response.data.nextCursor);
       }
     } catch (err) {
       console.error('Failed to search messages:', err);
@@ -194,7 +199,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         ) : (
           <div className="space-y-3">
             <p className="text-[10px] uppercase font-semibold text-gray-500 dark:text-discord-gray-500 tracking-wider">
-              Tìm thấy {totalElements} kết quả
+              Đã tải {results.length} kết quả
             </p>
             {results.map((msg) => (
               <div
@@ -233,7 +238,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               </div>
             ))}
             {hasMore && (
-              <button type="button" disabled={isLoading} onClick={() => void handleSearch(undefined, Math.floor(results.length / 20))} className="w-full rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10">
+              <button type="button" disabled={isLoading || !nextCursor} onClick={() => void handleSearch(undefined, nextCursor)} className="w-full rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10">
                 {isLoading ? 'Đang tải…' : 'Tải thêm kết quả'}
               </button>
             )}
