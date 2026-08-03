@@ -3504,6 +3504,8 @@ export const Chat = () => {
         return `${prefix}[Tệp tin]`;
       case 'STICKER':
         return `${prefix}[Nhãn dán]`;
+      case 'GIF':
+        return `${prefix}Đã gửi một ảnh GIF`;
       case 'TEXT':
       default:
         return `${prefix}${stripHtml(msg.content)}`;

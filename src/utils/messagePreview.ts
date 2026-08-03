@@ -3,7 +3,7 @@ import { useChannelTaskStore } from '../store/channelTaskStore';
 
 const urlPattern = /https?:\/\/[^\s<>"']+/gi;
 
-export type MessagePreviewKind = 'TEXT' | 'TASK' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'RECALLED';
+export type MessagePreviewKind = 'TEXT' | 'TASK' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'LINK' | 'POLL' | 'STICKER' | 'GIF' | 'RECALLED';
 
 export interface MessagePreviewData {
   kind: MessagePreviewKind;
@@ -83,6 +83,14 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
       label: 'Sticker',
       text: 'Sticker',
       thumbnailUrl: message.content,
+    };
+  }
+
+  if (message.messageType === 'GIF') {
+    return {
+      kind: 'GIF',
+      label: 'GIF',
+      text: 'Đã gửi một ảnh GIF',
     };
   }
 

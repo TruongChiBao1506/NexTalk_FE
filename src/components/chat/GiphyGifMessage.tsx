@@ -10,8 +10,9 @@ export const GiphyGifMessage: React.FC<{ id: string; alt?: string }> = ({ id, al
   }, [id]);
   if (!giphyService.isConfigured) return <div className="rounded-xl bg-gray-100 p-4 text-sm text-gray-500">GIF không khả dụng.</div>;
   if (!gif) return <div className="h-40 w-56 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-700" />;
-  return <div className="max-w-[280px] overflow-hidden rounded-xl">
+  const attribution = gif.username ? `@${gif.username}` : (gif.displayName || gif.sourceTld || '');
+  return <div className="relative max-w-[280px] overflow-hidden rounded-xl">
     <img src={gif.imageUrl} alt={alt || gif.altText} className="block h-auto w-full" onLoad={() => giphyService.track(gif.analytics.onload)} />
-    <div className="flex justify-end bg-white px-2 py-1"><img src="/brands/powered-by-giphy.png" alt="Powered by GIPHY" className="h-4 w-auto" /></div>
+    {attribution && <span className="absolute bottom-2 left-2 max-w-[75%] truncate rounded-md bg-slate-950/75 px-2 py-1 text-[10px] font-semibold text-white">{attribution}</span>}
   </div>;
 };

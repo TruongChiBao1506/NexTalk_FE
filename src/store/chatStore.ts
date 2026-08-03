@@ -76,6 +76,7 @@ const newerMessage = (current: MessageResponse | undefined, candidate: MessageRe
 };
 
 const reactionMessagePreview = (message: MessageResponse) => {
+  if (message.messageType === 'GIF') return 'Đã gửi một ảnh GIF';
   const plainText = (message.content || '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
