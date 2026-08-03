@@ -51,6 +51,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
+import { GiphyGifMessage } from './GiphyGifMessage';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
 import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
@@ -1800,6 +1801,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 </div>
                               )}
                             </div>
+                          ) : msg.messageType === 'GIF' ? (
+                            <GiphyGifMessage id={msg.content} alt={msg.metadata?.gif?.altText} />
                           ) : msg.messageType === 'STICKER' ? (
                             <div className="w-[130px] h-[130px] shrink-0 select-none">
                               <img

@@ -23,6 +23,7 @@ import { reminderService } from '../services/reminderService';
 import { blockService } from '../services/blockService';
 import { groupService } from '../services/groupService';
 import { conversationService } from '../services/conversationService';
+import { giphyService, toGiphyMessageMetadata, type GiphySelection } from '../services/giphyService';
 import { ensureFreshAccessToken } from '../api/apiClient';
 import {
   MessageSquare, Loader2, Users, Plus, ArrowLeft, UserPlus,
@@ -450,7 +451,7 @@ export const Chat = () => {
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
   const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
-  const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker'>('emoji');
+  const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker' | 'gif'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
@@ -3095,6 +3096,15 @@ export const Chat = () => {
       : `${day}/${month}/${String(date.getFullYear()).slice(-2)}`;
   };
 
+  const handleSendGif = (gif: GiphySelection) => {
+    if (!canSendInActiveConversation) return;
+    sendTypingStopped();
+    const sent = sendStompMessage(gif.id, 'GIF', replyTo?.id ?? undefined, undefined, undefined, undefined, undefined, toGiphyMessageMetadata(gif));
+    if (sent) giphyService.track(gif.analytics.onsent);
+    if (replyTo) setReplyTo(null);
+    setIsEmojiStickerOpen(false);
+  };
+
   const retryFailedMessage = async (message: MessageResponse) => {
     const clientMessageId = message.clientMessageId ?? message.metadata?.clientMessageId;
     if (!clientMessageId || message.metadata?.deliveryState !== 'failed') return;
@@ -4302,6 +4312,7 @@ export const Chat = () => {
                   setIsEmojiStickerOpen={setIsEmojiStickerOpen}
                   handleSelectEmoji={handleSelectEmoji}
                   handleSendSticker={handleSendSticker}
+                  handleSendGif={handleSendGif}
                   fileInputRef={fileInputRef}
                   handleFileChange={handleFileChange}
                   folderInputRef={folderInputRef}

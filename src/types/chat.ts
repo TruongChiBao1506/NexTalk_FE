@@ -38,7 +38,7 @@ export interface MessageRequest {
   clientMessageId?: string;
 }
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'ALBUM' | 'POLL' | 'SYSTEM' | 'STICKER' | 'GIF';
 
 export interface MessageAttachment {
   url: string;

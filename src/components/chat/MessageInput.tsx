@@ -58,6 +58,8 @@ import { getFileIconConfig, formatFileSize } from '../../utils/fileUtils';
 import { detectSensitiveInfo } from '../../utils/sensitiveInfoUtils';
 import { useStickerStore } from '../../store/stickerStore';
 import { conversationService, type BirthdayContextResponse } from '../../services/conversationService';
+import { GiphyGifPicker } from './GiphyGifPicker';
+import type { GiphySelection } from '../../services/giphyService';
 
 const emojiCategories = [
   {
@@ -125,11 +127,12 @@ interface MessageInputProps {
   applyAlignment: (align: string) => void;
   clearFormatting: () => void;
   isEmojiStickerOpen: boolean;
-  emojiStickerTab: 'emoji' | 'sticker';
-  setEmojiStickerTab: (tab: 'emoji' | 'sticker') => void;
+  emojiStickerTab: 'emoji' | 'sticker' | 'gif';
+  setEmojiStickerTab: (tab: 'emoji' | 'sticker' | 'gif') => void;
   setIsEmojiStickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleSelectEmoji: (emoji: string) => void;
   handleSendSticker: (sticker: string) => void;
+  handleSendGif: (gif: GiphySelection) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   folderInputRef: React.RefObject<HTMLInputElement | null>;
@@ -225,6 +228,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   setIsEmojiStickerOpen,
   handleSelectEmoji,
   handleSendSticker,
+  handleSendGif,
   fileInputRef,
   handleFileChange,
   folderInputRef,
@@ -1125,6 +1129,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               >
                 Sticker
               </button>
+              <button type="button" onClick={() => setEmojiStickerTab('gif')}
+                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'gif' ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'}`}>
+                GIF
+              </button>
             </div>
 
             {emojiStickerTab === 'emoji' ? (
@@ -1150,6 +1158,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   </div>
                 ))}
               </div>
+            ) : emojiStickerTab === 'gif' ? (
+              <GiphyGifPicker onSelect={handleSendGif} />
             ) : (
               <div className="flex flex-col h-64">
                 {/* Pack Tabs */}
