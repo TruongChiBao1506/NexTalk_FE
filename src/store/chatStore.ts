@@ -12,6 +12,7 @@ import { useFriendStore } from './friendStore';
 import type { ConversationResponse, ConversationSummaryResponse, MessageAttachment, MessageResponse, MessageStatusUpdateResponse, MessageType, TypingIndicatorEvent } from '../types/chat';
 import { refreshAccessToken } from '../api/apiClient';
 import { audioSynth } from '../utils/audioSynth';
+import { purgeLegacyMessageDraftStorage } from '../utils/chatDraftPrivacy';
 
 let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -132,7 +133,6 @@ const isConversationPreviewOnly = (message: MessageResponse | null | undefined) 
 
 const typingIndicatorTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
 const seenReceiptTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
-const MESSAGE_DRAFTS_STORAGE_KEY = 'nextalk_messageDrafts';
 const MESSAGE_PAGE_SIZE = 25;
 const MESSAGE_PREFETCH_COUNT = 3;
 const SEEN_RECEIPT_DEBOUNCE_MS = 400;
@@ -181,29 +181,9 @@ export interface UnreadMarker {
   count: number;
 }
 
-const getDraftStorageKey = () => {
-  const userId = useAuthStore.getState().user?.id ?? 'anonymous';
-  return `${MESSAGE_DRAFTS_STORAGE_KEY}:${userId}`;
-};
-
-const loadMessageDrafts = (): Record<string, string> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(localStorage.getItem(getDraftStorageKey()) ?? '{}');
-  } catch {
-    return {};
-  }
-};
-
-const saveMessageDrafts = (drafts: Record<string, string>) => {
-  if (typeof window === 'undefined') return;
-  const key = getDraftStorageKey();
-  if (Object.keys(drafts).length === 0) {
-    localStorage.removeItem(key);
-    return;
-  }
-  localStorage.setItem(key, JSON.stringify(drafts));
-};
+// Drafts can contain private message content. Keep them in memory for the
+// current authenticated session and remove plaintext values from older builds.
+purgeLegacyMessageDraftStorage();
 
 const shouldPlayIncomingMessageSound = (message: MessageResponse) => {
   const currentUserId = useAuthStore.getState().user?.id;
@@ -307,7 +287,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   subscribedGroupVoiceIds: [],
   conversationSummaries: {},
   typingUsersByConversation: {},
-  messageDrafts: loadMessageDrafts(),
+  messageDrafts: {},
   unreadMarkersByConversation: {},
   unreadCounts: {},
   isSelectionMode: false,
@@ -732,7 +712,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       } else {
         delete nextDrafts[conversationId];
       }
-      saveMessageDrafts(nextDrafts);
       return { messageDrafts: nextDrafts };
     });
   },
@@ -742,13 +721,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!state.messageDrafts[conversationId]) return state;
       const nextDrafts = { ...state.messageDrafts };
       delete nextDrafts[conversationId];
-      saveMessageDrafts(nextDrafts);
       return { messageDrafts: nextDrafts };
     });
   },
 
   reloadMessageDrafts: () => {
-    set({ messageDrafts: loadMessageDrafts() });
+    purgeLegacyMessageDraftStorage();
+    set({ messageDrafts: {} });
   },
 
   clearUnreadMarker: (conversationId: string) => {
@@ -1049,9 +1028,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       stompClient.deactivate();
       Object.values(typingIndicatorTimeouts).forEach(clearTimeout);
       Object.keys(typingIndicatorTimeouts).forEach((key) => delete typingIndicatorTimeouts[key]);
-      set({ stompClient: null, isConnected: false, isConnecting: false, subscribedGroupVoiceIds: [], typingUsersByConversation: {} });
       console.info('[STOMP] Deactivated.');
     }
+    set({
+      stompClient: null,
+      isConnected: false,
+      isConnecting: false,
+      subscribedGroupVoiceIds: [],
+      typingUsersByConversation: {},
+      messageDrafts: {},
+    });
   },
 
   subscribeToGroupVoice: (groupId: string) => {

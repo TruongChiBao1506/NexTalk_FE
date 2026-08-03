@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import type { User } from '../types/auth'
 import { encryptedCacheService } from '../services/encryptedCacheService'
+import { purgeLegacyMessageDraftStorage } from '../utils/chatDraftPrivacy'
+
+purgeLegacyMessageDraftStorage();
 
 interface AuthState {
   user: User | null;
@@ -45,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => {
       localStorage.removeItem('nextalk_user');
       localStorage.removeItem('nextalk_accessToken');
       localStorage.removeItem('nextalk_refreshToken');
+      purgeLegacyMessageDraftStorage();
       set({ user: null, accessToken: null, isAuthenticated: false });
     },
 

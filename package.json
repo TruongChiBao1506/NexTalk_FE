@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
+    "build": "node scripts/check-chat-draft-privacy.mjs && tsc -b && vite build && node scripts/check-bundle-budget.mjs",
+    "test:chat-privacy": "node scripts/check-chat-draft-privacy.mjs",
     "check:mojibake": "node scripts/check-mojibake.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
