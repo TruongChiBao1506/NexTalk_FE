@@ -447,7 +447,6 @@ export const MessageList: React.FC<MessageListProps> = ({
   }, [messagesContainerRef, visibleMessages]);
   const getMessageStatusLabel = (msg: any) => {
     if (msg.metadata?.deliveryState === 'failed') return 'Gửi thất bại';
-    if (msg.metadata?.optimistic) return 'Đang gửi';
     const status = getMessageStatus(msg);
     if (status === 'SEEN') {
       if (isGroupConversation) {
@@ -1030,7 +1029,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             && Math.abs(currentMessageTime - previousMessageTime) <= MESSAGE_CLUSTER_WINDOW_MS
           );
           const showSenderName = isGroupConversation && !isMe && !isSameSenderCluster;
-          const showSenderAvatar = !isGroupConversation || showSenderName;
+          const showSenderAvatar = !isSameSenderCluster;
 
           // Find parent message if replied to
           const parentMessage = msg.parentId ? messagesById.get(msg.parentId) : null;
@@ -1687,13 +1686,6 @@ export const MessageList: React.FC<MessageListProps> = ({
                                                 </button>
                                               )}
 
-                                              {msg.metadata?.optimistic && (
-                                                <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex flex-col items-center justify-center text-white z-20 pointer-events-none">
-                                                  <Loader2 className="w-5 h-5 animate-spin mb-1 text-white" />
-                                                  <span className="text-[11px] font-extrabold">{msg.metadata?.progress ?? 0}%</span>
-                                                </div>
-                                              )}
-
                                               {msg.metadata?.deliveryState === 'failed' && (
                                                 <div className="absolute inset-0 bg-rose-950/80 backdrop-blur-[1px] flex flex-col items-center justify-center text-white p-2 z-20">
                                                   <AlertCircle className="w-6 h-6 text-rose-400 mb-1" />
@@ -2011,7 +2003,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     (đã chỉnh sửa)
                                   </span>
                                 )}
-                                {showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
+                                {showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.deliveryState === 'failed') && (
                                   <span className={`ml-2 inline-flex items-center gap-1 whitespace-nowrap align-baseline text-[9px] leading-none ${
                                     isMe
                                       ? 'text-slate-500 dark:text-white/70'
@@ -2019,10 +2011,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                   }`}>
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
                                     <span>{formatMessageTime(msg.createdAt)}</span>
-                                    {isMe && (
+                                    {isMe && (!msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
                                       <button
                                         type="button"
-                                        disabled={Boolean(msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed')}
+                                        disabled={msg.metadata?.deliveryState === 'failed'}
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           onOpenDeliveryDetails(msg);
@@ -2035,10 +2027,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                           ? <CheckCheck className="h-3 w-3" />
                                           : msg.metadata?.deliveryState === 'failed'
                                             ? <AlertTriangle className="h-3 w-3 text-rose-500" />
-                                            : msg.metadata?.optimistic
-                                              ? <Loader2 className="h-3 w-3 animate-spin" />
-                                              : <Check className="h-3 w-3" />}
-                                        {!msg.metadata?.optimistic && msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-2.5 w-2.5" />}
+                                            : <Check className="h-3 w-3" />}
+                                        {msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-2.5 w-2.5" />}
                                       </button>
                                     )}
                                     {msg.metadata?.deliveryState === 'failed' && (
@@ -2104,16 +2094,16 @@ export const MessageList: React.FC<MessageListProps> = ({
                         </div>
 
                         {/* Status block */}
-                        {!showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
+                        {!showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.deliveryState === 'failed') && (
                           <span className={`text-[10px] text-gray-500 dark:text-discord-muted mt-1 ${isMe ? 'text-right' : 'text-left'} flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                             {msg.isPinned && (
                               <Pin className="w-3 h-3 text-amber-505 fill-current mr-0.5 shrink-0" aria-label="Đã ghim" />
                             )}
                             <span>{formatMessageTime(msg.createdAt)}</span>
-                            {isMe && latestSeenMembers.length === 0 && (
+                            {isMe && latestSeenMembers.length === 0 && (!msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed') && (
                               <button
                                 type="button"
-                                disabled={Boolean(msg.metadata?.optimistic || msg.metadata?.deliveryState === 'failed')}
+                                disabled={msg.metadata?.deliveryState === 'failed'}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   onOpenDeliveryDetails(msg);
@@ -2130,12 +2120,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 {getMessageStatus(msg) === 'SENT' && (
                                   msg.metadata?.deliveryState === 'failed'
                                     ? <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                                    : msg.metadata?.optimistic
-                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
-                                      : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
+                                    : <Check className="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500" />
                                 )}
                                 <span>{getMessageStatusLabel(msg)}</span>
-                                {!msg.metadata?.optimistic && msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-3 w-3" />}
+                                {msg.metadata?.deliveryState !== 'failed' && <ChevronDown className="h-3 w-3" />}
                               </button>
                             )}
                             {msg.metadata?.deliveryState === 'failed' && (
