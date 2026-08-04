@@ -18,6 +18,26 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/agora-rtc-sdk-ng')) {
+              return 'agora-rtc';
+            }
+            if (id.includes('node_modules/firebase')) {
+              return 'firebase-vendor';
+            }
+            if (id.includes('node_modules/@zxing/browser')) {
+              return 'zxing-scanner';
+            }
+            if (id.includes('node_modules/@tiptap')) {
+              return 'tiptap-editor';
+            }
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       proxy: {
