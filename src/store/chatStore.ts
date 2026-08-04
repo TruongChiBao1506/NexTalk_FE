@@ -1,9 +1,20 @@
 import { create } from 'zustand';
 import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { conversationService } from '../services/conversationService';
 import { messageService } from '../services/messageService';
 import type { MessageCursorPageResponse } from '../services/messageService';
+import type SockJSType from 'sockjs-client';
+
+let sockJSConstructor: typeof SockJSType | null = null;
+const getSockJS = async () => {
+  if (!sockJSConstructor) {
+    const mod = await import('sockjs-client');
+    // Dynamic import of a CJS/UMD module may land the constructor on .default
+    sockJSConstructor = (mod.default ?? mod) as unknown as typeof SockJSType;
+  }
+  return sockJSConstructor;
+};
+void getSockJS(); // eagerly start loading SockJS fallback module
 import { notificationService } from '../services/notificationService';
 import { encryptedCacheService } from '../services/encryptedCacheService';
 import { useAuthStore } from './authStore';
@@ -868,14 +879,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const stompClient = new Client({
         ...(useRawWs
           ? { brokerURL: wsRawUrl }
-          : { webSocketFactory: () => new SockJS(`${baseUrl}/ws`) }),
+          : {
+              webSocketFactory: () => {
+                if (!sockJSConstructor) throw new Error('SockJS module not loaded');
+                return new sockJSConstructor(`${baseUrl}/ws`);
+              },
+            }),
         connectHeaders: {
           Authorization: `Bearer ${accessToken}`,
         },
         debug: () => {},
-        reconnectDelay: 3000,
+        reconnectDelay: 1500,
         heartbeatIncoming: 10000,
         heartbeatOutgoing: 10000,
+        connectionTimeout: 10000,
+        discardWebsocketOnCommFailure: true,
       });
 
       stompClient.beforeConnect = () => {
@@ -999,7 +1017,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (isUsingNativeWs) {
           isUsingNativeWs = false;
           stompClient.deactivate();
+          await getSockJS(); // ensure module is loaded before fallback
+          const SockJS = sockJSConstructor!;
           const fallbackClient = createStompClient(false);
+          void SockJS;
           fallbackClient.activate();
         }
       };
@@ -1021,8 +1042,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         } else if (isUsingNativeWs) {
           isUsingNativeWs = false;
           stompClient.deactivate();
-          const fallbackClient = createStompClient(false);
-          fallbackClient.activate();
+          await getSockJS(); // ensure module is loaded before fallback
+          const SockJS2 = sockJSConstructor!;
+          const fallbackClient2 = createStompClient(false);
+          void SockJS2;
+          fallbackClient2.activate();
         }
       };
 

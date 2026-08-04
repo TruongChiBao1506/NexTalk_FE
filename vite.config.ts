@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules/agora-rtc-sdk-ng')) {
               return 'agora-rtc';
             }
+            if (id.includes('node_modules/sockjs-client')) {
+              return 'sockjs-fallback';
+            }
             if (id.includes('node_modules/firebase')) {
               return 'firebase-vendor';
             }
@@ -43,6 +46,11 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: backendUrl,
+          changeOrigin: true,
+        },
+        '/ws-raw': {
+          target: backendUrl,
+          ws: true,
           changeOrigin: true,
         },
         '/ws': {
