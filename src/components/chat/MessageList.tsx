@@ -1016,6 +1016,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           // The list is rendered in a flex-col-reverse container, so index + 1 is
           // the message that appears immediately before this one chronologically.
           const previousChronologicalMessage = visibleMessages[index + 1];
+          const nextChronologicalMessage = visibleMessages[index - 1];
           const currentMessageTime = new Date(msg.createdAt).getTime();
           const previousMessageTime = previousChronologicalMessage
             ? new Date(previousChronologicalMessage.createdAt).getTime()
@@ -1028,6 +1029,35 @@ export const MessageList: React.FC<MessageListProps> = ({
             && new Date(msg.createdAt).toDateString() === new Date(previousChronologicalMessage.createdAt).toDateString()
             && Math.abs(currentMessageTime - previousMessageTime) <= MESSAGE_CLUSTER_WINDOW_MS
           );
+          const nextMessageTime = nextChronologicalMessage
+            ? new Date(nextChronologicalMessage.createdAt).getTime()
+            : Number.NaN;
+          const hasNextMessageInCluster = Boolean(
+            nextChronologicalMessage
+            && nextChronologicalMessage.senderId === msg.senderId
+            && Number.isFinite(currentMessageTime)
+            && Number.isFinite(nextMessageTime)
+            && new Date(msg.createdAt).toDateString() === new Date(nextChronologicalMessage.createdAt).toDateString()
+            && Math.abs(currentMessageTime - nextMessageTime) <= MESSAGE_CLUSTER_WINDOW_MS
+          );
+          const clusterPosition: 'single' | 'first' | 'middle' | 'last' = isSameSenderCluster
+            ? (hasNextMessageInCluster ? 'middle' : 'last')
+            : (hasNextMessageInCluster ? 'first' : 'single');
+          const messageClusterCornerClass = isMe
+            ? clusterPosition === 'first'
+              ? '!rounded-tr-[18px] !rounded-br-[3px]'
+              : clusterPosition === 'middle'
+                ? '!rounded-tr-[3px] !rounded-br-[3px]'
+                : clusterPosition === 'last'
+                  ? '!rounded-tr-[3px] !rounded-br-[18px]'
+                  : '!rounded-tr-none !rounded-br-[18px]'
+            : clusterPosition === 'first'
+              ? '!rounded-tl-[18px] !rounded-bl-[3px]'
+              : clusterPosition === 'middle'
+                ? '!rounded-tl-[3px] !rounded-bl-[3px]'
+                : clusterPosition === 'last'
+                  ? '!rounded-tl-[3px] !rounded-bl-[18px]'
+                  : '!rounded-tl-none !rounded-bl-[18px]';
           const showSenderName = isGroupConversation && !isMe && !isSameSenderCluster;
           const showSenderAvatar = !isSameSenderCluster;
 
@@ -1615,9 +1645,9 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                           {isRecalledMessage ? (
                             <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
-                                ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500 rounded-tr-none'
-                                : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 rounded-tl-none border border-indigo-100/70 dark:border-zinc-850/30'
-                              }`}>
+                                ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500'
+                                : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 border border-indigo-100/70 dark:border-zinc-850/30'
+                              } ${messageClusterCornerClass}`}>
                               {renderPriorityBadge()}
                               <span>Tin nhắn đã bị thu hồi</span>
                             </div>
@@ -1625,8 +1655,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                             <div className={`w-fit max-w-[min(80vw,28rem)] text-sm ${
                               hasAttachmentCaption
                                 ? `overflow-hidden rounded-[18px] p-2 shadow-sm ${isMe
-                                  ? 'nextalk-themed-bubble rounded-tr-none'
-                                  : 'rounded-tl-none border border-indigo-100/80 bg-white text-gray-905 dark:border-zinc-850/60 dark:bg-discord-mid dark:text-discord-text'}`
+                                  ? 'nextalk-themed-bubble'
+                                  : 'border border-indigo-100/80 bg-white text-gray-905 dark:border-zinc-850/60 dark:bg-discord-mid dark:text-discord-text'} ${messageClusterCornerClass}`
                                 : ''
                             }`}>
                               {renderPriorityBadge()}
@@ -1988,10 +2018,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                               ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
                               : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm ${isMe
                                 ? msg.parentId
-                                  ? 'bg-blue-100 text-slate-700 border border-blue-200 rounded-tr-none dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
-                                  : 'nextalk-themed-bubble rounded-tr-none'
-                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text rounded-tl-none border border-indigo-100/80 dark:border-zinc-850/60'
-                              }`}>
+                                  ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
+                                  : 'nextalk-themed-bubble'
+                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text border border-indigo-100/80 dark:border-zinc-850/60'
+                              } ${messageClusterCornerClass}`}>
                               {renderPriorityBadge()}
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
