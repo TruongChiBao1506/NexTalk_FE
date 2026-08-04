@@ -82,12 +82,15 @@ export const Friends = () => {
     fetchPendingInvitations();
     fetchSuggestions();
     fetchChatRequests();
+  }, [fetchChatRequests, fetchConversations, fetchPending, fetchPendingInvitations, fetchSuggestions]);
+
+  useEffect(() => {
     if (activeTab === 'friends') {
       fetchFriends();
     } else if (activeTab === 'groups') {
       fetchGroups();
     }
-  }, [activeTab, fetchChatRequests, fetchConversations, fetchFriends, fetchGroups, fetchPending, fetchPendingInvitations, fetchSuggestions]);
+  }, [activeTab, fetchFriends, fetchGroups]);
 
   const chatRequestPeerIdsKey = [
     ...incomingChatRequests.map((request) => request.sender.id),

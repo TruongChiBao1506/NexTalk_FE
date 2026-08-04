@@ -1238,8 +1238,13 @@ export const Chat = () => {
         connectWebSocket();
       }
 
-      await Promise.allSettled([
-        fetchConversations(),
+      // Fetch conversations first so the sidebar renders immediately
+      await fetchConversations();
+
+      if (cancelled) return;
+
+      // Fetch background secondary data without blocking conversation render
+      void Promise.allSettled([
         fetchGroups(),
         fetchFriends(),
         fetchPending(),

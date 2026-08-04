@@ -21,9 +21,8 @@ export const PinSetupModal = ({
   const [pinError, setPinError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { toggleHideConversation, fetchConversations } = useChatStore(state => ({
+  const { toggleHideConversation } = useChatStore(state => ({
     toggleHideConversation: state.toggleHideConversation,
-    fetchConversations: state.fetchConversations,
   }));
 
   const handlePinSubmit = async () => {
@@ -46,7 +45,6 @@ export const PinSetupModal = ({
           useAuthStore.getState().updateUser(response.data);
           if (pendingHideId) {
             await toggleHideConversation(pendingHideId, true);
-            await fetchConversations();
           }
           onSuccess();
         } else {
