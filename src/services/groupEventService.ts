@@ -18,8 +18,7 @@ export const groupEventService = {
   },
 
   async update(groupId: string, eventId: string, request: SaveGroupEventRequest) {
-    const { conversationId: _conversationId, ...body } = request;
-    const { data } = await apiClient.put<ApiResponse<GroupEventResponse>>(`/groups/${groupId}/events/${eventId}`, body);
+    const { data } = await apiClient.put<ApiResponse<GroupEventResponse>>(`/groups/${groupId}/events/${eventId}`, request);
     return data.data;
   },
 

@@ -39,8 +39,9 @@ export const useStickerStore = create<StickerState>((set, get) => ({
         }));
       
       set({ packs: activePacks, adminPacks: packs, isLoading: false, hasFetched: true });
-    } catch (error: any) {
-      set({ error: error.message || 'Lỗi tải danh sách sticker', isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi tải danh sách sticker';
+      set({ error: message, isLoading: false });
     }
   },
 
@@ -49,58 +50,39 @@ export const useStickerStore = create<StickerState>((set, get) => ({
     try {
       const packs = await stickerService.getStickerPacks();
       set({ adminPacks: packs, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || 'Lỗi tải danh sách admin', isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi tải danh sách admin';
+      set({ error: message, isLoading: false });
     }
   },
 
   createPack: async (name, coverUrl) => {
-    try {
-      await stickerService.createPack(name, coverUrl);
-      await get().fetchAllPacks();
-      await get().fetchPacks(true);
-    } catch (error: any) {
-      throw error;
-    }
+    await stickerService.createPack(name, coverUrl);
+    await get().fetchAllPacks();
+    await get().fetchPacks(true);
   },
 
   addStickers: async (packId, stickerUrls) => {
-    try {
-      await stickerService.addStickersToPack(packId, stickerUrls);
-      await get().fetchAllPacks();
-      await get().fetchPacks(true);
-    } catch (error: any) {
-      throw error;
-    }
+    await stickerService.addStickersToPack(packId, stickerUrls);
+    await get().fetchAllPacks();
+    await get().fetchPacks(true);
   },
 
   togglePack: async (packId, isActive) => {
-    try {
-      await stickerService.togglePackActive(packId, isActive);
-      await get().fetchAllPacks();
-      await get().fetchPacks(true);
-    } catch (error: any) {
-      throw error;
-    }
+    await stickerService.togglePackActive(packId, isActive);
+    await get().fetchAllPacks();
+    await get().fetchPacks(true);
   },
 
   toggleSticker: async (packId, stickerId, isActive) => {
-    try {
-      await stickerService.toggleStickerActive(packId, stickerId, isActive);
-      await get().fetchAllPacks();
-      await get().fetchPacks(true);
-    } catch (error: any) {
-      throw error;
-    }
+    await stickerService.toggleStickerActive(packId, stickerId, isActive);
+    await get().fetchAllPacks();
+    await get().fetchPacks(true);
   },
 
   deleteSticker: async (packId, stickerId) => {
-    try {
-      await stickerService.deleteSticker(packId, stickerId);
-      await get().fetchAllPacks();
-      await get().fetchPacks(true);
-    } catch (error: any) {
-      throw error;
-    }
+    await stickerService.deleteSticker(packId, stickerId);
+    await get().fetchAllPacks();
+    await get().fetchPacks(true);
   }
 }));
