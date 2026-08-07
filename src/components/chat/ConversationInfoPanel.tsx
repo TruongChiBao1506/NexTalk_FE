@@ -29,8 +29,11 @@ import {
   UserPlus,
   Users,
   ChevronDown,
-  MailOpen
+  MailOpen,
+  Sparkles,
+  Plus
 } from 'lucide-react';
+import { saveCustomWordEffects, type CustomWordEffect } from '../../utils/wordEffects';
 import type { ConversationNotificationMode, ConversationResponse } from '../../types/chat';
 import type { ChannelResponse, GroupMemberResponse, GroupRole } from '../../types/group';
 import { GroupQrModal } from './GroupQrModal';
@@ -158,6 +161,41 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
   const [groupManagementFeedback, setGroupManagementFeedback] = useState<string | null>(null);
   const [editingNicknameUserId, setEditingNicknameUserId] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState('');
+  const [showWordEffectsManager, setShowWordEffectsManager] = useState(false);
+  const [wordEffects, setWordEffects] = useState<CustomWordEffect[]>([]);
+  const [newWordEffectKeyword, setNewWordEffectKeyword] = useState('');
+  const [newWordEffectEmoji, setNewWordEffectEmoji] = useState('🎉');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    if (activeConversation) {
+      setWordEffects(activeConversation.wordEffects || []);
+    } else {
+      setWordEffects([]);
+    }
+  }, [activeConversation?.wordEffects, activeConversation?.id]);
+
+  const handleAddWordEffect = async () => {
+    if (!activeConversation?.id || !newWordEffectKeyword.trim()) return;
+    const newEffect: CustomWordEffect = {
+      id: `we_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      keyword: newWordEffectKeyword.trim(),
+      emoji: newWordEffectEmoji.trim() || '✨',
+    };
+    const updated = [...wordEffects, newEffect];
+    setWordEffects(updated);
+    setNewWordEffectKeyword('');
+    await saveCustomWordEffects(activeConversation.id, updated);
+    window.dispatchEvent(new CustomEvent('nextalk_word_effects_updated', { detail: { conversationId: activeConversation.id } }));
+  };
+
+  const handleDeleteWordEffect = async (effectId: string) => {
+    if (!activeConversation?.id) return;
+    const updated = wordEffects.filter((e) => e.id !== effectId);
+    setWordEffects(updated);
+    await saveCustomWordEffects(activeConversation.id, updated);
+    window.dispatchEvent(new CustomEvent('nextalk_word_effects_updated', { detail: { conversationId: activeConversation.id } }));
+  };
   const [savingNicknameUserId, setSavingNicknameUserId] = useState<string | null>(null);
   const [taskAttachments, setTaskAttachments] = useState<Array<{
     id: string;
@@ -557,6 +595,12 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
             <span className="text-xs text-gray-400">{activeConversation.members.length} thành viên ›</span>
           </button>
 
+          <button type="button" onClick={() => setShowWordEffectsManager(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+            <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="min-w-0 flex-1 text-sm font-bold text-gray-800 dark:text-zinc-100">Hiệu ứng từ ngữ</span>
+            <span className="text-xs text-gray-400">{wordEffects.length} từ khóa ›</span>
+          </button>
+
           <section className={`${showNicknameManager ? 'absolute inset-0 z-20 flex flex-col bg-white p-4 dark:bg-discord-mid' : 'hidden'}`}>
             <div className="mb-3 flex items-center justify-between">
               <h4 className="m-0 text-base font-bold text-gray-950 dark:text-white">Chỉnh sửa biệt danh</h4>
@@ -603,6 +647,111 @@ export const ConversationInfoPanel: React.FC<ConversationInfoPanelProps> = ({
               })}
             </div>
             <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-zinc-400">Mọi thành viên đều có thể thay đổi biệt danh. Thay đổi sẽ được thông báo trong cuộc trò chuyện.</p>
+          </section>
+
+          <section className={`${showWordEffectsManager ? 'absolute inset-0 z-20 flex flex-col bg-white p-4 dark:bg-discord-mid' : 'hidden'}`}>
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="m-0 flex items-center gap-2 text-base font-bold text-gray-950 dark:text-white">
+                <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                Hiệu ứng từ ngữ
+              </h4>
+              <button type="button" title="Đóng" onClick={() => setShowWordEffectsManager(false)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-4 w-4" /></button>
+            </div>
+
+            <p className="m-0 mb-4 text-xs font-medium text-gray-500 dark:text-zinc-400">
+              Nhập từ khóa và biểu tượng emoji tương ứng. Khi tin nhắn chứa đúng từ khóa đó, mưa emoji sẽ tự động thả rợp màn hình!
+            </p>
+
+            <div className="mb-4 flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/50">
+              <input
+                type="text"
+                value={newWordEffectKeyword}
+                onChange={(e) => setNewWordEffectKeyword(e.target.value)}
+                placeholder="Nhập từ khóa (vd: chúc mừng, yêu)..."
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 text-lg font-bold text-gray-800 transition hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    title="Chọn biểu tượng Emoji"
+                  >
+                    <span>{newWordEffectEmoji}</span>
+                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                  </button>
+
+                  {showEmojiPicker && (
+                    <div className="absolute left-0 top-11 z-30 w-64 rounded-xl border border-gray-200 bg-white p-2.5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                      <div className="mb-1 text-[11px] font-bold text-gray-400 dark:text-zinc-500">
+                        Chọn biểu tượng Emoji:
+                      </div>
+                      <div className="grid grid-cols-6 gap-1 max-h-40 overflow-y-auto">
+                        {[
+                          '🎉', '❤️', '🎂', '🎈', '😂', '🌟',
+                          '💖', '🔥', '✨', '🥳', '😍', '👍',
+                          '👏', '🚀', '👑', '🏆', '💯', '🍀',
+                          '🎁', '🌸', '💸', '⚡', '🦄', '🍰'
+                        ].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setNewWordEffectEmoji(emoji);
+                              setShowEmojiPicker(false);
+                            }}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg transition hover:bg-indigo-50 dark:hover:bg-zinc-800 ${
+                              newWordEffectEmoji === emoji ? 'bg-indigo-100 dark:bg-indigo-900/50 ring-1 ring-indigo-500' : ''
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddWordEffect();
+                    setShowEmojiPicker(false);
+                  }}
+                  disabled={!newWordEffectKeyword.trim()}
+                  className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm hiệu ứng
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-80 flex-1 overflow-y-auto space-y-2">
+              {wordEffects.map((effect) => (
+                <div key={effect.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2.5 dark:border-zinc-700">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-lg">{effect.emoji}</span>
+                    <span className="truncate text-sm font-bold text-gray-800 dark:text-zinc-100">"{effect.keyword}"</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteWordEffect(effect.id)}
+                    className="rounded-lg p-1.5 text-rose-500 transition hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                    title="Xóa hiệu ứng"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+
+              {wordEffects.length === 0 && (
+                <div className="py-8 text-center text-xs font-medium text-gray-400 dark:text-zinc-500">
+                  Chưa có hiệu ứng từ ngữ nào. Hãy thêm từ khóa và emoji ưa thích của bạn ở trên!
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="order-[-2] mt-6">

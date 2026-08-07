@@ -75,9 +75,8 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
       )}
       {effectType === 'FIRE' && (
         <>
-          <span className="pointer-events-none absolute top-0 left-1 text-base leading-none animate-bounce">🔥</span>
-          <span className="pointer-events-none absolute top-0 right-2 text-sm leading-none animate-pulse">🔥</span>
-          <span className="pointer-events-none absolute bottom-7 -right-0.5 text-sm leading-none animate-bounce">🔥</span>
+          <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 -left-3 text-2xl leading-none animate-bounce">🔥</span>
+          <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 -right-3 text-2xl leading-none animate-pulse">🔥</span>
         </>
       )}
       {effectType === 'BALLOON' && (
@@ -282,10 +281,8 @@ export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = ({ effectTy
       )}
       {effectType === 'FIRE' && (
         <>
-          <span className="message-effect-particle absolute -left-3 -top-3.5 z-20 text-xl" aria-hidden="true">🔥</span>
-          <span className="message-effect-particle message-effect-particle-delay absolute -right-3 -top-3.5 z-20 text-lg" aria-hidden="true">🔥</span>
-          <span className="message-effect-particle absolute -left-2.5 -bottom-2 z-20 text-base" aria-hidden="true">🔥</span>
-          <span className="message-effect-particle message-effect-particle-delay absolute -right-2.5 -bottom-2 z-20 text-xl" aria-hidden="true">🔥</span>
+          <span className="pointer-events-none absolute -left-4 top-1/2 -translate-y-1/2 z-20 text-2xl leading-none animate-bounce" aria-hidden="true">🔥</span>
+          <span className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 z-20 text-2xl leading-none animate-pulse" aria-hidden="true">🔥</span>
         </>
       )}
       {effectType === 'BALLOON' && (
@@ -301,22 +298,27 @@ export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = ({ effectTy
 };
 
 interface ParticleEffectOverlayProps {
-  type: 'BALLOON' | 'HEART';
+  type: 'BALLOON' | 'HEART' | 'FIRE';
   onFinished?: () => void;
 }
 
 export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ type, onFinished }) => {
   const [particles] = useState(() => {
     const items = [];
-    const emoji = type === 'BALLOON' ? ['🎈', '🎈', '🎉', '🎊', '🎈'] : ['❤️', '💖', '💕', '💗', '❤️'];
-    for (let i = 0; i < 22; i++) {
+    const emoji =
+      type === 'BALLOON'
+        ? ['🎈', '🎈', '🎉', '🎊', '✨', '🎈']
+        : type === 'HEART'
+        ? ['❤️', '💖', '💕', '💗', '💓', '❤️']
+        : ['🔥', '💥', '✨', '🔥', '⚡', '🔥'];
+    for (let i = 0; i < 32; i++) {
       items.push({
         id: i,
         char: emoji[Math.floor(Math.random() * emoji.length)],
         left: Math.random() * 92 + 4, // 4% to 96%
-        size: Math.random() * 1.5 + 1.2, // 1.2rem to 2.7rem
-        duration: Math.random() * 1.5 + 2.5, // 2.5s to 4.0s
-        delay: Math.random() * 0.8,
+        size: Math.random() * 1.6 + 1.5, // 1.5rem to 3.1rem
+        duration: Math.random() * 1.2 + 2.6, // 2.6s to 3.8s
+        delay: Math.random() * 0.9,
       });
     }
     return items;
@@ -325,16 +327,16 @@ export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ ty
   useEffect(() => {
     const timer = setTimeout(() => {
       if (onFinished) onFinished();
-    }, 4500);
+    }, 4200);
     return () => clearTimeout(timer);
   }, [onFinished]);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
       {particles.map((p) => (
         <span
           key={p.id}
-          className="absolute bottom-0 select-none animate-float-up opacity-90 drop-shadow-md"
+          className="absolute bottom-0 select-none animate-float-up opacity-95 drop-shadow-lg"
           style={{
             left: `${p.left}%`,
             fontSize: `${p.size}rem`,

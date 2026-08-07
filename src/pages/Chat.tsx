@@ -2272,7 +2272,7 @@ export const Chat = () => {
           className="m-0 whitespace-pre-wrap break-words ql-editor !p-0 !min-h-0"
           dangerouslySetInnerHTML={{
             __html: DOMPurify.sanitize(linkifyHtmlTextNodes(content), {
-              ADD_ATTR: ['target', 'data-id', 'data-value', 'rel', 'class', 'onclick']
+              ADD_ATTR: ['target', 'data-id', 'data-value', 'rel', 'class', 'onclick', 'data-emoji']
             })
           }}
         />

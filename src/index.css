@@ -654,3 +654,40 @@
   animation: gift-unwrap-burst 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+@keyframes word-effect-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(105vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.animate-word-effect-fall {
+  animation: word-effect-fall 3.2s linear forwards;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(0) scale(0.85) rotate(0deg);
+    opacity: 0.95;
+  }
+  50% {
+    transform: translateY(-50vh) scale(1.15) rotate(12deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-105vh) scale(1) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+.animate-float-up {
+  animation: float-up 3.8s ease-out forwards;
+}
+

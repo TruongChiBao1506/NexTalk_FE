@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Pin,
   PinOff,
@@ -58,6 +58,8 @@ import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { getMessagePreviewData } from '../../utils/messagePreview';
+import { getCustomWordEffects, parseMessageWordEffects, type CustomWordEffect } from '../../utils/wordEffects';
+import { WordEffectRainOverlay } from './WordEffectRainOverlay';
 import { Skeleton } from '../common/Skeleton';
 import { messageService } from '../../services/messageService';
 import { useChatStore } from '../../store/chatStore';
@@ -233,6 +235,95 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [dismissedSummaryMarkerId, setDismissedSummaryMarkerId] = useState<string | null>(null);
   const [stickyDate, setStickyDate] = useState<string | null>(null);
   const [timestampMessageId, setTimestampMessageId] = useState<string | null>(null);
+  const [customWordEffects, setCustomWordEffects] = useState<CustomWordEffect[]>([]);
+  const [activeRainEmoji, setActiveRainEmoji] = useState<string | null>(null);
+  const [activeParticleEffect, setActiveParticleEffect] = useState<{ type: 'BALLOON' | 'HEART' | 'FIRE'; key: number } | null>(null);
+
+  const loadWordEffects = useCallback(() => {
+    setCustomWordEffects(getCustomWordEffects(activeConversation));
+  }, [activeConversation]);
+
+  useEffect(() => {
+    loadWordEffects();
+
+    const handleUpdate = (e: Event) => {
+      const customEv = e as CustomEvent;
+      if (!customEv.detail || !activeConversation?.id || customEv.detail.conversationId === activeConversation.id) {
+        loadWordEffects();
+      }
+    };
+    window.addEventListener('nextalk_word_effects_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('nextalk_word_effects_updated', handleUpdate);
+    };
+  }, [loadWordEffects, activeConversation]);
+
+  const handledMessageIdsRef = useRef<Set<string>>(new Set());
+  const prevConversationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!visibleMessages || visibleMessages.length === 0) return;
+
+    if (prevConversationIdRef.current !== activeConversation?.id) {
+      prevConversationIdRef.current = activeConversation?.id || null;
+      handledMessageIdsRef.current = new Set(visibleMessages.map((m: any) => m.id));
+      return;
+    }
+
+    const lastMsg = visibleMessages[visibleMessages.length - 1];
+    if (!lastMsg || !lastMsg.id) return;
+
+    if (!handledMessageIdsRef.current.has(lastMsg.id)) {
+      handledMessageIdsRef.current.add(lastMsg.id);
+      if (lastMsg.clientMessageId) {
+        handledMessageIdsRef.current.add(lastMsg.clientMessageId);
+      }
+
+      const msgTime = lastMsg.createdAt ? new Date(lastMsg.createdAt).getTime() : Date.now();
+      const isNew = Math.abs(Date.now() - msgTime) < 20000;
+
+      if (isNew) {
+        const effect = lastMsg.metadata?.effect;
+        if (effect === 'BALLOON' || effect === 'HEART' || effect === 'FIRE') {
+          setActiveParticleEffect({ type: effect, key: Date.now() });
+        } else if (lastMsg.content && customWordEffects && customWordEffects.length > 0) {
+          const contentLower = lastMsg.content.toLowerCase();
+          const matched = customWordEffects.find((we) =>
+            we.keyword && contentLower.includes(we.keyword.toLowerCase())
+          );
+          if (matched) {
+            setActiveRainEmoji(matched.emoji);
+          }
+        }
+      }
+    }
+  }, [visibleMessages, customWordEffects, activeConversation?.id]);
+
+  const renderMessageContentWithWordEffects = (content: string) => {
+    if (!content) return null;
+    const baseNode = renderFormattedMessage(content);
+    if (!customWordEffects || customWordEffects.length === 0) return baseNode;
+
+    let processedContent = content;
+    let hasMatch = false;
+
+    const sorted = [...customWordEffects].sort((a, b) => b.keyword.length - a.keyword.length);
+    for (const effect of sorted) {
+      if (!effect.keyword) continue;
+      const escaped = effect.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escaped})`, 'gi');
+      if (regex.test(processedContent)) {
+        hasMatch = true;
+        processedContent = processedContent.replace(
+          regex,
+          `<span class="word-effect-keyword inline-flex items-center gap-1 font-extrabold text-amber-500 dark:text-amber-300 underline decoration-amber-400 decoration-2 cursor-pointer hover:opacity-85 transition mx-0.5" data-emoji="${effect.emoji}">$1 ${effect.emoji}</span>`
+        );
+      }
+    }
+
+    if (!hasMatch) return baseNode;
+    return renderFormattedMessage(processedContent);
+  };
   const [personalActionModal, setPersonalActionModal] = useState<{
     kind: 'saving' | 'save-success' | 'save-error' | 'translating' | 'translation' | 'translation-error';
     title: string;
@@ -520,7 +611,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   };
 
   const renderReplyPreviewContent = (message: any) => {
-    const preview = getMessagePreviewData(message);
+    const isMe = message?.senderId === user?.id;
+    const preview = getMessagePreviewData(message, isMe);
     const ReplyIcon = getReplyPreviewIcon(preview.kind);
 
     return (
@@ -544,7 +636,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   };
 
   const renderReplyPreviewCard = (message: any) => {
-    const preview = getMessagePreviewData(message);
+    const isMe = message?.senderId === user?.id;
+    const preview = getMessagePreviewData(message, isMe);
     const ReplyIcon = getReplyPreviewIcon(preview.kind);
     const previewText = preview.fileName || preview.text;
 
@@ -576,7 +669,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   };
 
   const renderInlineReplyPreview = (message: any, isOwnMessage: boolean) => {
-    const preview = getMessagePreviewData(message);
+    const isMe = message?.senderId === user?.id;
+    const preview = getMessagePreviewData(message, isMe);
     const previewText = preview.fileName || preview.text;
 
     return (
@@ -843,6 +937,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <>
+      {activeRainEmoji && (
+        <WordEffectRainOverlay
+          emoji={activeRainEmoji}
+          onFinished={() => setActiveRainEmoji(null)}
+        />
+      )}
+      {activeParticleEffect && (
+        <ParticleEffectOverlay
+          key={activeParticleEffect.key}
+          type={activeParticleEffect.type}
+          onFinished={() => setActiveParticleEffect(null)}
+        />
+      )}
       {/* Pinned Messages Banner */}
       {pinnedMessages && pinnedMessages.length > 0 && (() => {
         const latestPinned = {
@@ -850,7 +957,8 @@ export const MessageList: React.FC<MessageListProps> = ({
             (a, b) => new Date(b.pinnedAt ?? b.createdAt).getTime() - new Date(a.pinnedAt ?? a.createdAt).getTime()
           )[0]
         };
-        const latestPinnedPreview = getMessagePreviewData(latestPinned);
+        const isPinnedMe = latestPinned?.senderId === user?.id;
+        const latestPinnedPreview = getMessagePreviewData(latestPinned, isPinnedMe);
         const latestPinnedText = latestPinnedPreview.fileName || latestPinnedPreview.text;
         if (!latestPinned.isRecalled) {
           latestPinned.content = latestPinnedText;
@@ -2037,11 +2145,32 @@ export const MessageList: React.FC<MessageListProps> = ({
                                           ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
                                           : 'nextalk-themed-bubble'
                                         : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text border border-indigo-100/80 dark:border-zinc-850/60'
-                                } ${messageClusterCornerClass}`}>
+                                } ${messageClusterCornerClass}`}
+                                onClick={(e) => {
+                                  const target = e.target as HTMLElement;
+                                  const emoji = target.closest('[data-emoji]')?.getAttribute('data-emoji');
+                                  if (emoji) {
+                                    e.stopPropagation();
+                                    setActiveRainEmoji(emoji);
+                                    return;
+                                  }
+                                  const effect = msg.metadata?.effect;
+                                  if (effect === 'BALLOON' || effect === 'HEART' || effect === 'FIRE') {
+                                    setActiveParticleEffect({ type: effect, key: Date.now() });
+                                    return;
+                                  }
+                                  const matched = customWordEffects.find((we) =>
+                                    we.keyword && msg.content && msg.content.toLowerCase().includes(we.keyword.toLowerCase())
+                                  );
+                                  if (matched) {
+                                    setActiveRainEmoji(matched.emoji);
+                                  }
+                                }}
+                              >
                               {renderPriorityBadge()}
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
-                                {!standaloneLinkPreview && renderFormattedMessage(msg.content)}
+                                {!standaloneLinkPreview && renderMessageContentWithWordEffects(msg.content)}
                                 {renderInlineTranslationBlock(msg.id, isMe)}
                                 {renderLinkPreviewCard(msg, isMe)}
                                 {msg.isEdited && (
@@ -2049,7 +2178,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                     (đã chỉnh sửa)
                                   </span>
                                 )}
-                                {showTimestampInsideBubble && (timestampMessageId === msg.id || msg.metadata?.deliveryState === 'failed') && (
+                                {showTimestampInsideBubble && msg.metadata?.effect !== 'GIFT' && (timestampMessageId === msg.id || msg.metadata?.deliveryState === 'failed') && (
                                   <span className={`ml-2 inline-flex items-center gap-1 whitespace-nowrap align-baseline text-[9px] leading-none ${
                                     isMe
                                       ? 'text-slate-500 dark:text-white/70'

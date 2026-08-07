@@ -44,7 +44,7 @@ const getPollQuestion = (message: MessageResponse) => {
   return metadata?.question || stripMessageHtml(message.content) || 'Bình chọn';
 };
 
-export const getMessagePreviewData = (message: MessageResponse | null | undefined): MessagePreviewData => {
+export const getMessagePreviewData = (message: MessageResponse | null | undefined, isMe?: boolean): MessagePreviewData => {
   if (!message) {
     return {
       kind: 'TEXT',
@@ -61,7 +61,8 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
     };
   }
 
-  if (message.metadata?.effect === 'GIFT') {
+  // Only hide gift content for the recipient — sender already knows what they sent
+  if (message.metadata?.effect === 'GIFT' && !isMe) {
     return {
       kind: 'TEXT',
       label: 'Hộp quà',

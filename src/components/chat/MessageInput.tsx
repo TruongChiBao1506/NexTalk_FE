@@ -52,7 +52,7 @@ import {
   Lock,
   Wand2,
 } from 'lucide-react';
-import { MessageEffectSelector, EFFECT_OPTIONS, EffectLiveBubblePreview } from './MessageEffectComponents';
+import { EFFECT_OPTIONS, EffectLiveBubblePreview } from './MessageEffectComponents';
 import type { MessageEffectType } from '../../types/chat';
 import { ReplyPreview } from './ReplyPreview';
 import { ScheduledMessagesModal } from './ScheduledMessagesModal';
@@ -278,8 +278,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [isSendOptionsOpen, setIsSendOptionsOpen] = React.useState(false);
   const sendOptionsRef = React.useRef<HTMLDivElement>(null);
   const [selectedEffect, setSelectedEffect] = React.useState<MessageEffectType | null>(null);
-  const [isEffectPickerOpen, setIsEffectPickerOpen] = React.useState(false);
-  const effectPickerRef = React.useRef<HTMLDivElement>(null);
   const birthdayContext = birthdayState?.conversationId === activeConversationId ? birthdayState.data : null;
 
   const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
@@ -1310,27 +1308,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <Smile className="w-5 h-5" />
             </button>
 
-            <div className="relative" ref={effectPickerRef}>
-              <button
-                type="button"
-                disabled={!canSendInActiveConversation}
-                onClick={() => setIsEffectPickerOpen((open) => !open)}
-                className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
-                  selectedEffect || isEffectPickerOpen
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
-                }`}
-                title="Hiệu ứng tin nhắn"
-              >
-                <Wand2 className="w-5 h-5" />
-              </button>
-              <MessageEffectSelector
-                isOpen={isEffectPickerOpen}
-                selectedEffect={selectedEffect}
-                onSelectEffect={(effect) => setSelectedEffect(effect)}
-                onClose={() => setIsEffectPickerOpen(false)}
-              />
-            </div>
 
           </div>
 

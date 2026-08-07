@@ -137,6 +137,11 @@ export const conversationService = {
     return response.data;
   },
 
+  async updateWordEffects(id: string, wordEffects: any[]): Promise<ApiResponse<ConversationResponse>> {
+    const response = await apiClient.put<ApiResponse<ConversationResponse>>(`/conversations/${id}/word-effects`, { wordEffects });
+    return response.data;
+  },
+
   async getPendingScheduledMessages(): Promise<ApiResponse<ScheduledMessageResponse[]>> {
     const response = await apiClient.get<ApiResponse<ScheduledMessageResponse[]>>('/messages/scheduled');
     return response.data;

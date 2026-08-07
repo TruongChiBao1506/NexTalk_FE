@@ -18,6 +18,7 @@ export interface ConversationResponse {
   themeColor?: string;
   wallpaperUrl?: string;
   nicknames?: Record<string, string>;
+  wordEffects?: import('../utils/wordEffects').CustomWordEffect[];
   members: User[];
   createdAt: string;
   updatedAt: string;
