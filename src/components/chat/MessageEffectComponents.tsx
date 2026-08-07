@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Sparkles, X } from 'lucide-react';
 import type { MessageEffectType } from '../../types/chat';
 
@@ -331,7 +332,7 @@ export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ ty
     return () => clearTimeout(timer);
   }, [onFinished]);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
       {particles.map((p) => (
         <span
@@ -347,6 +348,7 @@ export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ ty
           {p.char}
         </span>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 };

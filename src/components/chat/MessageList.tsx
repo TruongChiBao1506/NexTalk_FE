@@ -286,9 +286,10 @@ export const MessageList: React.FC<MessageListProps> = ({
         const effect = lastMsg.metadata?.effect;
         if (effect === 'BALLOON' || effect === 'HEART' || effect === 'FIRE') {
           setActiveParticleEffect({ type: effect, key: Date.now() });
-        } else if (lastMsg.content && customWordEffects && customWordEffects.length > 0) {
+        } else if (lastMsg.content) {
+          const currentWordEffects = getCustomWordEffects(activeConversation);
           const contentLower = lastMsg.content.toLowerCase();
-          const matched = customWordEffects.find((we) =>
+          const matched = currentWordEffects.find((we) =>
             we.keyword && contentLower.includes(we.keyword.toLowerCase())
           );
           if (matched) {
@@ -297,7 +298,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         }
       }
     }
-  }, [visibleMessages, customWordEffects, activeConversation?.id]);
+  }, [visibleMessages, activeConversation]);
 
   const renderMessageContentWithWordEffects = (content: string) => {
     if (!content) return null;

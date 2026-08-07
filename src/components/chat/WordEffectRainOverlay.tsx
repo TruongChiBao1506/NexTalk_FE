@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
 
 interface WordEffectRainOverlayProps {
   emoji: string;
@@ -7,9 +8,9 @@ interface WordEffectRainOverlayProps {
 
 export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ emoji, onFinished }) => {
   const [particles] = useState(() => {
-    return Array.from({ length: 38 }, (_, i) => ({
+    return Array.from({ length: 42 }, (_, i) => ({
       id: i,
-      left: Math.random() * 92 + 4, // 4% to 96%
+      left: Math.random() * 94 + 3, // 3% to 97%
       size: Math.random() * 1.5 + 1.8, // 1.8rem to 3.3rem
       duration: Math.random() * 1.0 + 2.3, // 2.3s to 3.3s
       delay: Math.random() * 0.9, // 0 to 0.9s stagger
@@ -23,7 +24,7 @@ export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ em
     return () => clearTimeout(timer);
   }, [onFinished]);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
       {particles.map((p) => (
         <span
@@ -39,6 +40,7 @@ export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ em
           {emoji}
         </span>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 };
