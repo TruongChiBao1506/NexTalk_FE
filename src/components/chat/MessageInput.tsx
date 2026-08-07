@@ -49,8 +49,11 @@ import {
   VolumeX,
   CalendarClock,
   ShieldAlert,
-  Lock
+  Lock,
+  Wand2,
 } from 'lucide-react';
+import { MessageEffectSelector, EFFECT_OPTIONS, EffectLiveBubblePreview } from './MessageEffectComponents';
+import type { MessageEffectType } from '../../types/chat';
 import { ReplyPreview } from './ReplyPreview';
 import { ScheduledMessagesModal } from './ScheduledMessagesModal';
 import { ScheduleSendModal } from './ScheduleSendModal';
@@ -105,7 +108,7 @@ interface MessageInputProps {
   activeConversationId: string;
   lastMessageId?: string;
   onOpenTaskAssistant: () => void;
-  handleSendMessage: (e: any, _options?: { silent?: boolean; selfDestructSeconds?: number }) => void;
+  handleSendMessage: (e: any, _options?: { silent?: boolean; selfDestructSeconds?: number; effect?: MessageEffectType }) => void;
   conversationInfoOffsetClass: string;
   replyTo: any;
   setReplyTo: (reply: any) => void;
@@ -127,8 +130,8 @@ interface MessageInputProps {
   applyAlignment: (align: string) => void;
   clearFormatting: () => void;
   isEmojiStickerOpen: boolean;
-  emojiStickerTab: 'emoji' | 'sticker' | 'gif';
-  setEmojiStickerTab: (tab: 'emoji' | 'sticker' | 'gif') => void;
+  emojiStickerTab: 'effect' | 'emoji' | 'sticker' | 'gif';
+  setEmojiStickerTab: (tab: 'effect' | 'emoji' | 'sticker' | 'gif') => void;
   setIsEmojiStickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleSelectEmoji: (emoji: string) => void;
   handleSendSticker: (sticker: string) => void;
@@ -274,6 +277,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [isScheduleSendModalOpen, setIsScheduleSendModalOpen] = React.useState(false);
   const [isSendOptionsOpen, setIsSendOptionsOpen] = React.useState(false);
   const sendOptionsRef = React.useRef<HTMLDivElement>(null);
+  const [selectedEffect, setSelectedEffect] = React.useState<MessageEffectType | null>(null);
+  const [isEffectPickerOpen, setIsEffectPickerOpen] = React.useState(false);
+  const effectPickerRef = React.useRef<HTMLDivElement>(null);
   const birthdayContext = birthdayState?.conversationId === activeConversationId ? birthdayState.data : null;
 
   const [liveLinkPreview, setLiveLinkPreview] = React.useState<LinkPreviewMetadata | null>(null);
@@ -289,8 +295,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined });
+    handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined, effect: selectedEffect ?? undefined });
     setSingleSelfDestruct(null);
+    setSelectedEffect(null);
     setDismissedSensitiveWarning(false);
   };
 
@@ -1108,34 +1115,87 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
         {isEmojiStickerOpen && (
           <div className="border-b border-gray-200/80 bg-white px-3 py-3 dark:border-zinc-800/80 dark:bg-discord-mid">
-            <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-zinc-900">
+            <div className="mb-3 inline-flex rounded-lg bg-gray-100 p-1 dark:bg-zinc-900 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setEmojiStickerTab('effect')}
+                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  emojiStickerTab === 'effect'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                <span>Hiệu ứng</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setEmojiStickerTab('emoji')}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'emoji'
+                className={`rounded-md px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  emojiStickerTab === 'emoji'
                     ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
                     : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                  }`}
+                }`}
               >
                 Emoji
               </button>
               <button
                 type="button"
                 onClick={() => setEmojiStickerTab('sticker')}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'sticker'
+                className={`rounded-md px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  emojiStickerTab === 'sticker'
                     ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
                     : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
-                  }`}
+                }`}
               >
-                Sticker
+                Nhãn dán
               </button>
-              <button type="button" onClick={() => setEmojiStickerTab('gif')}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${emojiStickerTab === 'gif' ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'}`}>
-                GIF
+              <button
+                type="button"
+                onClick={() => setEmojiStickerTab('gif')}
+                className={`rounded-md px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  emojiStickerTab === 'gif'
+                    ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-800 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                File GIF
               </button>
             </div>
 
-            {emojiStickerTab === 'emoji' ? (
+            {emojiStickerTab === 'effect' ? (
+              <div className="flex flex-col h-64">
+                <div className="text-xs font-semibold text-gray-500 dark:text-zinc-400 px-3 pt-2 pb-1">
+                  Chọn hiệu ứng — tin nhắn: <span className="text-indigo-500 dark:text-indigo-400">"{(currentEditorText || '').trim() || 'Xin chào'}"</span>
+                </div>
+                {/* Horizontal scroll row — matching Messenger style */}
+                <div className="flex flex-row items-center gap-3 overflow-x-auto custom-scrollbar px-3 pb-2 pt-4" style={{ scrollbarWidth: 'none' }}>
+                  {EFFECT_OPTIONS.map((opt) => (
+                    <div key={opt.id} className="flex-shrink-0">
+                      <EffectLiveBubblePreview
+                        effectType={opt.id}
+                        text={currentEditorText}
+                        isSelected={selectedEffect === opt.id}
+                        onSelect={() => {
+                          const isAlreadySelected = selectedEffect === opt.id;
+                          setSelectedEffect(isAlreadySelected ? null : opt.id);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {/* Selected effect hint */}
+                {selectedEffect && (
+                  <div className="mx-3 mt-1 flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 dark:bg-indigo-500/10">
+                    <span className="text-base">{EFFECT_OPTIONS.find(o => o.id === selectedEffect)?.icon}</span>
+                    <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                      Đã chọn: {EFFECT_OPTIONS.find(o => o.id === selectedEffect)?.label} — nhấn Gửi để áp dụng
+                    </span>
+                    <button type="button" onClick={() => setSelectedEffect(null)} className="ml-auto text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">✕</button>
+                  </div>
+                )}
+              </div>
+            ) : emojiStickerTab === 'emoji' ? (
               <div className="flex flex-col h-64 overflow-y-auto custom-scrollbar p-1">
                 {emojiCategories.map((category, idx) => (
                   <div key={idx} className="mb-4">
@@ -1250,6 +1310,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <Smile className="w-5 h-5" />
             </button>
 
+            <div className="relative" ref={effectPickerRef}>
+              <button
+                type="button"
+                disabled={!canSendInActiveConversation}
+                onClick={() => setIsEffectPickerOpen((open) => !open)}
+                className={`p-2 rounded-xl transition disabled:opacity-45 disabled:hover:bg-transparent ${
+                  selectedEffect || isEffectPickerOpen
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                    : 'text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                }`}
+                title="Hiệu ứng tin nhắn"
+              >
+                <Wand2 className="w-5 h-5" />
+              </button>
+              <MessageEffectSelector
+                isOpen={isEffectPickerOpen}
+                selectedEffect={selectedEffect}
+                onSelectEffect={(effect) => setSelectedEffect(effect)}
+                onClose={() => setIsEffectPickerOpen(false)}
+              />
+            </div>
+
           </div>
 
           <div
@@ -1268,8 +1350,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (canSendInActiveConversation) {
-                  handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined });
+                  handleSendMessage(e, { selfDestructSeconds: singleSelfDestruct ?? undefined, effect: selectedEffect ?? undefined });
                   setSingleSelfDestruct(null);
+                  setSelectedEffect(null);
                   setDismissedSensitiveWarning(false);
                 } else if (activePrivateChatBlocked) {
                   return;
@@ -1279,6 +1362,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               }
             }}
           >
+            {selectedEffect && (
+              <div className="flex mb-1 mt-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Hiệu ứng: {EFFECT_OPTIONS.find((e) => e.id === selectedEffect)?.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEffect(null)}
+                    className="ml-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
             {messagePriority && (
               <div className="flex mb-1 mt-1">
                 <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${messagePriority === 'IMPORTANT' ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'}`}>

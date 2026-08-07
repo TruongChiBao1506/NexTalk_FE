@@ -87,7 +87,7 @@ export interface CreatePollPayload {
 }
 
 export const messageService = {
-  async sendMessage(payload: { conversationId: string; content: string; messageType?: string }): Promise<ApiResponse<MessageResponse>> {
+  async sendMessage(payload: { conversationId: string; content: string; messageType?: string; metadata?: Record<string, any> }): Promise<ApiResponse<MessageResponse>> {
     const response = await apiClient.post<ApiResponse<MessageResponse>>('/messages', payload);
     return response.data;
   },

@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { VideoThumbnail } from './VideoThumbnail';
 import { GiphyGifMessage } from './GiphyGifMessage';
+import { GiftBoxMessage, MessageEffectFrame, ParticleEffectOverlay } from './MessageEffectComponents';
 import { getFileIconConfig, formatFileSize, downloadFile } from '../../utils/fileUtils';
 import { MessageActionsBar, MessageReactionButton } from './MessageContextMenu';
 import { MessageReactions } from './MessageReactions';
@@ -262,6 +263,8 @@ export const MessageList: React.FC<MessageListProps> = ({
       });
     }
   };
+
+  const [unwrappedGiftIds, setUnwrappedGiftIds] = useState<Set<string>>(new Set());
 
   const [inlineTranslations, setInlineTranslations] = useState<
     Record<
@@ -2013,15 +2016,28 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 </button>
                               </div>
                             </div>
+                          ) : msg.metadata?.effect === 'GIFT' && !unwrappedGiftIds.has(msg.id) ? (
+                            <GiftBoxMessage
+                              isOpened={false}
+                              onOpen={() => setUnwrappedGiftIds((prev) => new Set(prev).add(msg.id))}
+                            >
+                              <div className="hidden">{msg.content}</div>
+                            </GiftBoxMessage>
                           ) : (
-                            <div className={standaloneLinkPreview
-                              ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
-                              : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm ${isMe
-                                ? msg.parentId
-                                  ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
-                                  : 'nextalk-themed-bubble'
-                                : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text border border-indigo-100/80 dark:border-zinc-850/60'
-                              } ${messageClusterCornerClass}`}>
+                            <MessageEffectFrame effectType={msg.metadata?.effect}>
+                              <div className={standaloneLinkPreview
+                                ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
+                                : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm ${
+                                  msg.metadata?.effect === 'GIFT'
+                                    ? 'bg-[#ec4899] text-white'
+                                    : msg.metadata?.effect === 'FIRE'
+                                      ? 'bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-white font-semibold shadow-md shadow-orange-500/30'
+                                      : isMe
+                                        ? msg.parentId
+                                          ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
+                                          : 'nextalk-themed-bubble'
+                                        : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text border border-indigo-100/80 dark:border-zinc-850/60'
+                                } ${messageClusterCornerClass}`}>
                               {renderPriorityBadge()}
                               <div className="m-0">
                                 {msg.parentId && renderInlineReplyPreview(parentMessage, isMe)}
@@ -2098,6 +2114,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 </button>
                               )}
                             </div>
+                            </MessageEffectFrame>
                           )}
 
                           {(hoveredMessageId === msg.id || activeMenuMessageId === msg.id) && !isRecalledMessage && (

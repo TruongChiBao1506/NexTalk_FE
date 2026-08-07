@@ -61,6 +61,14 @@ export const getMessagePreviewData = (message: MessageResponse | null | undefine
     };
   }
 
+  if (message.metadata?.effect === 'GIFT') {
+    return {
+      kind: 'TEXT',
+      label: 'Hộp quà',
+      text: '🎁 Bạn có 1 tin nhắn bí mật!',
+    };
+  }
+
   if (/(?:<#task:[^>]+>|&lt;#task:[^&]+&gt;)/.test(message.content || '')) {
     return {
       kind: 'TASK',

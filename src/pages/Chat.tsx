@@ -451,7 +451,7 @@ export const Chat = () => {
   const [isFormattingOpen, setIsFormattingOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Record<string, any>>({});
   const [isEmojiStickerOpen, setIsEmojiStickerOpen] = useState(false);
-  const [emojiStickerTab, setEmojiStickerTab] = useState<'emoji' | 'sticker' | 'gif'>('emoji');
+  const [emojiStickerTab, setEmojiStickerTab] = useState<'effect' | 'emoji' | 'sticker' | 'gif'>('emoji');
   const [expandedCallLogId, setExpandedCallLogId] = useState<string | null>(null);
   const [, setMessageExpiryNow] = useState(Date.now());
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
@@ -2473,7 +2473,7 @@ export const Chat = () => {
     ]);
   };
 
-  const handleSendMessage = (e: React.FormEvent, _options?: { silent?: boolean; selfDestructSeconds?: number }) => {
+  const handleSendMessage = (e: React.FormEvent, _options?: { silent?: boolean; selfDestructSeconds?: number; effect?: import('../types/chat').MessageEffectType }) => {
     e.preventDefault();
 
     if (!canSendInActiveConversation) {
@@ -2527,6 +2527,7 @@ export const Chat = () => {
           progress: 0,
           retryPriority: messagePriority || undefined,
           retrySelfDestructSeconds: _options?.selfDestructSeconds ?? undefined,
+          effect: _options?.effect ?? undefined,
         }
       };
 
@@ -2567,7 +2568,7 @@ export const Chat = () => {
                 res = await fileService.uploadFile(item.sourceFile, (percent) => {
                   const totalProgress = Math.round(((i + percent / 100) / attachmentsToUpload.length) * 100);
                   updateOptimisticMessage(clientMessageId, {
-                    metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: totalProgress }
+                    metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: totalProgress, effect: _options?.effect ?? undefined }
                   });
                 }, uploadController.signal);
               } catch (error) {
@@ -2596,7 +2597,7 @@ export const Chat = () => {
           // This also prevents a broken thumbnail if the websocket ACK is slow.
           updateOptimisticMessage(clientMessageId, {
             attachments: finalAttachments,
-            metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: 100 }
+            metadata: { clientMessageId, optimistic: true, deliveryState: 'sending', progress: 100, effect: _options?.effect ?? undefined }
           });
           optimisticPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
 
@@ -2608,7 +2609,8 @@ export const Chat = () => {
             finalAttachments,
             messagePriority || undefined,
             clientMessageId,
-            _options?.selfDestructSeconds ?? undefined
+            _options?.selfDestructSeconds ?? undefined,
+            _options?.effect ? { effect: _options.effect } : undefined
           );
           if (!published) {
             throw new Error('Mất kết nối máy chủ tin nhắn. Vui lòng thử lại.');
@@ -2655,7 +2657,7 @@ export const Chat = () => {
           url: trimmedMessage,
           type: pastedMediaType,
           name: pastedMediaType === 'IMAGE' ? 'Ảnh từ liên kết' : 'Video từ liên kết',
-        }]);
+        }], undefined, undefined, undefined, _options?.effect ? { effect: _options.effect } : undefined);
       } else {
         if (!activeConversation || !user) return;
         const clientMessageId = `client-text-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -2675,6 +2677,7 @@ export const Chat = () => {
             deliveryState: 'sending',
             retryPriority: messagePriority || undefined,
             retrySelfDestructSeconds: _options?.selfDestructSeconds ?? undefined,
+            effect: _options?.effect ?? undefined,
           },
         });
         const published = sendStompMessage(
@@ -2685,6 +2688,7 @@ export const Chat = () => {
           messagePriority || undefined,
           clientMessageId,
           _options?.selfDestructSeconds ?? undefined,
+          _options?.effect ? { effect: _options.effect } : undefined,
         );
         if (!published) {
           updateOptimisticMessage(clientMessageId, {

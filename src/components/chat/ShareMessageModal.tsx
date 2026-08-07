@@ -33,6 +33,9 @@ type ShareTarget = {
 };
 
 const getMessagePreview = (message: MessageResponse) => {
+  if (message.metadata?.effect === 'GIFT') {
+    return '🎁 Bạn có 1 tin nhắn bí mật!';
+  }
   switch (message.messageType) {
     case 'IMAGE':
       return 'Hình ảnh';

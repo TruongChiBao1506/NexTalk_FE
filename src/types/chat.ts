@@ -143,11 +143,14 @@ export interface LinkPreviewMetadata {
   action?: 'OPEN_EXTERNAL';
 }
 
+export type MessageEffectType = 'GIFT' | 'FIRE' | 'BALLOON' | 'HEART';
+
 export type MessageMetadata = Record<string, any>
   & Partial<CallHistoryMetadata>
   & Partial<PollMetadata>
   & {
     linkPreview?: LinkPreviewMetadata;
+    effect?: MessageEffectType;
   };
 
 export interface MessageResponse {
