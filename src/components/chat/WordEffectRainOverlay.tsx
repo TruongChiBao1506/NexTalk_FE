@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import ReactDOM from 'react-dom';
 
 interface WordEffectRainOverlayProps {
   emoji: string;
@@ -8,12 +7,12 @@ interface WordEffectRainOverlayProps {
 
 export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ emoji, onFinished }) => {
   const [particles] = useState(() => {
-    return Array.from({ length: 42 }, (_, i) => ({
+    return Array.from({ length: 32 }, (_, i) => ({
       id: i,
-      left: Math.random() * 94 + 3, // 3% to 97%
-      size: Math.random() * 1.5 + 1.8, // 1.8rem to 3.3rem
+      left: Math.random() * 92 + 4, // 4% to 96% inside chat pane
+      size: Math.random() * 1.4 + 1.8, // 1.8rem to 3.2rem
       duration: Math.random() * 1.0 + 2.3, // 2.3s to 3.3s
-      delay: Math.random() * 0.9, // 0 to 0.9s stagger
+      delay: Math.random() * 0.8, // 0 to 0.8s stagger
     }));
   });
 
@@ -24,12 +23,12 @@ export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ em
     return () => clearTimeout(timer);
   }, [onFinished]);
 
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
+  return (
+    <div className="absolute inset-0 pointer-events-none z-[35] overflow-hidden">
       {particles.map((p) => (
         <span
           key={p.id}
-          className="absolute -top-14 select-none animate-word-effect-fall opacity-95 drop-shadow-lg"
+          className="absolute bottom-0 select-none animate-float-up opacity-95 drop-shadow-lg"
           style={{
             left: `${p.left}%`,
             fontSize: `${p.size}rem`,
@@ -40,7 +39,6 @@ export const WordEffectRainOverlay: React.FC<WordEffectRainOverlayProps> = ({ em
           {emoji}
         </span>
       ))}
-    </div>,
-    document.body
+    </div>
   );
 };

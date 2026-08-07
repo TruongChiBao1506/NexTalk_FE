@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
 import { Sparkles, X } from 'lucide-react';
 import type { MessageEffectType } from '../../types/chat';
 
@@ -260,7 +259,7 @@ interface MessageEffectFrameProps {
 }
 
 /** Keeps the selected effect attached to the message bubble after it is sent. */
-export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = ({ effectType, children }) => {
+export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = React.memo(({ effectType, children }) => {
   if (!effectType) return <>{children}</>;
 
   return (
@@ -274,29 +273,71 @@ export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = ({ effectTy
     >
       {effectType === 'HEART' && (
         <>
-          <span className="message-effect-particle absolute -left-3 -top-4 z-20 text-2xl" aria-hidden="true">💖</span>
-          <span className="message-effect-particle message-effect-particle-delay absolute -right-3 -top-3 z-20 text-lg" aria-hidden="true">💕</span>
-          <span className="message-effect-particle absolute -bottom-3 -left-2 z-20 text-lg" aria-hidden="true">💗</span>
-          <span className="message-effect-particle message-effect-particle-delay absolute -bottom-2 -right-3 z-20 text-xl" aria-hidden="true">💓</span>
+          <span className="message-effect-particle absolute -left-3 -top-4 z-20 text-2xl transform-gpu" aria-hidden="true">💖</span>
+          <span className="message-effect-particle message-effect-particle-delay absolute -right-3 -top-3 z-20 text-lg transform-gpu" aria-hidden="true">💕</span>
+          <span className="message-effect-particle absolute -bottom-3 -left-2 z-20 text-lg transform-gpu" aria-hidden="true">💗</span>
+          <span className="message-effect-particle message-effect-particle-delay absolute -bottom-2 -right-3 z-20 text-xl transform-gpu" aria-hidden="true">💓</span>
         </>
       )}
       {effectType === 'FIRE' && (
-        <>
-          <span className="pointer-events-none absolute -left-4 top-1/2 -translate-y-1/2 z-20 text-2xl leading-none animate-bounce" aria-hidden="true">🔥</span>
-          <span className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 z-20 text-2xl leading-none animate-pulse" aria-hidden="true">🔥</span>
-        </>
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-visible">
+          {/* Top Left Flame */}
+          <svg className="absolute -top-5 -left-3 w-9 h-9 animate-flame-1 filter drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
+            <path d="M50 0C60 25 80 35 80 60C80 82 67 100 50 100C33 100 20 82 20 60C20 40 40 20 50 0Z" fill="url(#fireGradient1)" />
+            <path d="M50 25C56 40 70 48 70 65C70 78 61 90 50 90C39 90 30 78 30 65C30 50 44 36 50 25Z" fill="#ffcc00" />
+            <defs>
+              <linearGradient id="fireGradient1" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ff1100" />
+                <stop offset="0.6" stopColor="#ff7700" />
+                <stop offset="1" stopColor="#ffdd00" />
+              </linearGradient>
+            </defs>
+          </svg>
+          {/* Top Right Flame */}
+          <svg className="absolute -top-6 -right-3 w-10 h-10 animate-flame-2 filter drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
+            <path d="M50 0C65 20 85 35 85 62C85 83 70 100 50 100C30 100 15 83 15 62C15 35 35 20 50 0Z" fill="url(#fireGradient2)" />
+            <path d="M50 20C60 35 72 48 72 65C72 78 62 90 50 90C38 90 28 78 28 65C28 48 40 35 50 20Z" fill="#ffe600" />
+            <defs>
+              <linearGradient id="fireGradient2" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ff0000" />
+                <stop offset="0.5" stopColor="#ff6600" />
+                <stop offset="1" stopColor="#ffea00" />
+              </linearGradient>
+            </defs>
+          </svg>
+          {/* Bottom Left Flame */}
+          <svg className="absolute -bottom-4 -left-3.5 w-8 h-8 animate-flame-3 filter drop-shadow-[0_0_5px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
+            <path d="M50 0C60 22 78 35 78 60C78 82 66 100 50 100C34 100 22 82 22 60C22 38 40 22 50 0Z" fill="url(#fireGradient3)" />
+            <defs>
+              <linearGradient id="fireGradient3" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ff3300" />
+                <stop offset="1" stopColor="#ffbb00" />
+              </linearGradient>
+            </defs>
+          </svg>
+          {/* Bottom Right Flame */}
+          <svg className="absolute -bottom-4 -right-3.5 w-9 h-9 animate-flame-1 filter drop-shadow-[0_0_5px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
+            <path d="M50 0C62 24 80 36 80 60C80 82 67 100 50 100C33 100 20 82 20 60C20 36 38 24 50 0Z" fill="url(#fireGradient4)" />
+            <defs>
+              <linearGradient id="fireGradient4" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ff2200" />
+                <stop offset="1" stopColor="#ffd000" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
       )}
       {effectType === 'BALLOON' && (
         <>
-          <span className="message-effect-particle absolute -left-3 -top-5 z-20 text-2xl" aria-hidden="true">🎈</span>
-          <span className="message-effect-particle message-effect-particle-delay absolute -right-3 -top-4 z-20 text-xl" aria-hidden="true">🎈</span>
-          <span className="message-effect-particle absolute -bottom-3 right-3 z-20 text-base" aria-hidden="true">✨</span>
+          <span className="message-effect-particle absolute -left-3 -top-5 z-20 text-2xl transform-gpu" aria-hidden="true">🎈</span>
+          <span className="message-effect-particle message-effect-particle-delay absolute -right-3 -top-4 z-20 text-xl transform-gpu" aria-hidden="true">🎈</span>
+          <span className="message-effect-particle absolute -bottom-3 right-3 z-20 text-base transform-gpu" aria-hidden="true">✨</span>
         </>
       )}
       {children}
     </div>
   );
-};
+});
 
 interface ParticleEffectOverlayProps {
   type: 'BALLOON' | 'HEART' | 'FIRE';
@@ -332,8 +373,8 @@ export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ ty
     return () => clearTimeout(timer);
   }, [onFinished]);
 
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 pointer-events-none z-[99999] overflow-hidden">
+  return (
+    <div className="absolute inset-0 pointer-events-none z-[35] overflow-hidden">
       {particles.map((p) => (
         <span
           key={p.id}
@@ -348,7 +389,6 @@ export const ParticleEffectOverlay: React.FC<ParticleEffectOverlayProps> = ({ ty
           {p.char}
         </span>
       ))}
-    </div>,
-    document.body
+    </div>
   );
 };

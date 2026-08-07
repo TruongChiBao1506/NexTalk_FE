@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Pin,
   PinOff,
@@ -270,25 +270,25 @@ export const MessageList: React.FC<MessageListProps> = ({
       return;
     }
 
-    const lastMsg = visibleMessages[visibleMessages.length - 1];
-    if (!lastMsg || !lastMsg.id) return;
+    const newestMsg = visibleMessages[0];
+    if (!newestMsg || !newestMsg.id) return;
 
-    if (!handledMessageIdsRef.current.has(lastMsg.id)) {
-      handledMessageIdsRef.current.add(lastMsg.id);
-      if (lastMsg.clientMessageId) {
-        handledMessageIdsRef.current.add(lastMsg.clientMessageId);
+    if (!handledMessageIdsRef.current.has(newestMsg.id)) {
+      handledMessageIdsRef.current.add(newestMsg.id);
+      if (newestMsg.clientMessageId) {
+        handledMessageIdsRef.current.add(newestMsg.clientMessageId);
       }
 
-      const msgTime = lastMsg.createdAt ? new Date(lastMsg.createdAt).getTime() : Date.now();
+      const msgTime = newestMsg.createdAt ? new Date(newestMsg.createdAt).getTime() : Date.now();
       const isNew = Math.abs(Date.now() - msgTime) < 20000;
 
       if (isNew) {
-        const effect = lastMsg.metadata?.effect;
+        const effect = newestMsg.metadata?.effect;
         if (effect === 'BALLOON' || effect === 'HEART' || effect === 'FIRE') {
           setActiveParticleEffect({ type: effect, key: Date.now() });
-        } else if (lastMsg.content) {
+        } else if (newestMsg.content) {
           const currentWordEffects = getCustomWordEffects(activeConversation);
-          const contentLower = lastMsg.content.toLowerCase();
+          const contentLower = newestMsg.content.toLowerCase();
           const matched = currentWordEffects.find((we) =>
             we.keyword && contentLower.includes(we.keyword.toLowerCase())
           );
@@ -300,31 +300,44 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [visibleMessages, activeConversation]);
 
-  const renderMessageContentWithWordEffects = (content: string) => {
-    if (!content) return null;
-    const baseNode = renderFormattedMessage(content);
-    if (!customWordEffects || customWordEffects.length === 0) return baseNode;
+  // Pre-compile combined word effect regex for fast matching during scrolling
+  const compiledWordEffectMatcher = useMemo(() => {
+    if (!customWordEffects || customWordEffects.length === 0) return null;
+    const sorted = [...customWordEffects]
+      .filter((e) => Boolean(e.keyword))
+      .sort((a, b) => b.keyword.length - a.keyword.length);
+    if (sorted.length === 0) return null;
 
-    let processedContent = content;
-    let hasMatch = false;
+    const patterns = sorted.map((e) => e.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    if (!patterns) return null;
 
-    const sorted = [...customWordEffects].sort((a, b) => b.keyword.length - a.keyword.length);
-    for (const effect of sorted) {
-      if (!effect.keyword) continue;
-      const escaped = effect.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(${escaped})`, 'gi');
-      if (regex.test(processedContent)) {
-        hasMatch = true;
-        processedContent = processedContent.replace(
-          regex,
-          `<span class="word-effect-keyword inline-flex items-center gap-1 font-extrabold text-amber-500 dark:text-amber-300 underline decoration-amber-400 decoration-2 cursor-pointer hover:opacity-85 transition mx-0.5" data-emoji="${effect.emoji}">$1 ${effect.emoji}</span>`
-        );
-      }
-    }
+    const effectMap = new Map(sorted.map((e) => [e.keyword.toLowerCase(), e]));
+    return {
+      pattern: patterns,
+      effectMap,
+    };
+  }, [customWordEffects]);
 
-    if (!hasMatch) return baseNode;
-    return renderFormattedMessage(processedContent);
-  };
+  const renderMessageContentWithWordEffects = useCallback(
+    (content: string) => {
+      if (!content) return null;
+      const baseNode = renderFormattedMessage(content);
+      if (!compiledWordEffectMatcher) return baseNode;
+
+      const regex = new RegExp(`(${compiledWordEffectMatcher.pattern})`, 'gi');
+      if (!regex.test(content)) return baseNode;
+
+      regex.lastIndex = 0;
+      const processedContent = content.replace(regex, (match) => {
+        const effect = compiledWordEffectMatcher.effectMap.get(match.toLowerCase());
+        const emojiAttr = effect?.emoji ? ` data-emoji="${effect.emoji}"` : '';
+        return `<span class="word-effect-keyword font-bold cursor-pointer hover:opacity-85 transition"${emojiAttr}>${match}</span>`;
+      });
+
+      return renderFormattedMessage(processedContent);
+    },
+    [compiledWordEffectMatcher]
+  );
   const [personalActionModal, setPersonalActionModal] = useState<{
     kind: 'saving' | 'save-success' | 'save-error' | 'translating' | 'translation' | 'translation-error';
     title: string;
@@ -938,19 +951,6 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <>
-      {activeRainEmoji && (
-        <WordEffectRainOverlay
-          emoji={activeRainEmoji}
-          onFinished={() => setActiveRainEmoji(null)}
-        />
-      )}
-      {activeParticleEffect && (
-        <ParticleEffectOverlay
-          key={activeParticleEffect.key}
-          type={activeParticleEffect.type}
-          onFinished={() => setActiveParticleEffect(null)}
-        />
-      )}
       {/* Pinned Messages Banner */}
       {pinnedMessages && pinnedMessages.length > 0 && (() => {
         const latestPinned = {
@@ -1063,6 +1063,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 
       {/* Messages */}
       <div className={`relative flex min-h-0 flex-1 transition-[margin] duration-300 ${conversationInfoOffsetClass}`}>
+        {activeRainEmoji && (
+          <WordEffectRainOverlay
+            emoji={activeRainEmoji}
+            onFinished={() => setActiveRainEmoji(null)}
+          />
+        )}
+        {activeParticleEffect && (
+          <ParticleEffectOverlay
+            key={activeParticleEffect.key}
+            type={activeParticleEffect.type}
+            onFinished={() => setActiveParticleEffect(null)}
+          />
+        )}
         {stickyDate && (
           <div className="pointer-events-none absolute left-1/2 top-2 z-30 -translate-x-1/2 select-none">
             <span className="inline-flex rounded-full border border-slate-200/80 bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 shadow-sm backdrop-blur dark:border-zinc-700/80 dark:bg-zinc-900/95 dark:text-zinc-300">
@@ -2140,7 +2153,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                   msg.metadata?.effect === 'GIFT'
                                     ? 'bg-[#ec4899] text-white'
                                     : msg.metadata?.effect === 'FIRE'
-                                      ? 'bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-white font-semibold shadow-md shadow-orange-500/30'
+                                      ? 'bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 text-white font-bold animate-fire-glow shadow-lg shadow-orange-500/40'
                                       : isMe
                                         ? msg.parentId
                                           ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
