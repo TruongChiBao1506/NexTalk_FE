@@ -73,12 +73,6 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
           <span className="pointer-events-none absolute bottom-7 -right-1 text-sm leading-none animate-bounce">💗</span>
         </>
       )}
-      {effectType === 'FIRE' && (
-        <>
-          <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 -left-3 text-2xl leading-none animate-bounce">🔥</span>
-          <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 -right-3 text-2xl leading-none animate-pulse">🔥</span>
-        </>
-      )}
       {effectType === 'BALLOON' && (
         <>
           <span className="pointer-events-none absolute top-0 left-0 text-base leading-none animate-bounce">🎈</span>
@@ -88,6 +82,7 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
       )}
 
       {/* The actual chat bubble */}
+      <MessageEffectFrame effectType={effectType === 'FIRE' ? 'FIRE' : undefined}>
       <div
         className={`relative z-10 overflow-hidden px-4 py-2 rounded-[20px] shadow-md transition-all duration-150 group-hover:scale-105 group-active:scale-95 ${
           isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-purple-500 scale-105' : ''
@@ -96,7 +91,7 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
           background: isGift
             ? 'linear-gradient(135deg, #ec4899 0%, #f43f5e 50%, #e11d48 100%)'
             : effectType === 'FIRE'
-              ? 'linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%)'
+              ? '#f97316'
               : 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
           minWidth: '90px',
           maxWidth: '160px',
@@ -119,6 +114,7 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
           </span>
         )}
       </div>
+      </MessageEffectFrame>
 
       {/* Effect label */}
       <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-300">
@@ -258,15 +254,24 @@ interface MessageEffectFrameProps {
   children: React.ReactNode;
 }
 
+const FIRE_TOP_PATHS = [
+  'M1 40C7 34 6 28 10 23C14 29 18 31 22 29C27 26 25 17 31 8C32 20 38 22 40 29C45 27 48 22 50 17C54 26 51 34 59 40Z',
+  'M1 40C7 34 8 29 7 23C14 28 18 28 21 24C25 19 23 11 27 3C31 12 39 17 36 26C42 24 46 19 48 13C53 22 49 32 59 40Z',
+  'M1 40C8 33 6 27 12 20C14 28 20 30 24 27C29 23 29 16 34 9C35 20 42 24 42 30C48 28 51 24 53 20C55 29 53 35 59 40Z',
+] as const;
+
+const FIRE_TOP_CORE_PATH = 'M12 40C18 35 20 31 22 27C25 33 29 34 32 31C35 28 36 24 39 20C40 29 45 34 50 40Z';
+
 /** Keeps the selected effect attached to the message bubble after it is sent. */
 export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = React.memo(({ effectType, children }) => {
+  const fireGradientId = `message-fire-${React.useId().replace(/:/g, '')}`;
   if (!effectType) return <>{children}</>;
 
   return (
     <div
       className={`message-effect-frame relative isolate w-fit overflow-visible ${
         effectType === 'FIRE'
-          ? 'rounded-[22px] ring-2 ring-orange-400/90 shadow-lg shadow-orange-500/35'
+          ? 'rounded-[22px] shadow-[0_0_7px_rgba(255,117,24,0.2)]'
           : ''
       }`}
       data-message-effect={effectType}
@@ -280,51 +285,24 @@ export const MessageEffectFrame: React.FC<MessageEffectFrameProps> = React.memo(
         </>
       )}
       {effectType === 'FIRE' && (
-        <div className="pointer-events-none absolute inset-0 z-20 overflow-visible">
-          {/* Top Left Flame */}
-          <svg className="absolute -top-5 -left-3 w-9 h-9 animate-flame-1 filter drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
-            <path d="M50 0C60 25 80 35 80 60C80 82 67 100 50 100C33 100 20 82 20 60C20 40 40 20 50 0Z" fill="url(#fireGradient1)" />
-            <path d="M50 25C56 40 70 48 70 65C70 78 61 90 50 90C39 90 30 78 30 65C30 50 44 36 50 25Z" fill="#ffcc00" />
+        <div className="messenger-fire-frame pointer-events-none absolute inset-0 -z-10 overflow-visible" aria-hidden="true">
+          <svg className="absolute h-0 w-0" focusable="false">
             <defs>
-              <linearGradient id="fireGradient1" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#ff1100" />
-                <stop offset="0.6" stopColor="#ff7700" />
-                <stop offset="1" stopColor="#ffdd00" />
+              <linearGradient id={fireGradientId} x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ff3d0a" />
+                <stop offset="0.54" stopColor="#ff8a16" />
+                <stop offset="1" stopColor="#ffd85a" />
               </linearGradient>
             </defs>
           </svg>
-          {/* Top Right Flame */}
-          <svg className="absolute -top-6 -right-3 w-10 h-10 animate-flame-2 filter drop-shadow-[0_0_6px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
-            <path d="M50 0C65 20 85 35 85 62C85 83 70 100 50 100C30 100 15 83 15 62C15 35 35 20 50 0Z" fill="url(#fireGradient2)" />
-            <path d="M50 20C60 35 72 48 72 65C72 78 62 90 50 90C38 90 28 78 28 65C28 48 40 35 50 20Z" fill="#ffe600" />
-            <defs>
-              <linearGradient id="fireGradient2" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#ff0000" />
-                <stop offset="0.5" stopColor="#ff6600" />
-                <stop offset="1" stopColor="#ffea00" />
-              </linearGradient>
-            </defs>
-          </svg>
-          {/* Bottom Left Flame */}
-          <svg className="absolute -bottom-4 -left-3.5 w-8 h-8 animate-flame-3 filter drop-shadow-[0_0_5px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
-            <path d="M50 0C60 22 78 35 78 60C78 82 66 100 50 100C34 100 22 82 22 60C22 38 40 22 50 0Z" fill="url(#fireGradient3)" />
-            <defs>
-              <linearGradient id="fireGradient3" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#ff3300" />
-                <stop offset="1" stopColor="#ffbb00" />
-              </linearGradient>
-            </defs>
-          </svg>
-          {/* Bottom Right Flame */}
-          <svg className="absolute -bottom-4 -right-3.5 w-9 h-9 animate-flame-1 filter drop-shadow-[0_0_5px_rgba(255,100,0,0.8)]" viewBox="0 0 100 100" fill="none">
-            <path d="M50 0C62 24 80 36 80 60C80 82 67 100 50 100C33 100 20 82 20 60C20 36 38 24 50 0Z" fill="url(#fireGradient4)" />
-            <defs>
-              <linearGradient id="fireGradient4" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#ff2200" />
-                <stop offset="1" stopColor="#ffd000" />
-              </linearGradient>
-            </defs>
-          </svg>
+          {FIRE_TOP_PATHS.map((path, index) => (
+            <span key={path} className={`fire-top-flame fire-top-flame-${index + 1}`}>
+              <svg className={`animate-fire-top-${index + 1}`} viewBox="0 0 60 40" fill="none" focusable="false">
+                <path d={path} fill={`url(#${fireGradientId})`} />
+                <path d={FIRE_TOP_CORE_PATH} fill="#ffe878" opacity="0.68" />
+              </svg>
+            </span>
+          ))}
         </div>
       )}
       {effectType === 'BALLOON' && (

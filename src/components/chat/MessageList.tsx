@@ -2153,7 +2153,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                   msg.metadata?.effect === 'GIFT'
                                     ? 'bg-[#ec4899] text-white'
                                     : msg.metadata?.effect === 'FIRE'
-                                      ? 'bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 text-white font-bold animate-fire-glow shadow-lg shadow-orange-500/40'
+                                      ? 'bg-[#f97316] text-white font-bold animate-fire-glow shadow-lg shadow-orange-500/30'
                                       : isMe
                                         ? msg.parentId
                                           ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'

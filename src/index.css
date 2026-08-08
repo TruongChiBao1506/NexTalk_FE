@@ -696,69 +696,124 @@
 /* Authentic Messenger-style Fire Effect Animations */
 @keyframes flame-flicker-1 {
   0%, 100% {
-    transform: scale(1) rotate(-3deg);
-    opacity: 0.92;
+    transform: scale(0.98) rotate(-2deg);
+    opacity: 0.9;
   }
-  33% {
-    transform: scale(1.18, 1.28) rotate(4deg) translateY(-2px);
-    opacity: 1;
-  }
-  66% {
-    transform: scale(0.95, 1.08) rotate(-5deg) translateY(1px);
-    opacity: 0.88;
+  50% {
+    transform: scale(1.04, 1.09) rotate(2deg) translateY(-1px);
+    opacity: 0.98;
   }
 }
 
 @keyframes flame-flicker-2 {
   0%, 100% {
-    transform: scale(1.05) rotate(4deg);
-    opacity: 0.95;
+    transform: scale(1) rotate(2deg);
+    opacity: 0.92;
   }
   50% {
-    transform: scale(1.22, 1.32) rotate(-6deg) translateY(-3px);
-    opacity: 1;
+    transform: scale(1.05, 1.1) rotate(-2deg) translateY(-1px);
+    opacity: 0.99;
   }
 }
 
 @keyframes flame-flicker-3 {
   0%, 100% {
-    transform: scale(0.98) rotate(-2deg);
+    transform: scale(0.97) rotate(-1deg);
     opacity: 0.88;
   }
-  40% {
-    transform: scale(1.25, 1.35) rotate(5deg) translateY(-3px);
-    opacity: 1;
+  50% {
+    transform: scale(1.04, 1.08) rotate(2deg) translateY(-1px);
+    opacity: 0.97;
   }
 }
 
 @keyframes fire-glow-pulse {
   0%, 100% {
-    box-shadow: 0 0 14px rgba(255, 85, 0, 0.7), 0 0 28px rgba(255, 140, 0, 0.45), inset 0 0 10px rgba(255, 230, 0, 0.35);
+    box-shadow: 0 0 5px rgba(255, 103, 15, 0.3), inset 0 0 4px rgba(255, 222, 92, 0.16);
   }
   50% {
-    box-shadow: 0 0 24px rgba(255, 60, 0, 0.92), 0 0 42px rgba(255, 170, 0, 0.7), inset 0 0 16px rgba(255, 255, 100, 0.5);
+    box-shadow: 0 0 8px rgba(255, 103, 15, 0.4), inset 0 0 6px rgba(255, 222, 92, 0.22);
   }
 }
 
 .animate-flame-1 {
-  animation: flame-flicker-1 0.52s ease-in-out infinite;
+  animation: flame-flicker-1 0.95s ease-in-out infinite;
   transform-origin: bottom center;
   will-change: transform;
 }
 
+.fire-top-flame {
+  position: absolute;
+  display: block;
+  top: -12px;
+  width: clamp(17px, 32%, 28px);
+  height: 17px;
+  filter: drop-shadow(0 0 2px rgba(255, 105, 18, 0.42));
+}
+
+.fire-top-flame > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fire-top-flame-1 { left: 3px; }
+.fire-top-flame-2 { left: 50%; transform: translateX(-50%); top: -14px; height: 19px; }
+.fire-top-flame-3 { right: 3px; }
+
+@keyframes fire-top-flicker-1 {
+  0%, 100% { transform: scale(1, 0.98) skewY(-1deg) translate(0, 0); }
+  27% { transform: scale(0.92, 1.06) skewY(3deg) translate(-1px, -1px); }
+  58% { transform: scale(1.04, 0.96) skewY(-2deg) translate(0, 1px); }
+  81% { transform: scale(0.96, 1.03) skewY(2deg) translate(-0.5px, -1px); }
+}
+
+@keyframes fire-top-flicker-2 {
+  0%, 100% { transform: scale(0.98, 1.01) skewY(1deg) translate(0, 0); }
+  22% { transform: scale(1.03, 0.95) skewY(-2deg) translate(0.5px, 1px); }
+  52% { transform: scale(0.93, 1.07) skewY(3deg) translate(1px, -1px); }
+  76% { transform: scale(1.02, 0.98) skewY(-1deg) translate(0, 0.5px); }
+}
+
+.animate-fire-top-1 {
+  animation: fire-top-flicker-1 0.82s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.animate-fire-top-2 {
+  animation: fire-top-flicker-2 0.94s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.animate-fire-top-3 {
+  animation: fire-top-flicker-1 0.89s ease-in-out -0.31s infinite reverse;
+  transform-origin: center bottom;
+}
+
 .animate-flame-2 {
-  animation: flame-flicker-2 0.65s ease-in-out infinite;
+  animation: flame-flicker-2 1.08s ease-in-out infinite;
   transform-origin: bottom center;
   will-change: transform;
 }
 
 .animate-flame-3 {
-  animation: flame-flicker-3 0.44s ease-in-out infinite;
+  animation: flame-flicker-3 0.88s ease-in-out infinite;
   transform-origin: bottom center;
   will-change: transform;
 }
 
 .animate-fire-glow {
-  animation: fire-glow-pulse 1.2s ease-in-out infinite;
+  animation: fire-glow-pulse 1.8s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .messenger-fire-frame .animate-flame-1,
+  .messenger-fire-frame .animate-flame-2,
+  .messenger-fire-frame .animate-flame-3,
+  .messenger-fire-frame .animate-fire-top-1,
+  .messenger-fire-frame .animate-fire-top-2,
+  .messenger-fire-frame .animate-fire-top-3,
+  .animate-fire-glow {
+    animation: none;
+  }
+}

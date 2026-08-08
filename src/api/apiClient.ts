@@ -83,8 +83,11 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 // Request interceptor to attach access token
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = useAuthStore.getState().accessToken;
+  async (config: InternalAxiosRequestConfig) => {
+    let token = useAuthStore.getState().accessToken;
+    if (token && isAccessTokenExpired(token, 60)) {
+      token = await refreshAccessToken();
+    }
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -103,9 +106,15 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // A 403 is an authorization decision, not evidence that the token expired.
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      
+    const status = error.response?.status;
+    const currentToken = useAuthStore.getState().accessToken;
+    // Older backend deployments answered 403 when an expired JWT was ignored.
+    // Only interpret that legacy 403 as authentication failure when the token
+    // itself is expired; valid-token authorization failures remain 403.
+    const isAuthenticationFailure = status === 401
+      || (status === 403 && currentToken !== null && isAccessTokenExpired(currentToken, 0));
+    if (isAuthenticationFailure && originalRequest && !originalRequest._retry) {
+
       // Prevent infinite loops if the refresh request itself fails with 401
       if (originalRequest.url === '/auth/refresh' || originalRequest.url === '/auth/login') {
         return Promise.reject(error);
