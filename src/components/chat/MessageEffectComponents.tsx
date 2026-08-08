@@ -214,22 +214,32 @@ export const GiftBoxMessage: React.FC<GiftBoxMessageProps> = ({ isOpened, onOpen
 
   if (!isOpened) {
     return (
-      <div
-        className={`relative overflow-hidden rounded-[20px] bg-[#ec4899] px-4 py-2.5 text-white shadow-sm cursor-pointer select-none transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center min-w-[85px] min-h-[38px] ${
+      <button
+        type="button"
+        aria-label="Mở tin nhắn hộp quà"
+        className={`relative block w-fit min-w-9 max-w-[min(80vw,24rem)] cursor-pointer select-none overflow-hidden rounded-[18px] bg-[#ec4899] px-3 py-2 text-white transition-transform hover:scale-[1.02] active:scale-95 ${
           opening ? 'animate-gift-unwrap' : ''
         }`}
         onClick={handleOpenClick}
       >
+        <span aria-hidden="true" className="invisible block max-w-full whitespace-pre-wrap break-words text-left text-sm leading-relaxed">
+          {children}
+        </span>
+
         {/* Horizontal Ribbon */}
-        <div className="pointer-events-none absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2.5 bg-white/90 shadow-sm" />
+        <span className="pointer-events-none absolute inset-0 z-[1] flex items-center" aria-hidden="true">
+          <span className="h-2.5 w-full bg-white" />
+        </span>
         {/* Vertical Ribbon */}
-        <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-2.5 bg-white/90 shadow-sm" />
+        <span className="pointer-events-none absolute inset-0 z-[1] flex justify-center" aria-hidden="true">
+          <span className="h-full w-2.5 bg-white" />
+        </span>
 
         {/* Center Ribbon Bow (Static, no bounce, no text) */}
-        <span className="relative z-10 text-lg leading-none drop-shadow-sm">
+        <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-lg leading-none drop-shadow-sm">
           🎀
         </span>
-      </div>
+      </button>
     );
   }
 

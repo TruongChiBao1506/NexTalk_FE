@@ -2143,7 +2143,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               isOpened={false}
                               onOpen={() => setUnwrappedGiftIds((prev) => new Set(prev).add(msg.id))}
                             >
-                              <div className="hidden">{msg.content}</div>
+                              {stripMessageMarkup(msg.content) || 'Quà'}
                             </GiftBoxMessage>
                           ) : (
                             <MessageEffectFrame effectType={msg.metadata?.effect}>
