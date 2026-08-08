@@ -19,6 +19,35 @@ const loadAgoraRTC = async () => {
   return (await agoraModulePromise).default;
 };
 
+type PreparedCallConnection = {
+  key: string;
+  promise: Promise<{
+    AgoraRTC: Awaited<ReturnType<typeof loadAgoraRTC>>;
+    tokenData: { token: string; uid: number; channelName: string; appId?: string };
+  }>;
+};
+let preparedCallConnection: PreparedCallConnection | null = null;
+
+const prepareCallConnection = (conversationId: string, handoffDeviceId?: string) => {
+  const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+  const key = `${userId}:${conversationId}:${handoffDeviceId ?? ''}`;
+  if (preparedCallConnection?.key === key) return preparedCallConnection.promise;
+
+  const promise = Promise.all([
+    loadAgoraRTC(),
+    apiClient.get('/calls/token', { params: { conversationId, handoffDeviceId } }),
+  ]).then(([AgoraRTC, response]) => ({ AgoraRTC, tokenData: response.data.data }));
+  preparedCallConnection = { key, promise };
+  promise.catch(() => {
+    if (preparedCallConnection?.key === key) preparedCallConnection = null;
+  });
+  return promise;
+};
+
+const clearPreparedCallConnection = () => {
+  preparedCallConnection = null;
+};
+
 type CallState = 'idle' | 'ringing_incoming' | 'ringing_outgoing' | 'connecting' | 'connected';
 type CallType = 'voice' | 'video';
 
@@ -229,6 +258,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       destination: '/app/call.invite',
       body: JSON.stringify(signalPayload)
     });
+    void prepareCallConnection(conversationId).catch(() => undefined);
     void useActionInboxStore.getState().resolveMissedCalls(conversationId);
 
     const ringTimeoutId = window.setTimeout(() => {
@@ -307,6 +337,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       handoffPending: false,
       handoffPrompt: null
     });
+    void prepareCallConnection(signal.conversationId).catch(() => undefined);
 
     audioSynth.playIncomingRing();
 
@@ -327,7 +358,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
 
-    if (!conversationId || !caller || !currentUser || !stompClient || !stompClient.connected) return;
+    if (!conversationId || !caller || !currentUser) return;
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
@@ -354,10 +385,31 @@ export const useCallStore = create<CallStore>((set, get) => ({
       accept: true
     };
 
-    stompClient.publish({
-      destination: '/app/call.answer',
-      body: JSON.stringify(signalPayload)
-    });
+    try {
+      if (stompClient?.connected) {
+        try {
+          stompClient.publish({
+            destination: '/app/call.answer',
+            body: JSON.stringify(signalPayload)
+          });
+        } catch {
+          await apiClient.post('/calls/respond', signalPayload);
+        }
+      } else {
+        await apiClient.post('/calls/respond', signalPayload);
+      }
+      if (stompClient?.connected) {
+        void apiClient.post('/calls/respond', signalPayload).catch(() => undefined);
+      }
+    } catch (error) {
+      clearPreparedCallConnection();
+      set({
+        callState: 'idle', callId: null, connectedAt: null,
+        conversationId: null, caller: null, receiver: null,
+      });
+      console.error('Failed to confirm accepted call:', error);
+      return;
+    }
 
     // Join Agora RTC channel
     try {
@@ -377,10 +429,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
     get().clearOutgoingRingTimeout();
     get().clearIncomingRingTimeout();
 
-    if (conversationId && caller && currentUser && stompClient && stompClient.connected) {
-      try {
-        // Send ANSWER signal with accept = false
-        const signalPayload = {
+    if (conversationId && caller && currentUser) {
+      const signalPayload = {
           callId: get().callId,
           conversationId,
           callerId: caller.id,
@@ -389,17 +439,21 @@ export const useCallStore = create<CallStore>((set, get) => ({
           signalType: 'ANSWER',
           accept: false,
           reason
-        };
-
+      };
+      if (stompClient?.connected) {
+        try {
         stompClient.publish({
           destination: '/app/call.answer',
           body: JSON.stringify(signalPayload)
         });
-      } catch (err) {
-        console.error('Failed to send reject call signal:', err);
+        } catch {
+          // The idempotent REST request below is the delivery fallback.
+        }
       }
+      void apiClient.post('/calls/respond', signalPayload).catch(() => undefined);
     }
 
+    clearPreparedCallConnection();
     audioSynth.playEndCall();
     set({
       callState: 'idle',
@@ -421,7 +475,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   cancelCall: (reason = 'canceled') => {
-    const { conversationId, receiver, isGroupCall } = get();
+    const { conversationId, receiver, isGroupCall, callId, callType } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
 
@@ -430,28 +484,30 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     const cleanReason = typeof reason === 'string' ? reason : 'canceled';
 
-    if (conversationId && (isGroupCall || receiver) && currentUser && stompClient && stompClient.connected) {
-      try {
-        // Send CANCEL WebSocket signal
-        const signalPayload = {
-          callId: get().callId,
+    if (conversationId && (isGroupCall || receiver) && currentUser) {
+      const signalPayload = {
+          callId,
           conversationId,
           callerId: currentUser.id,
           receiverId: isGroupCall ? undefined : receiver?.id,
-          type: get().callType.toUpperCase(),
+          type: callType.toUpperCase(),
           signalType: 'CANCEL',
           reason: cleanReason
-        };
-
+      };
+      if (stompClient?.connected) {
+        try {
         stompClient.publish({
           destination: '/app/call.cancel',
           body: JSON.stringify(signalPayload)
         });
-      } catch (err) {
-        console.error('Failed to send cancel call signal:', err);
+        } catch {
+          // The idempotent REST request below is the delivery fallback.
+        }
       }
+      void apiClient.post('/calls/cancel', signalPayload).catch(() => undefined);
     }
 
+    clearPreparedCallConnection();
     audioSynth.playEndCall();
     set({
       callState: 'idle',
@@ -473,14 +529,13 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   hangupCall: () => {
-    const { conversationId, caller, receiver, activeVoiceChannelId } = get();
+    const { conversationId, caller, receiver, activeVoiceChannelId, callId, callType, isGroupCall } = get();
     const stompClient = useChatStore.getState().stompClient;
     const currentUser = useAuthStore.getState().user;
 
     audioSynth.stop();
     get().clearOutgoingRingTimeout();
     get().clearIncomingRingTimeout();
-    get().clearTracks();
 
     if (activeVoiceChannelId && stompClient && stompClient.connected && currentUser) {
       // Handle Voice Channel leave
@@ -501,37 +556,41 @@ export const useCallStore = create<CallStore>((set, get) => ({
           [activeVoiceChannelId]: (state.voiceChannelMembers[activeVoiceChannelId] ?? []).filter((id) => id !== currentUser.id)
         }
       }));
+      get().clearTracks();
+      clearPreparedCallConnection();
       return;
     }
 
-    if (conversationId && stompClient && stompClient.connected && currentUser) {
-      try {
-        const isGroupCall = get().isGroupCall;
+    if (conversationId && currentUser) {
         // Target is caller if we are receiver, or receiver if we are caller
         const targetId = isGroupCall ? undefined : currentUser.id === caller?.id ? receiver?.id : caller?.id;
 
         // Send HANGUP signal
         const signalPayload = {
-          callId: get().callId,
+          callId,
           conversationId,
           callerId: currentUser.id,
           callerName: currentUser.username,
           callerAvatar: currentUser.avatarUrl,
           receiverId: targetId,
-          type: get().callType.toUpperCase(),
+          type: callType.toUpperCase(),
           signalType: isGroupCall ? 'LEAVE' : 'HANGUP'
         };
-
+        if (stompClient?.connected) {
+          try {
         stompClient.publish({
           destination: '/app/call.hangup',
           body: JSON.stringify(signalPayload)
         });
-
-      } catch (err) {
-        console.error('Failed to send hangup call signal:', err);
+          } catch {
+            // The idempotent REST request below is the delivery fallback.
+          }
+        }
+        void apiClient.post('/calls/hangup', signalPayload).catch(() => undefined);
       }
-    }
 
+    get().clearTracks();
+    clearPreparedCallConnection();
     audioSynth.playEndCall();
     set({
       callState: 'idle',
@@ -840,6 +899,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const isSameCall = !currentCallId || signal.callId === currentCallId;
 
     const resetCall = () => {
+      clearPreparedCallConnection();
       get().clearOutgoingRingTimeout();
       get().clearIncomingRingTimeout();
       get().clearGroupAloneTimeout();
@@ -1106,8 +1166,18 @@ export const useCallStore = create<CallStore>((set, get) => ({
   joinAgoraChannel: async (handoffDeviceId) => {
     const { conversationId, callType } = get();
     if (!conversationId) return;
+    const joiningCallId = get().callId;
+    const isStillCurrentCall = () => {
+      const state = get();
+      return Boolean(joiningCallId)
+        && state.callId === joiningCallId
+        && state.conversationId === conversationId
+        && (state.callState === 'connecting' || state.callState === 'connected');
+    };
 
-    const AgoraRTC = await loadAgoraRTC();
+    const { AgoraRTC, tokenData } = await prepareCallConnection(conversationId, handoffDeviceId);
+    clearPreparedCallConnection();
+    if (!isStillCurrentCall()) return;
     AgoraRTC.onAutoplayFailed = () => {
       set({ remoteAudioPlaybackBlocked: true });
     };
@@ -1204,10 +1274,23 @@ export const useCallStore = create<CallStore>((set, get) => ({
             && (state.callState === 'connected' || state.callState === 'connecting')
             && client.remoteUsers.length === 0
           ) {
-            // Agora presence is a media signal, not the authoritative call
-            // lifecycle. An explicit STOMP HANGUP closes the call; a transient
-            // media disconnect must remain recoverable (especially handoff).
-            console.info('[Call] Remote media is offline; waiting for signaling or reconnection.');
+            void apiClient.get('/calls/active').then((response) => {
+              const latest = get();
+              if (latest.agoraClient !== client || latest.callId !== state.callId) return;
+              const signals = Array.isArray(response.data?.data) ? response.data.data : [];
+              if (!signals.some((signal: any) => signal.callId === state.callId)) {
+                latest.clearTracks();
+                clearPreparedCallConnection();
+                set({
+                  callState: 'idle', callId: null, connectedAt: null,
+                  conversationId: null, caller: null, receiver: null,
+                  isGroupCall: false, callTitle: null, callMemberCount: null,
+                  remoteUsers: [], activeSpeakerUids: [], localAgoraUid: null,
+                });
+              }
+            }).catch(() => {
+              // Keep the call open on an inconclusive network failure.
+            });
           }
         }, PRIVATE_CALL_RECONNECT_GRACE_MS);
       }
@@ -1221,57 +1304,63 @@ export const useCallStore = create<CallStore>((set, get) => ({
       set({ activeSpeakerUids });
     });
 
-    let token: string;
-    let uid: number;
-    let channelName: string;
-    let agoraAppId: string;
+    const { token, uid, channelName, appId: agoraAppId } = tokenData;
+    const localTracksPromise = Promise.allSettled([
+      AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true }),
+      callType === 'video' ? AgoraRTC.createCameraVideoTrack() : Promise.resolve(null),
+    ]);
 
     try {
-      // apiClient already prefixes requests with /api.
-      const response = await apiClient.get('/calls/token', {
-        params: { conversationId, handoffDeviceId }
-      });
-      ({ token, uid, channelName, appId: agoraAppId } = response.data.data);
-
       await client.join(agoraAppId || import.meta.env.VITE_AGORA_APP_ID, channelName, token, uid);
       client.enableAudioVolumeIndicator();
-      set((state) => ({
-        localAgoraUid: uid,
-        connectedAt: state.connectedAt ?? Date.now(),
-        callState: state.callState === 'connecting' ? 'connected' : state.callState,
-      }));
     } catch (error) {
+      const abandonedTracks = await localTracksPromise;
+      for (const result of abandonedTracks) {
+        if (result.status === 'fulfilled' && result.value) {
+          result.value.stop();
+          result.value.close();
+        }
+      }
       set({ agoraClient: null });
       await client.leave().catch(() => undefined);
       throw error;
     }
 
-    // Create local audio and video tracks
-    let audioTrack: IMicrophoneAudioTrack | null = null;
-    let videoTrack: ICameraVideoTrack | null = null;
+    const [audioResult, videoResult] = await localTracksPromise;
+    const audioTrack = audioResult.status === 'fulfilled' ? audioResult.value : null;
+    const videoTrack = videoResult.status === 'fulfilled' ? videoResult.value : null;
+    if (!isStillCurrentCall()) {
+      for (const track of [audioTrack, videoTrack]) {
+        track?.stop();
+        track?.close();
+      }
+      await client.leave().catch(() => undefined);
+      if (get().agoraClient === client) set({ agoraClient: null });
+      return;
+    }
 
-    try {
-      audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        AEC: true,
-        ANS: true,
-        AGC: true
-      });
+    if (audioTrack) {
       await audioTrack.setEnabled(true);
       set({ localAudioTrack: audioTrack });
-      await client.publish(audioTrack);
-    } catch (e) {
-      console.warn('Microphone permission denied or not available:', e);
+    } else {
+      console.warn('Microphone permission denied or not available');
     }
 
-    if (callType === 'video') {
-      try {
-        videoTrack = await AgoraRTC.createCameraVideoTrack();
-        set({ localVideoTrack: videoTrack });
-        await client.publish(videoTrack);
-      } catch (e) {
-        console.warn('Camera permission denied or not available:', e);
-      }
+    if (videoTrack) {
+      set({ localVideoTrack: videoTrack });
+    } else if (callType === 'video') {
+      console.warn('Camera permission denied or not available');
     }
+
+    const tracksToPublish: Array<IMicrophoneAudioTrack | ICameraVideoTrack> = [];
+    if (audioTrack) tracksToPublish.push(audioTrack);
+    if (videoTrack) tracksToPublish.push(videoTrack);
+    if (tracksToPublish.length > 0) await client.publish(tracksToPublish);
+    set((state) => ({
+      localAgoraUid: uid,
+      connectedAt: state.connectedAt ?? Date.now(),
+      callState: state.callState === 'connecting' ? 'connected' : state.callState,
+    }));
 
     for (const user of client.remoteUsers) {
       if (user.hasAudio) {
