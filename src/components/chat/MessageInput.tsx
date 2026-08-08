@@ -1567,11 +1567,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         isOpen={isScheduleSendModalOpen}
         conversationId={activeConversationId}
         content={editor ? editor.getHTML() : inputMessage}
+        initialEffect={selectedEffect}
         onClose={() => setIsScheduleSendModalOpen(false)}
         onSuccess={() => {
           if (editor) {
             editor.commands.clearContent();
           }
+          setSelectedEffect(null);
+          setDismissedSensitiveWarning(false);
         }}
       />
     </form>

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, VolumeX, X, Loader2, CalendarClock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, VolumeX, X, Loader2, CalendarClock, AlertCircle, Sparkles } from 'lucide-react';
 import { conversationService } from '../../services/conversationService';
+import { EFFECT_OPTIONS, EffectLiveBubblePreview } from './MessageEffectComponents';
+import type { MessageEffectType } from '../../types/chat';
 
 interface Props {
   isOpen: boolean;
   conversationId: string;
   content: string;
+  initialEffect?: MessageEffectType | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -18,12 +21,14 @@ export const ScheduleSendModal: React.FC<Props> = ({
   isOpen,
   conversationId,
   content,
+  initialEffect = null,
   onClose,
   onSuccess,
 }) => {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [isSilent, setIsSilent] = useState(false);
+  const [selectedEffect, setSelectedEffect] = useState<MessageEffectType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +41,10 @@ export const ScheduleSendModal: React.FC<Props> = ({
       setDate(defaultDate);
       setTime(defaultTime);
       setIsSilent(false);
+      setSelectedEffect(initialEffect);
       setError(null);
     }
-  }, [isOpen]);
+  }, [initialEffect, isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,6 +84,7 @@ export const ScheduleSendModal: React.FC<Props> = ({
         message: {
           conversationId,
           content,
+          metadata: selectedEffect ? { effect: selectedEffect } : undefined,
         },
         scheduledAt: isoWithOffset,
         silent: isSilent,
@@ -104,7 +111,7 @@ export const ScheduleSendModal: React.FC<Props> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl transition-all dark:border-zinc-700/80 dark:bg-zinc-900"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl transition-all dark:border-zinc-700/80 dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -148,6 +155,61 @@ export const ScheduleSendModal: React.FC<Props> = ({
               {cleanContentText(content) || '(Chưa có nội dung văn bản)'}
             </p>
           </div>
+
+          <section className="mb-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 dark:border-zinc-800 dark:bg-zinc-800/60">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800 dark:text-zinc-100">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>Hiệu ứng tin nhắn</span>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                  Không bắt buộc · hiệu ứng chạy khi tin được gửi
+                </p>
+              </div>
+              {selectedEffect && (
+                <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-extrabold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                  {EFFECT_OPTIONS.find((option) => option.id === selectedEffect)?.icon}{' '}
+                  {EFFECT_OPTIONS.find((option) => option.id === selectedEffect)?.label}
+                </span>
+              )}
+            </div>
+
+            <div
+              className="flex items-start gap-3 overflow-x-auto px-1 py-2 custom-scrollbar"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              <div className={`shrink-0 rounded-2xl transition ${
+                selectedEffect === null
+                  ? 'bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-500/10'
+                  : ''
+              }`}>
+                <EffectLiveBubblePreview
+                  effectType={null}
+                  text={cleanContentText(content)}
+                  isSelected={selectedEffect === null}
+                  onSelect={() => setSelectedEffect(null)}
+                />
+              </div>
+              {EFFECT_OPTIONS.map((option) => (
+                <div
+                  key={option.id}
+                  className={`shrink-0 rounded-2xl transition ${
+                    selectedEffect === option.id
+                      ? 'bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-500/10'
+                      : ''
+                  }`}
+                >
+                  <EffectLiveBubblePreview
+                    effectType={option.id}
+                    text={cleanContentText(content)}
+                    isSelected={selectedEffect === option.id}
+                    onSelect={() => setSelectedEffect(option.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>

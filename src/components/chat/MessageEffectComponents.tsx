@@ -42,7 +42,7 @@ export const EFFECT_OPTIONS: { id: MessageEffectType; label: string; icon: strin
 ];
 
 interface EffectLiveBubblePreviewProps {
-  effectType: MessageEffectType;
+  effectType: MessageEffectType | null;
   text: string;
   isSelected?: boolean;
   onSelect: () => void;
@@ -62,6 +62,7 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={Boolean(isSelected)}
       className="relative flex flex-col items-center gap-2 select-none cursor-pointer group"
       style={{ padding: '12px 8px 6px 8px' }}
     >
@@ -118,7 +119,7 @@ export const EffectLiveBubblePreview: React.FC<EffectLiveBubblePreviewProps> = (
 
       {/* Effect label */}
       <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-300">
-        {effectType === 'HEART' ? 'Trái tim' : effectType === 'FIRE' ? 'Bốc cháy' : effectType === 'GIFT' ? 'Hộp quà' : 'Bóng bay'}
+        {effectType === null ? 'Không hiệu ứng' : effectType === 'HEART' ? 'Trái tim' : effectType === 'FIRE' ? 'Bốc cháy' : effectType === 'GIFT' ? 'Hộp quà' : 'Bóng bay'}
       </span>
     </button>
   );

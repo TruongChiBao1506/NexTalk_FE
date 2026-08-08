@@ -162,6 +162,9 @@ export interface ScheduleMessagePayload {
   message: {
     conversationId: string;
     content: string;
+    metadata?: {
+      effect?: import('../types/chat').MessageEffectType;
+    };
   };
   scheduledAt: string;
   silent?: boolean;
