@@ -234,16 +234,16 @@
 }
 
 .nextalk-themed-bubble {
-  background-color: #dcebff !important;
-  border-color: #b7d4ff !important;
-  color: #1e293b !important;
-  box-shadow: 0 10px 24px rgba(65, 105, 166, 0.12) !important;
+  background-color: var(--theme-color, #6d72ff) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
 }
 
 .dark .nextalk-themed-bubble {
-  background-color: rgba(79, 116, 175, 0.32) !important;
-  border-color: rgba(129, 167, 232, 0.32) !important;
-  color: #eef4ff !important;
+  background-color: var(--theme-color, #6d72ff) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
 }
 
 .nextalk-theme-bg {
@@ -541,17 +541,23 @@
   object-position: center center !important;
 }
 
-.ql-editor a,
-.nextalk-themed-bubble a {
+.ql-editor a {
   color: #2563eb;
   text-decoration: underline;
   font-weight: 700;
   word-break: break-all;
 }
 
-.dark .ql-editor a,
-.dark .nextalk-themed-bubble a {
+.dark .ql-editor a {
   color: #60a5fa;
+  text-decoration: underline;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.nextalk-themed-bubble a,
+.dark .nextalk-themed-bubble a {
+  color: #ffffff;
   text-decoration: underline;
   font-weight: 700;
   word-break: break-all;

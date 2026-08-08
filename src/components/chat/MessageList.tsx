@@ -1170,19 +1170,19 @@ export const MessageList: React.FC<MessageListProps> = ({
             : (hasNextMessageInCluster ? 'first' : 'single');
           const messageClusterCornerClass = isMe
             ? clusterPosition === 'first'
-              ? '!rounded-tr-[18px] !rounded-br-[3px]'
+              ? '!rounded-tr-[18px] !rounded-br-[4px]'
               : clusterPosition === 'middle'
-                ? '!rounded-tr-[3px] !rounded-br-[3px]'
+                ? '!rounded-tr-[4px] !rounded-br-[4px]'
                 : clusterPosition === 'last'
-                  ? '!rounded-tr-[3px] !rounded-br-[18px]'
-                  : '!rounded-tr-none !rounded-br-[18px]'
+                  ? '!rounded-tr-[4px] !rounded-br-[18px]'
+                  : '!rounded-tr-[4px] !rounded-br-[18px]'
             : clusterPosition === 'first'
-              ? '!rounded-tl-[18px] !rounded-bl-[3px]'
+              ? '!rounded-tl-[18px] !rounded-bl-[4px]'
               : clusterPosition === 'middle'
-                ? '!rounded-tl-[3px] !rounded-bl-[3px]'
+                ? '!rounded-tl-[4px] !rounded-bl-[4px]'
                 : clusterPosition === 'last'
-                  ? '!rounded-tl-[3px] !rounded-bl-[18px]'
-                  : '!rounded-tl-none !rounded-bl-[18px]';
+                  ? '!rounded-tl-[4px] !rounded-bl-[18px]'
+                  : '!rounded-tl-[4px] !rounded-bl-[18px]';
           const showSenderName = isGroupConversation && !isMe && !isSameSenderCluster;
           const showSenderAvatar = !isSameSenderCluster;
 
@@ -1238,7 +1238,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 }}
                 onMouseEnter={() => setHoveredMessageId(msg.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
-                className={`relative group flex flex-col space-y-1 px-3 py-0.5 rounded-xl transition-colors ${isSameSenderCluster ? 'mt-0.5' : 'mt-4'} ${isMentionedCurrentUser
+                className={`relative group flex flex-col space-y-1 px-3 py-0.5 rounded-xl transition-colors ${isSameSenderCluster ? 'mt-0.5' : 'mt-2.5'} ${isMentionedCurrentUser
                     ? 'border-l-2 border-amber-400 pl-2 dark:border-amber-500 hover:bg-white/35 dark:hover:bg-zinc-800/10'
                     : 'hover:bg-white/35 dark:hover:bg-zinc-800/10'
                   } ${index === visibleMessages.length - 1 ? (isMe ? 'animate-slide-in-bottom' : 'animate-slide-in-left') : ''}`}
@@ -1681,7 +1681,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     )}
 
                     <div
-                      className={`flex gap-3 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${isSelectionMode ? 'items-center cursor-pointer transition hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 p-2 -m-2 rounded-xl' : ''}`}
+                      className={`flex gap-2 max-w-[min(80vw,28rem)] sm:max-w-xl md:max-w-2xl ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${isSelectionMode ? 'items-center cursor-pointer transition hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 p-2 -m-2 rounded-xl' : ''}`}
                       onClick={() => {
                         if (isSelectionMode) toggleMessageSelection(msg.id);
                       }}
@@ -1689,7 +1689,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
                       {/* Avatar */}
                       {!isMe && !isSelectionMode && (
-                        <div className="w-8 shrink-0 mt-0.5">
+                        <div className="w-7 shrink-0 mt-0.5">
                           {showSenderAvatar && (() => {
                               const avatarUrl = isGroupConversation
                                 ? getSenderAvatar(msg)
@@ -1701,10 +1701,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 <img
                                   src={avatarUrl}
                                   alt={senderName}
-                                  className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-850"
+                                  className="h-7 w-7 rounded-full object-cover"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-505 to-purple-600 text-[11px] font-bold text-white">
                                   {senderName.charAt(0).toUpperCase()}
                                 </div>
                               );
@@ -1769,9 +1769,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                           )}
 
                           {isRecalledMessage ? (
-                            <div className={`w-fit max-w-[min(80vw,28rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm italic text-gray-550 dark:text-zinc-500 ${isMe
+                            <div className={`w-fit max-w-[min(80vw,28rem)] rounded-[18px] px-3 py-2 text-sm leading-relaxed text-left break-words italic text-gray-550 dark:text-zinc-500 ${isMe
                                 ? 'bg-indigo-650/20 dark:bg-discord-blurple/10 text-gray-450 dark:text-zinc-500'
-                                : 'bg-white/80 dark:bg-discord-mid/50 text-gray-555 dark:text-zinc-555 border border-indigo-100/70 dark:border-zinc-850/30'
+                                : 'bg-[#eef0f3] text-gray-555 dark:bg-zinc-800 dark:text-zinc-400'
                               } ${messageClusterCornerClass}`}>
                               {renderPriorityBadge()}
                               <span>Tin nhắn đã bị thu hồi</span>
@@ -2149,16 +2149,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                             <MessageEffectFrame effectType={msg.metadata?.effect}>
                               <div className={standaloneLinkPreview
                                 ? 'w-fit max-w-[min(80vw,24rem)] text-sm leading-relaxed text-left break-words'
-                                : `w-fit max-w-[min(80vw,24rem)] p-3 rounded-[18px] text-sm leading-relaxed text-left break-words shadow-sm ${
+                                : `w-fit max-w-[min(80vw,24rem)] rounded-[18px] px-3 py-2 text-sm leading-relaxed text-left break-words ${
                                   msg.metadata?.effect === 'GIFT'
                                     ? 'bg-[#ec4899] text-white'
                                     : msg.metadata?.effect === 'FIRE'
                                       ? 'bg-[#f97316] text-white font-bold animate-fire-glow shadow-lg shadow-orange-500/30'
                                       : isMe
-                                        ? msg.parentId
-                                          ? 'bg-blue-100 text-slate-700 border border-blue-200 dark:bg-indigo-500/20 dark:text-zinc-100 dark:border-indigo-500/30'
-                                          : 'nextalk-themed-bubble'
-                                        : 'bg-white dark:bg-discord-mid text-gray-900 dark:text-discord-text border border-indigo-100/80 dark:border-zinc-850/60'
+                                        ? 'nextalk-themed-bubble'
+                                        : 'bg-[#eef0f3] text-gray-900 dark:bg-zinc-800 dark:text-zinc-100'
                                 } ${messageClusterCornerClass}`}
                                 onClick={(e) => {
                                   const target = e.target as HTMLElement;
@@ -2188,14 +2186,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 {renderInlineTranslationBlock(msg.id, isMe)}
                                 {renderLinkPreviewCard(msg, isMe)}
                                 {msg.isEdited && (
-                                  <span className="text-[10px] text-gray-400 dark:text-discord-muted ml-1.5" title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
+                                  <span className={`ml-1.5 text-[10px] ${isMe ? 'text-white/70' : 'text-gray-400 dark:text-discord-muted'}`} title={msg.editedAt ? `Chỉnh sửa lúc: ${new Date(msg.editedAt).toLocaleString()}` : ''}>
                                     (đã chỉnh sửa)
                                   </span>
                                 )}
                                 {showTimestampInsideBubble && msg.metadata?.effect !== 'GIFT' && (timestampMessageId === msg.id || msg.metadata?.deliveryState === 'failed') && (
                                   <span className={`ml-2 inline-flex items-center gap-1 whitespace-nowrap align-baseline text-[9px] leading-none ${
                                     isMe
-                                      ? 'text-slate-500 dark:text-white/70'
+                                      ? 'text-white/70'
                                       : 'text-slate-400 dark:text-zinc-500'
                                   }`}>
                                     {msg.isPinned && <Pin className="h-2.5 w-2.5 text-amber-500" aria-label="Đã ghim" />}
