@@ -18,6 +18,16 @@ export const apiClient = axios.create({
 // Shared promise to handle concurrent refresh requests
 let refreshPromise: Promise<string | null> | null = null;
 
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function retryAfterMilliseconds(error: AxiosError): number {
+  const rawValue = error.response?.headers?.['retry-after'];
+  const seconds = Number.parseInt(String(rawValue ?? '1'), 10);
+  return Math.min(60, Math.max(1, Number.isFinite(seconds) ? seconds : 1)) * 1000;
+}
+
 export function isAccessTokenExpired(token: string, offsetSeconds = 60): boolean {
   try {
     const payloadBase64 = token.split('.')[1];
@@ -49,34 +59,38 @@ export async function refreshAccessToken(): Promise<string | null> {
   }
 
   refreshPromise = (async () => {
-    try {
-      const response = await axios.post<ApiResponse<TokenRefreshResponseData>>(
-        `${BASE_URL}/api/auth/refresh`,
-        {},
-        { withCredentials: true, headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'web' } }
-      );
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await axios.post<ApiResponse<TokenRefreshResponseData>>(
+          `${BASE_URL}/api/auth/refresh`,
+          {},
+          { withCredentials: true, headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'web' } }
+        );
 
-      if (response.data.success && response.data.data) {
-        const { accessToken } = response.data.data;
-        
-        // Save new tokens
-        useAuthStore.getState().setAccessToken(accessToken);
-        return accessToken;
-      } else {
-        throw new Error('Refresh response was unsuccessful');
+        if (response.data.success && response.data.data) {
+          const { accessToken } = response.data.data;
+          useAuthStore.getState().setAccessToken(accessToken);
+          return accessToken;
+        }
+        return null;
+      } catch (refreshError) {
+        const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+        if (status === 429 && attempt === 0 && axios.isAxiosError(refreshError)) {
+          await wait(retryAfterMilliseconds(refreshError));
+          continue;
+        }
+        // Keep the persisted browser session during transient network or
+        // server failures. Only an invalid/revoked refresh cookie is terminal.
+        if (status === 400 || status === 401) {
+          useAuthStore.getState().logout();
+        }
+        return null;
       }
-    } catch (refreshError) {
-      const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined;
-      // Keep the persisted browser session during transient network, rate-limit
-      // or server failures. Only an invalid/revoked refresh cookie is terminal.
-      if (status === 400 || status === 401) {
-        useAuthStore.getState().logout();
-      }
-      return null;
-    } finally {
-      refreshPromise = null;
     }
-  })();
+    return null;
+  })().finally(() => {
+    refreshPromise = null;
+  });
 
   return refreshPromise;
 }
@@ -92,9 +106,13 @@ function requestAccessToken(config: InternalAxiosRequestConfig): string | null {
 // Request interceptor to attach access token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    let token = useAuthStore.getState().accessToken;
-    if (token && isAccessTokenExpired(token, 60)) {
+    const authState = useAuthStore.getState();
+    let token = authState.accessToken;
+    if (authState.isAuthenticated && (!token || isAccessTokenExpired(token, 60))) {
       token = await refreshAccessToken();
+      if (!token) {
+        throw new Error('Session refresh is temporarily unavailable');
+      }
     }
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
