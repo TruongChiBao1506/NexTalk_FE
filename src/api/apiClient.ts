@@ -81,6 +81,14 @@ export async function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
+function requestAccessToken(config: InternalAxiosRequestConfig): string | null {
+  const authorization = config.headers?.get?.('Authorization');
+  if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
+    return null;
+  }
+  return authorization.slice('Bearer '.length);
+}
+
 // Request interceptor to attach access token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -123,6 +131,14 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        const failedToken = requestAccessToken(originalRequest);
+        if (currentToken
+          && currentToken !== failedToken
+          && !isAccessTokenExpired(currentToken, 0)) {
+          originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+          return apiClient(originalRequest);
+        }
+
         const accessToken = await refreshAccessToken();
         if (accessToken) {
           // Retry original request with new token
